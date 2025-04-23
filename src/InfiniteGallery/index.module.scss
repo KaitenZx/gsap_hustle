@@ -1,0 +1,74 @@
+.mwg_effect012 {
+	height: 100vh;
+	width: 100vw; // Добавим ширину для полноты
+	perspective: 100vw; // Как в туториале
+	position: relative; // Добавим для позиционирования хедера
+	overflow: hidden; // Скроем все, что выходит за пределы
+	box-sizing: border-box;
+}
+
+.container {
+	height: 100%;
+	transform-style: preserve-3d;
+	position: relative; // Важно для absolute позиционирования .media
+}
+
+.header {
+	position: absolute;
+	width: 100%;
+	display: flex;
+	align-items: center;
+	// Используем clamp для адаптивного шрифта, как в примере
+	font: 500 normal clamp(12px, 0.9vw, 18px) / normal 'IBM Plex Mono'; // Немного уменьшил макс. размер
+	text-transform: uppercase;
+	padding: 25px;
+	top: 0;
+	left: 0;
+	z-index: 10; // Чтобы был поверх картинок
+	box-sizing: border-box; // Учитывать padding в ширине
+
+	>* {
+		// Прямые дочерние элементы
+		flex: 1;
+	}
+
+	>*:nth-child(2) {
+		text-align: center;
+	}
+
+	>*:nth-child(3) {
+		text-align: right;
+	}
+}
+
+.media {
+	width: 22%; // Как в туториале
+	height: auto;
+	position: absolute; // Ключевое для позиционирования
+	// Начальное состояние - далеко позади
+	// Мы будем устанавливать его через GSAP, но можно оставить для ясности
+	// transform: translateZ(-300vw);
+
+	// Начальные X/Y и transform-origin установим через GSAP
+
+	img {
+		width: 100%;
+		height: auto;
+		display: block;
+		box-shadow: 1px 1px 30px rgba(0, 0, 0, 0.08);
+		// Важно, чтобы scale влиял на картинку
+		transform-origin: center center;
+	}
+}
+
+.preloadMedias {
+	img {
+		width: 1px;
+		height: 1px;
+		top: 0;
+		left: 0;
+		position: absolute;
+		visibility: hidden;
+		pointer-events: none;
+	}
+}

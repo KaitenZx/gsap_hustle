@@ -1,0 +1,27 @@
+#root {
+	max-width: 1280px;
+	margin: 0;
+	text-align: center;
+}
+
+.app {
+	height: 100%;
+	width: 100%;
+}
+
+body {
+	overscroll-behavior-x: none; /* Предотвращает "отскок" при горизонтальном скролле */
+	overflow: hidden; /* Скрывает стандартный скроллбар */
+	background-color: #121212; /* Можно задать фон здесь */
+	color: #f1f1f1; /* И цвет текста по умолчанию */
+	margin: 0; /* Убираем стандартные отступы */
+	padding: 0;
+	box-sizing: border-box;
+	font-family: 'IBM Plex Mono', monospace;
+}
+
+*,
+*::before,
+*::after {
+	box-sizing: inherit;
+}
