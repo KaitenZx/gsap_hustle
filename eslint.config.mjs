@@ -1,258 +1,249 @@
-import tsParser from '@typescript-eslint/parser'
+// eslint.config.mjs
+import { dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import tsParser from '@typescript-eslint/parser';
 import tsPlugin from '@typescript-eslint/eslint-plugin';
-import love from 'eslint-config-love'
-import prettier from 'eslint-config-prettier'
+import love from 'eslint-config-love'; // Ваша база правил от 'love'
+import prettierConfig from 'eslint-config-prettier'; // Отключает конфликты с Prettier
 import importPlugin from 'eslint-plugin-import';
-import nodePlugin from 'eslint-plugin-node';
-import vitestPlugin from 'eslint-plugin-vitest';
+import jsxA11yPlugin from 'eslint-plugin-jsx-a11y';
 import reactPlugin from 'eslint-plugin-react';
 import hooksPlugin from 'eslint-plugin-react-hooks';
-import jsxA11yPlugin from 'eslint-plugin-jsx-a11y';
+import refreshPlugin from 'eslint-plugin-react-refresh'; // Для Vite/React HMR
+import vitestPlugin from 'eslint-plugin-vitest';
+import globals from 'globals'; // Для удобного определения глобальных переменных
 
-
+// Получаем абсолютный путь к директории проекта
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 export default [
+  // 1. Глобальные игноры и настройки
   {
-    ignores: ['node_modules', 'dist', '*.config.js', '**/*.tsbuildinfo'],
-    settings: {
-      'import/resolver': {
-        node: {
-          extensions: ['.js', '.ts', '.tsx'],
-        },
+    ignores: [
+      'node_modules/**',
+      'dist/**',
+      '.vite/**', // Игнор кэша Vite
+      '.vite-temp/**', // Игнор временных файлов Vite
+      '**/*.tsbuildinfo', // Игнор информации сборки TS
+      'coverage/**', // Игнор отчетов о покрытии тестами
+      'public/**', // Обычно не линтим public
+    ],
+    linterOptions: {
+      // Сообщаем ESLint, что отчеты об неиспользуемых директивах не нужны
+      reportUnusedDisableDirectives: 'warn', // или 'off'/'error'
+    },
+    languageOptions: {
+      // Глобальные переменные для всего проекта
+      globals: {
+        ...globals.browser, // Переменные браузера (window, document, etc.)
+        ...globals.es2021, // Переменные ES2021
+        NodeJS: 'readonly', // Добавляем NodeJS для типов вроде NodeJS.Timeout
       },
+    },
+    settings: {
+      // Настройки для плагина eslint-plugin-import
+      'import/resolver': {
+        typescript: { // Используем резолвер для TypeScript
+          project: [`${__dirname}/tsconfig.app.json`, `${__dirname}/tsconfig.node.json`],
+        },
+        node: true // Также используем стандартный резолвер Node
+      },
+      'import/parsers': {
+        '@typescript-eslint/parser': ['.ts', '.tsx'],
+      },
+      // Настройки для плагина eslint-plugin-react
       react: {
         version: 'detect', // Автоматически определять версию React
       },
     },
-
   },
 
+  // 2. Базовая конфигурация для JS/TS файлов (на основе 'love')
   {
+    // Применяем ко всем JS/TS файлам, кроме конфигурационных (их настроим отдельно)
+    files: ['src/**/*.{js,jsx,ts,tsx}'],
+    // Наследуем правила из eslint-config-love
     ...love,
-    // Файлы, к которым применяются эти настройки
-    files: ['backend/**/*.ts', 'backend/**/*.tsx'],
     languageOptions: {
-      // Ставим сам парсер
+      // Переопределяем парсер и его опции из 'love' для TS
       parser: tsParser,
-      // Сливаем parserOptions, если их задаёт love,
-      // + указываем нужный tsconfig
       parserOptions: {
-        ...love.languageOptions?.parserOptions,
-        // Можно передать массив, если у вас несколько tsconfig
-        project: ['./backend/tsconfig.json'],
-        // Часто нужно указать корень репо для правильных путей:
-        // tsconfigRootDir: new URL('.', import.meta.url).pathname,
-      },
-    },
-    plugins: {
-      import: importPlugin,
-    },
-    rules: {
-      "no-console": "error",
-      'import/order': [
-        'error',
-        {
-          groups: ['builtin', 'external', 'parent', 'sibling', 'index'],
-          pathGroups: [
-            {
-              pattern: '{.,..}/**/env',
-              group: 'builtin',
-              position: 'before',
-            },
-            {
-              pattern: '{.,..}/**/test/integration',
-              group: 'builtin',
-              position: 'before',
-            },
-          ],
-          alphabetize: {
-            order: 'asc',
-            caseInsensitive: false,
-            orderImportKind: 'asc',
-          },
+        ...love.languageOptions?.parserOptions, // Сохраняем опции из 'love', если они есть
+        project: [`${__dirname}/tsconfig.app.json`], // Указываем TSConfig для src
+        tsconfigRootDir: __dirname, // Явно указываем корень для tsconfig
+        ecmaVersion: 2021, // Используем современный JS
+        sourceType: 'module', // Используем ES модули
+        ecmaFeatures: {
+          jsx: true, // Включаем поддержку JSX
         },
-      ],
-    }
-  },
-
-  {
-    // Применяем к файлам webapp
-    files: ['webapp/**/*.ts', 'webapp/**/*.tsx'],
-    // Начинаем с конфигурации love
-    ...love,
-    // Добавляем настройки парсера для TS
-    languageOptions: {
-      parser: tsParser,
-      parserOptions: {
-        ...love.languageOptions?.parserOptions,
-        project: ['./webapp/tsconfig.json'],
-        // Добавляем опции для JSX, если love их не добавляет
-        ecmaFeatures: { jsx: true },
       },
-      // Указываем глобальные переменные для браузера, если нужно
-      globals: {
-        // Например:
-        window: 'readonly',
-        document: 'readonly',
-        // ...другие браузерные API
-      }
     },
-    // Регистрируем плагины
+    // Подключаем плагины
     plugins: {
+      '@typescript-eslint': tsPlugin,
+      import: importPlugin,
       react: reactPlugin,
       'react-hooks': hooksPlugin,
       'jsx-a11y': jsxA11yPlugin,
-      import: importPlugin,
+      'react-refresh': refreshPlugin,
     },
+    // Правила
     rules: {
+      // Наследуем рекомендуемые правила плагинов
+      ...tsPlugin.configs['recommended-type-checked'].rules, // Используем правила с проверкой типов
+      ...tsPlugin.configs['stylistic-type-checked'].rules,
       ...reactPlugin.configs.recommended.rules,
-      // Наследуем рекомендуемые правила React Hooks
       ...hooksPlugin.configs.recommended.rules,
-      // Наследуем рекомендуемые правила JSX A11y
       ...jsxA11yPlugin.configs.recommended.rules,
-      'react/react-in-jsx-scope': 'off',
-      'no-console': [
-        'error',
-        {
-          allow: ['info', 'error', 'warn'],
-        },
-      ],
-      'import/order': [
-        'error',
-        {
-          alphabetize: {
-            order: 'asc',
-            caseInsensitive: false,
-            orderImportKind: 'asc',
-          },
-        },
-      ],
-    }
-  },
+      ...importPlugin.configs.typescript.rules, // Правила импорта для TS
 
-  {
-    ...love,
-    files: ['shared/**/*.ts', 'shared/**/*.tsx'],
-    languageOptions: {
-      parser: tsParser,
-      parserOptions: {
-        ...love.languageOptions?.parserOptions,
-        project: ['./shared/tsconfig.json'],
-      },
-    },
-    plugins: {
-      import: importPlugin,
-    },
-    rules: {
-      'import/order': [
-        'error',
-        {
-          alphabetize: {
-            order: 'asc',
-            caseInsensitive: false,
-            orderImportKind: 'asc',
-          },
-        },
-      ],
-    }
-  },
+      // --- Правила из 'love' уже применены через ...love ---
+      // --- Кастомные правила и переопределения ---
 
-
-
-  {
-    files: ['**/*.ts', '**/*.tsx'],
-    languageOptions: { // Явно укажем парсер для этих файлов
-      parser: tsParser,
-    },
-    plugins: {
-      node: nodePlugin, // Убедись, что плагин зарегистрирован, если используешь его правила (node/no-process-env)
-      import: importPlugin,
-      '@typescript-eslint': tsPlugin,
-    },
-    rules: {
-      '@typescript-eslint/consistent-type-definitions': ['error', 'type'],
+      // TypeScript правила
+      '@typescript-eslint/consistent-type-definitions': ['error', 'type'], // Предпочитать 'type' вместо 'interface'
+      '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }], // Предупреждать о неиспользуемых переменных
+      '@typescript-eslint/explicit-function-return-type': 'off', // Не требовать явного указания типа возвращаемого значения функции
+      '@typescript-eslint/no-explicit-any': 'warn', // Предупреждать об использовании any
+      '@typescript-eslint/no-floating-promises': 'warn', // Предупреждать о "висящих" промисах
+      '@typescript-eslint/no-misused-promises': 'warn', // Предупреждать о неправильном использовании промисов (например, в условиях)
+      // Отключим некоторые строгие или спорные правила (можно включить при необходимости)
       '@typescript-eslint/strict-boolean-expressions': 'off',
       '@typescript-eslint/prefer-nullish-coalescing': 'off',
-      '@typescript-eslint/explicit-function-return-type': 'off',
       '@typescript-eslint/restrict-template-expressions': 'off',
-      '@typescript-eslint/triple-slash-reference': 'off',
-      '@typescript-eslint/ban-types': 'off',
-      'arrow-body-style': 'off',
-      '@typescript-eslint/consistent-type-assertions': 'off',
-      'jsx-a11y/anchor-is-valid': 'off',
-      'eslint-comments/require-description': 'off',
-      "@typescript-eslint/no-unsafe-call": "warn",
-      "@typescript-eslint/no-magic-numbers": "off",
-      "@typescript-eslint/no-unsafe-assignment": "off",
-      "@typescript-eslint/no-unsafe-type-assertion": "off",
-      "@typescript-eslint/non-nullable-type-assertion-style": "off",
-      "@typescript-eslint/no-restricted-imports": [
-        "error",
-        {
-          patterns: [
-            {
-              group: [
-                "@brightideas/backend/**",
-                "!@brightideas/backend/**/",
-                "!@brightideas/backend/**/input",
-                "!@brightideas/backend/src/utils/can",
-              ],
-              allowTypeImports: true,
-              message:
-                "Only types and input schemas are allowed to be imported from backend workspace",
-            },
-          ],
-        },
-      ],
-      "@typescript-eslint/prefer-destructuring": "off",
-      curly: ['error', 'all'],
-      'no-irregular-whitespace': [
-        'error',
-        {
-          skipTemplates: true,
-          skipStrings: true,
-        },
+      '@typescript-eslint/no-unsafe-assignment': 'warn', // Часто мешает, ставим warn
+      '@typescript-eslint/no-unsafe-call': 'warn',
+      '@typescript-eslint/no-unsafe-member-access': 'warn',
+      '@typescript-eslint/no-unsafe-return': 'warn',
+      '@typescript-eslint/no-magic-numbers': 'off', // Числа часто нужны в UI/анимациях
+
+      // React правила
+      'react/react-in-jsx-scope': 'off', // Не нужно с новым JSX transform
+      'react/prop-types': 'off', // Используем TypeScript для типов пропсов
+      'react/jsx-filename-extension': ['warn', { extensions: ['.tsx', '.jsx'] }], // Предпочитать .tsx/.jsx для файлов с JSX
+      'react/jsx-key': 'error', // Обязательно указывать key в списках
+
+      // React Refresh (Vite HMR)
+      'react-refresh/only-export-components': [
+        'warn',
+        { allowConstantExport: true }, // Разрешить экспорт констант из компонентов
       ],
 
-      'node/no-process-env': "error",
-      'no-restricted-syntax': [
-        'error',
-        {
-          selector: '[object.type=MetaProperty][property.name=env]',
-          message: 'Use instead import { env } from "lib/env"',
-        },
-      ],
-      'import/no-restricted-paths': [
-        'error',
-        {
-          zones: [
-            {
-              target: './src/**/!(*.integration.test.ts)',
-              from: './src/test',
-              message: 'Import something from test dir only inside integration tests',
-            },
-          ],
-        },
-      ],
+      // JSX A11y - можно настроить строже/мягче по необходимости
+      'jsx-a11y/anchor-is-valid': 'warn', // Часто нужно для <Link> или кнопок-ссылок
 
+      // Import правила
+      'import/order': [ // Сортировка импортов
+        'warn',
+        {
+          groups: [
+            'builtin', // Встроенные модули Node.js (хотя в фронте их мало)
+            'external', // Внешние пакеты
+            'internal', // Абсолютные импорты из проекта (если настроен alias)
+            'parent', // Импорты из родительских директорий
+            'sibling', // Импорты из соседних директорий
+            'index', // Импорты index файлов (./ или ../)
+            'object', // Импорты типов (`import type {}`)
+            'type', // Отдельно не используется, но входит в 'object'
+          ],
+          pathGroups: [ // Можно добавить кастомные группы, например, для @/ компонентов
+            {
+              pattern: 'react*', // React всегда наверху
+              group: 'external',
+              position: 'before',
+            },
+            // {
+            //   pattern: '@/**', // Пример для alias '@/'
+            //   group: 'internal',
+            // },
+          ],
+          pathGroupsExcludedImportTypes: ['react'], // Не применять pathGroups к import type
+          'newlines-between': 'always', // Пустая строка между группами
+          alphabetize: {
+            order: 'asc',
+            caseInsensitive: true,
+          },
+        },
+      ],
+      'import/no-duplicates': 'error', // Запретить дублирующиеся импорты
+      'import/no-unresolved': 'off', // Отключено, так как 'import/resolver' настроен для TS
+      'import/named': 'off', // Отключено, так как TS это проверяет лучше
+
+      // Общие правила
+      'no-console': ['warn', { allow: ['warn', 'error', 'info'] }], // Разрешить console.warn/error/info
+      'no-unused-vars': 'off', // Используем @typescript-eslint/no-unused-vars
+      curly: ['error', 'all'], // Обязательные фигурные скобки для if/else/while/for
+
+      // --- Убираем правила, специфичные для старого проекта ---
+      'node/no-process-env': 'off', // Неактуально для фронтенда
+      'no-restricted-syntax': 'off', // Правило про import.meta.env не нужно, Vite его обрабатывает
+      'import/no-restricted-paths': 'off', // Убираем ограничения на пути
+      '@typescript-eslint/no-restricted-imports': 'off', // Убираем ограничения на импорты
     },
   },
 
-
+  // 3. Конфигурация для файлов тестов (если используете Vitest)
   {
-    ...prettier,
-    files: ['**/*.ts', '**/*.tsx'],
-  },
-
-  {
-    files: ['**/*.test.ts', '**/*.test.tsx', '**/*.spec.ts', '**/*.spec.tsx'],
+    files: ['src/**/*.test.{ts,tsx}', 'src/**/*.spec.{ts,tsx}'],
     // Используем рекомендуемые правила для Vitest
     ...vitestPlugin.configs.recommended,
     plugins: {
-      // Регистрируем плагин под именем 'vitest' (или как тебе удобнее)
       vitest: vitestPlugin,
     },
-  }
+    rules: {
+      // Можно ослабить некоторые правила для тестов
+      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-non-null-assertion': 'off', // Разрешить '!' в тестах
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+      '@typescript-eslint/no-unsafe-call': 'off',
+      '@typescript-eslint/no-unsafe-member-access': 'off',
+    },
+  },
+
+  // 4. Конфигурация для файлов конфигурации (vite.config.ts, eslint.config.mjs)
+  {
+    files: ['vite.config.ts', 'eslint.config.mjs'],
+    languageOptions: {
+      globals: {
+        ...globals.node, // Используем окружение Node.js для этих файлов
+      },
+    },
+    rules: {
+      // Можно применить специфичные правила для конфигов
+      // Например, разрешить console.log
+      'no-console': 'off',
+      // Правила импортов могут быть другими
+      'import/order': 'off',
+      // Если vite.config.ts использует TS
+      '@typescript-eslint/no-var-requires': 'off', // Разрешить require, если нужно
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+      '@typescript-eslint/no-unsafe-call': 'off',
+      '@typescript-eslint/no-unsafe-member-access': 'off',
+    }
+  },
+  // Правила для vite.config.ts отдельно, если нужно указать другой tsconfig
+  {
+    files: ['vite.config.ts'],
+    languageOptions: {
+      parser: tsParser,
+      parserOptions: {
+        project: [`${__dirname}/tsconfig.node.json`], // TSConfig для конфигов/Node.js
+        tsconfigRootDir: __dirname,
+      },
+    },
+    plugins: {
+      '@typescript-eslint': tsPlugin,
+    },
+    rules: {
+      ...tsPlugin.configs['recommended-type-checked'].rules,
+      // Отключаем правила, которые могут мешать в конфигах
+      '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
+    }
+  },
 
 
-]
+  // 5. Конфигурация Prettier (ВАЖНО: должна идти последней!)
+  // Она отключает правила ESLint, которые конфликтуют с форматированием Prettier.
+  prettierConfig,
+];

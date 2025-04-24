@@ -30,7 +30,7 @@
 	display: grid;
 	width: max-content;
 	grid-template-columns: repeat(5, 1fr);
-	gap: 10vw;
+	gap: 7vw;
 	box-sizing: border-box; // Учитываем padding в размерах
 	pointer-events: none;
 	padding: 5vw;
@@ -39,7 +39,7 @@
 // Отдельный медиа-элемент (обертка для img)
 .media {
 	// Ширина элемента (можно настроить)
-	width: 25vw;
+	width: 20vw;
 	// Соотношение сторон 1:1 (квадрат)
 	aspect-ratio: 1 / 1;
 	// Запрещаем выделение изображений

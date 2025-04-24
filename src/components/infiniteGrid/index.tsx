@@ -1,13 +1,21 @@
+/* eslint-disable no-console */
 // src/InfiniteGrid/index.tsx
 
 import React, { useRef, useLayoutEffect } from 'react';
+
 import { gsap } from 'gsap';
 import { Observer } from 'gsap/Observer';
 import { debounce } from 'lodash' // Используем debounce из lodash
-import styles from './index.module.scss';
+
 
 // --- Импорты изображений (остаются без изменений) ---
 import img1 from '../assets/media/img1.jpeg';
+import img10 from '../assets/media/img10.jpeg';
+import img11 from '../assets/media/img11.jpeg';
+import img12 from '../assets/media/img12.jpeg';
+import img13 from '../assets/media/img13.jpeg';
+import img14 from '../assets/media/img14.jpeg';
+import img15 from '../assets/media/img15.jpeg';
 import img2 from '../assets/media/img2.jpeg';
 import img3 from '../assets/media/img3.jpeg';
 import img4 from '../assets/media/img4.jpeg';
@@ -16,12 +24,8 @@ import img6 from '../assets/media/img6.jpeg';
 import img7 from '../assets/media/img7.jpeg';
 import img8 from '../assets/media/img8.jpeg';
 import img9 from '../assets/media/img9.jpeg';
-import img10 from '../assets/media/img10.jpeg';
-import img11 from '../assets/media/img11.jpeg';
-import img12 from '../assets/media/img12.jpeg';
-import img13 from '../assets/media/img13.jpeg';
-import img14 from '../assets/media/img14.jpeg';
-import img15 from '../assets/media/img15.jpeg';
+
+import styles from './index.module.scss';
 
 // --- Регистрация плагина GSAP ---
 // Лучше делать это один раз глобально, но оставляем здесь для полноты примера
