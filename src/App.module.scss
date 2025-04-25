@@ -1,0 +1,70 @@
+#root {
+	/* max-width: 1280px; */
+	/* Раскомментируйте и настройте, если нужно ограничение ширины */
+	/* margin: 0 auto; */
+	/* Центрирование, если есть max-width */
+	margin: 0;
+	/* text-align: center; */
+	/* Уберите, если не нужно */
+}
+
+/* Стили для класса .App (если он используется в App.tsx) */
+/* Убираем height: 100% и overflow-y: auto, чтобы не создавать ненужный вложенный скролл */
+.app {
+	width: 100%;
+	display: flex;
+	/* Можно использовать flex для выравнивания дочерних элементов */
+	flex-direction: column;
+	align-items: center;
+	/* Пример: центрирует блоки по горизонтали */
+}
+
+.placeholder {
+	/* Стили для плейсхолдеров */
+	height: 100vh;
+	width: 100vw;
+	background: teal;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 30px;
+	color: black;
+	border-radius: 8px;
+	/* Добавьте другие стили по желанию */
+}
+
+html {
+	box-sizing: border-box;
+	/* Лучше установить здесь */
+	font-family: 'IBM Plex Mono', monospace;
+	scroll-behavior: smooth;
+	/* Приятный бонус - плавный скролл страницы */
+}
+
+body {
+	/* overflow: hidden; */
+	/* !!! УБРАТЬ или ЗАМЕНИТЬ !!! */
+	overflow-y: auto;
+	/* РАЗРЕШИТЬ вертикальный скролл */
+	overflow-x: hidden;
+	/* ЗАПРЕТИТЬ горизонтальный скролл страницы (если он не нужен) */
+
+	/* overscroll-behavior-x: none; */
+	/* Можно оставить */
+	overscroll-behavior-y: contain;
+	/* РЕКОМЕНДУЕТСЯ: Предотвращает "утягивание" страницы за пределы body при скролле внутри компонента */
+
+	background-color: #121212;
+	color: #f1f1f1;
+	margin: 0;
+	padding: 0;
+	min-height: 100vh;
+	/* Гарантирует, что body займет хотя бы всю высоту экрана */
+}
+
+*,
+*::before,
+*::after {
+	box-sizing: inherit;
+	/* Наследовать от html */
+}

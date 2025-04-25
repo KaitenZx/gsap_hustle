@@ -171,7 +171,6 @@ export default [
       'import/named': 'off', // Отключено, так как TS это проверяет лучше
 
       // Общие правила
-      'no-console': ['warn', { allow: ['warn', 'error', 'info'] }], // Разрешить console.warn/error/info
       'no-unused-vars': 'off', // Используем @typescript-eslint/no-unused-vars
       curly: ['error', 'all'], // Обязательные фигурные скобки для if/else/while/for
 

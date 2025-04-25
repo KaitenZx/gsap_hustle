@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 import React, { useRef, useLayoutEffect, useState, useCallback } from 'react';
 
 import { gsap } from 'gsap';
@@ -8,21 +7,57 @@ import { debounce } from 'lodash';
 
 import styles from './index.module.scss';
 
-// --- Регистрация плагинов GSAP ---
 gsap.registerPlugin(Observer, ScrollTrigger);
-
 // --- Константы ---
 const ROWS = 10; // Количество строк в логической сетке
 const COLS = 15; // Количество КОЛОНОК в ЛОГИЧЕСКОЙ сетке (определяет wrap)
 const TOTAL_ITEMS = ROWS * COLS; // Всего элементов (150)
-// --- УБРАЛИ RENDER_COLS ---
 const DEBOUNCE_RESIZE_MS = 150; // Задержка debounce для ресайза
 const RENDER_COLS_BUFFER = 2; // Дополнительные колонки для рендеринга (запас)
 
-// --- Генерация данных (плейсхолдеры) ---
-const ITEMS = Array.from({ length: TOTAL_ITEMS }, (_, i) => ({
-	id: i,
+// --- Типизация для импортированного модуля изображения ---
+type ImageModule = {
+	default: string;
+}
+
+// --- Загрузка изображений с помощью Vite Glob Import ---
+const imageModules: Record<string, ImageModule | undefined> =
+	import.meta.glob('/src/assets/*.webp', { eager: true });
+
+// --- Обработка и сортировка URL ---
+const imageUrls = Object.entries(imageModules)
+	.map(([path, module]) => {
+		const match = /\/(\d+)\.webp$/.exec(path);
+		const id = match ? parseInt(match[1], 10) : -1;
+		const url = module?.default;
+		return { id, url };
+	})
+	.filter(
+		(item): item is { id: number; url: string } =>
+			item.id !== -1 && typeof item.url === 'string'
+	)
+	.sort((a, b) => a.id - b.id)
+	.map(item => item.url); // Результат: string[]
+
+// --- Типизация для элемента галереи ---
+type GalleryItem = {
+	id: number;
+	src: string;
+	alt: string;
+}
+
+// --- Генерация данных ---
+const ITEMS: GalleryItem[] = imageUrls.slice(0, TOTAL_ITEMS).map((url, index) => ({
+	id: index,
+	src: url, // url - string, src - string
+	alt: `Gallery image ${index + 1}`
 }));
+
+// Проверка, достаточно ли изображений найдено
+if (ITEMS.length < TOTAL_ITEMS) {
+	console.warn(`[InfiniteGallery] Warning: Expected ${TOTAL_ITEMS} images, but only found ${ITEMS.length}. Check '/src/assets/' folder and naming (1.webp, 2.webp...).`);
+}
+
 
 // --- Тип для хранения рассчитанных размеров ---
 type GridDimensions = {
@@ -48,7 +83,7 @@ export const InfiniteGallery: React.FC = () => {
 	const containerRef = useRef<HTMLDivElement>(null);      // Внешний контейнер (.mwg_effect)
 	const contentWrapperRef = useRef<HTMLDivElement>(null); // Двигающийся контейнер (.contentWrapper)
 	const columnRef = useRef<HTMLDivElement>(null);         // Реф для измерения ОДНОЙ колонки
-	const itemRef = useRef<HTMLDivElement>(null);           // Реф для измерения ОДНОГО элемента
+	const itemRef = useRef<HTMLDivElement>(null);           // Реф для измерения ОДНОГО элемента (.media)
 
 	// --- Refs для GSAP и других инстансов ---
 	const gsapCtx = useRef<gsap.Context | null>(null);             // Контекст GSAP для очистки
@@ -69,29 +104,25 @@ export const InfiniteGallery: React.FC = () => {
 	const isScrollLockedRef = useRef(false); // Ref для мгновенного доступа из GSAP
 	const [isLockedState, setIsLockedState] = useState(false); // State для ререндера/CSS
 
-	// --- НОВОЕ Состояние для количества рендерящихся колонок ---
-	// Начинаем с COLS как базовое значение, будет пересчитано немедленно
-	const [renderColsCount, setRenderColsCount] = useState(COLS);
+	// --- Состояние для количества рендерящихся колонок ---
+	const [renderColsCount, setRenderColsCount] = useState(COLS); // Начинаем с COLS, будет пересчитано
 
 	// --- Функция для управления блокировкой скролла ---
 	const setScrollLocked = useCallback((locked: boolean) => {
 		if (isScrollLockedRef.current !== locked) {
-			console.log("IFG: Setting scroll lock to:", locked);
 			isScrollLockedRef.current = locked;
 			setIsLockedState(locked); // Обновляем state для CSS
 
 			if (locked) {
 				observerInstance.current?.enable();
-				console.log("IFG: Observer ENABLED");
 			} else {
 				observerInstance.current?.disable();
-				console.log("IFG: Observer DISABLED");
 			}
 			document.body.classList.toggle('ifg-locked', locked);
 		}
-	}, []);
+	}, []); // Пустой массив зависимостей
 
-	// --- Функция рендеринга одной колонки (без изменений) ---
+	// --- Функция рендеринга одной колонки ---
 	const renderColumn = useCallback((columnIndex: number) => {
 		const isFirstColumn = columnIndex === 0;
 		const itemsInColumn = [];
@@ -100,49 +131,60 @@ export const InfiniteGallery: React.FC = () => {
 
 		for (let i = 0; i < ROWS; i++) {
 			const itemIndex = baseItemIndex + i;
-			if (itemIndex < TOTAL_ITEMS) {
-				const item = ITEMS[itemIndex];
+			// Убедимся, что у нас есть данные для этого индекса
+			if (itemIndex < ITEMS.length) { // Используем ITEMS.length для безопасности
+				const item: GalleryItem = ITEMS[itemIndex]; // item теперь имеет тип GalleryItem
 				const isFirstItem = i === 0;
 				itemsInColumn.push(
+					// Оставляем div.media как контейнер для размеров и рефа
 					<div
 						className={styles.media}
 						key={`${columnIndex}-${item.id}`}
+						// Вешаем реф на контейнер .media
 						ref={isFirstColumn && isFirstItem ? itemRef : null}
 					>
-						Item {item.id + 1}
+						<img
+							src={item.src} // Безопасно: item.src это string
+							alt={item.alt} // Безопасно: item.alt это string
+							loading="lazy" // <-- ОЧЕНЬ ВАЖНО для производительности
+							decoding="async" // <-- Рекомендуется для изображений
+						/>
 					</div>
 				);
+			} else {
+				// Опционально: рендерить плейсхолдер, если изображений не хватило
+				// itemsInColumn.push(<div className={`${styles.media} ${styles.placeholder}`} key={`placeholder-${columnIndex}-${i}`}>Missing Image</div>);
 			}
 		}
 		return (
 			<div
 				className={styles.column}
 				key={`col-${columnIndex}`}
+				// Вешаем реф только на первую колонку для измерений
 				ref={isFirstColumn ? columnRef : null}
 			>
 				{itemsInColumn}
 			</div>
 		);
-	}, []);
+	}, []); // Зависимостей нет, т.к. ITEMS, ROWS, COLS константы вне компонента
 
 	// --- Основной useLayoutEffect для всей магии GSAP ---
 	useLayoutEffect(() => {
 		const containerElement = containerRef.current;
 		const contentWrapperElement = contentWrapperRef.current;
 
+		// Ждем рефы и проверяем флаг инициализации
 		if (!containerElement || !contentWrapperElement || isInitialized.current) {
 			return;
 		}
-		console.log("IFG: Initializing...");
 
 		// --- Функция расчета размеров ---
-		// Возвращает GridDimensions или null
 		const calculateDimensions = (): GridDimensions | null => {
 			const firstColumn = columnRef.current;
-			const firstItem = itemRef.current;
+			const firstItemContainer = itemRef.current;
 			const wrapperElement = contentWrapperRef.current;
 
-			if (!firstColumn || !firstItem || !wrapperElement || !containerElement) {
+			if (!firstColumn || !firstItemContainer || !wrapperElement || !containerElement) {
 				console.warn("IFG: Refs not available for measurement yet.");
 				return null;
 			}
@@ -151,16 +193,16 @@ export const InfiniteGallery: React.FC = () => {
 			const viewportWidth = containerElement.clientWidth;
 			const viewportHeight = containerElement.clientHeight;
 			const colRect = firstColumn.getBoundingClientRect();
-			const itemRect = firstItem.getBoundingClientRect();
+			const itemContainerRect = firstItemContainer.getBoundingClientRect();
 			const columnWidth = colRect.width;
-			const itemHeight = itemRect.height;
+			const itemHeight = itemContainerRect.height;
 			const columnGap = parseFloat(computedStyleWrapper.columnGap) || 0;
 			const rowGap = parseFloat(computedStyleColumn.rowGap) || 0;
 			const wrapperPaddingTop = parseFloat(computedStyleWrapper.paddingTop) || 0;
 			const wrapperPaddingBottom = parseFloat(computedStyleWrapper.paddingBottom) || 0;
 
 			// Добавляем проверку на валидность размеров перед расчетами
-			if (!viewportWidth || !viewportHeight || !columnWidth || !itemHeight || !Number.isFinite(columnWidth) || !Number.isFinite(itemHeight)) {
+			if (!viewportWidth || !viewportHeight || !columnWidth || !itemHeight || !Number.isFinite(columnWidth) || !Number.isFinite(itemHeight) || itemHeight <= 0) {
 				console.error("IFG: Failed to get valid base dimensions.", { viewportWidth, viewportHeight, columnWidth, itemHeight });
 				return null;
 			}
@@ -190,13 +232,11 @@ export const InfiniteGallery: React.FC = () => {
 				fullWrapperHeight, // Добавили
 				wrapX, minY, maxY, scrollableDistanceY
 			};
-			console.log("IFG: Dimensions calculated", newDimensions);
 			dimensionsRef.current = newDimensions; // Сохраняем в ref
 			return newDimensions;
 		};
 
 		// --- Функция расчета необходимого количества колонок для рендера ---
-		// Принимает размеры, возвращает число
 		const calculateRenderCols = (dims: GridDimensions): number => {
 			if (!dims || dims.columnTotalWidth <= 0) {
 				console.warn("IFG: Cannot calculate render cols, invalid dimensions. Falling back to COLS.");
@@ -207,13 +247,11 @@ export const InfiniteGallery: React.FC = () => {
 				(dims.totalContentLogicalWidth + dims.viewportWidth) / dims.columnTotalWidth
 			);
 			const count = requiredCols + RENDER_COLS_BUFFER;
-			console.log(`IFG: Calculated render cols: ceil((${dims.totalContentLogicalWidth.toFixed(0)} + ${dims.viewportWidth}) / ${dims.columnTotalWidth.toFixed(2)}) + ${RENDER_COLS_BUFFER} = ${count}`);
 			return count;
 		};
 
 		// --- Создание контекста GSAP ---
 		gsapCtx.current = gsap.context(() => {
-			console.log("IFG: GSAP Context created.");
 
 			// --- Функция для (пере)создания quickTo ---
 			const setupQuickTo = (dims: GridDimensions) => {
@@ -225,37 +263,40 @@ export const InfiniteGallery: React.FC = () => {
 				yToRef.current = gsap.quickTo(contentWrapperElement, "y", {
 					duration: 0.5, ease: "power3.out"
 				});
-				console.log("IFG: QuickTo instances created/updated.");
 			};
 
-			// --- Инициализация Observer (логика без изменений) ---
+			// --- Инициализация Observer ---
 			if (!observerInstance.current) {
-				console.log("IFG: Creating Observer instance.");
 				observerInstance.current = Observer.create({
-					target: containerElement,
+					target: containerElement, // Слушаем сам контейнер
 					type: "wheel,touch,pointer",
-					preventDefault: false,
+					preventDefault: false, // Управляем вручную
 					tolerance: 5,
 					dragMinimum: 3,
+
 					onChangeX: (self) => {
+						// Игнорируем, если вертикальное движение доминирует
 						if (Math.abs(self.deltaX) < Math.abs(self.deltaY)) return;
 
+						// Предотвращаем горизонтальный свайп страницы колесом/тачпадом
 						if (self.event.type === 'wheel' && Math.abs(self.deltaX) > 0) {
-							console.log("IFG: Horizontal wheel detected, preventing default browser navigation swipe.");
-							self.event.preventDefault();
 							self.event.preventDefault(); // Предотвратить действие по умолчанию
-							self.event.stopPropagation(); // Остановить всплытие события
+							// self.event.stopPropagation(); // Обычно не нужен, но можно оставить при необходимости
 						}
 
+						// Выходим, если не заблокировано или нет quickTo/размеров
 						if (!isScrollLockedRef.current || !xToRef.current || !dimensionsRef.current) return;
 
+						// Накапливаем и применяем смещение X
 						const multiplier = self.event.type === "wheel" ? 1 : 1.5;
 						if (self.event.type === "wheel") { incrX.current -= self.deltaX * multiplier }
 						else { incrX.current += self.deltaX * multiplier }
 						xToRef.current(incrX.current);
 					},
 					onChangeY: (self) => {
+						// Выходим, если не заблокировано или нет quickTo/размеров
 						if (!isScrollLockedRef.current || !yToRef.current || !dimensionsRef.current) return;
+						// Игнорируем, если горизонтальное движение доминирует
 						if (Math.abs(self.deltaY) < Math.abs(self.deltaX)) return;
 
 						const dims = dimensionsRef.current;
@@ -263,39 +304,48 @@ export const InfiniteGallery: React.FC = () => {
 						const currentY = gsap.getProperty(contentWrapperElement, "y") as number;
 						const isScrollingDown = self.deltaY > 0;
 						const isScrollingUp = self.deltaY < 0;
-						const tolerance = 1;
+						const tolerance = 1; // Допуск для сравнения
 						const isStrictlyAtBottom = currentY <= dims.maxY + tolerance;
 						const isStrictlyAtTop = currentY >= dims.minY - tolerance;
-						let shouldPreventDefault = true;
 
+						let shouldPreventDefault = true; // По умолчанию - предотвращаем скролл страницы
+
+						// Логика определения, нужно ли предотвращать скролл страницы
 						if ((isStrictlyAtBottom && isScrollingUp) || (isStrictlyAtTop && isScrollingDown)) {
+							// На границе, скроллим ВНУТРЬ контента -> Предотвращаем
 							shouldPreventDefault = true;
 						} else if ((isStrictlyAtBottom && isScrollingDown) || (isStrictlyAtTop && isScrollingUp)) {
+							// На границе, скроллим НАРУЖУ (пытаемся выйти из пина) -> НЕ предотвращаем
 							shouldPreventDefault = false;
-							console.log(`IFG: At boundary, scrolling outwards. NOT preventing default.`);
+							// Прилепляем к границе, если чуть вышли
 							const targetY = isScrollingDown ? dims.maxY : dims.minY;
 							if (currentY !== targetY) { incrY.current = targetY; yToRef.current(targetY); }
 						} else {
+							// НЕ на границе -> Предотвращаем (позволяем внутренний скролл)
 							shouldPreventDefault = true;
 						}
 
+						// Если НЕ нужно предотвращать скролл страницы, то и двигать внутренний контент не надо
 						if (shouldPreventDefault) {
+							// Накапливаем и двигаем внутренний контент
 							if (self.event.type === "wheel") incrY.current -= self.deltaY * multiplier;
 							else incrY.current += self.deltaY * multiplier;
+							// Ограничиваем Y границами
 							const clampedY = gsap.utils.clamp(dims.maxY, dims.minY, incrY.current);
 							incrY.current = clampedY;
 							yToRef.current(clampedY);
+
+							// Предотвращаем скролл страницы
 							self.event.preventDefault();
 						}
 					},
 				});
-				observerInstance.current.disable();
-				console.log("IFG: Observer created and immediately DISABLED.");
+				observerInstance.current.disable(); // Сразу выключаем
 			}
 
-			// --- Инициализация ScrollTrigger (логика без изменений) ---
+
+			// --- Инициализация ScrollTrigger ---
 			if (!scrollTriggerInstance.current) {
-				console.log("IFG: Creating ScrollTrigger instance with PIN.");
 				scrollTriggerInstance.current = ScrollTrigger.create({
 					trigger: containerElement,
 					start: "top top",
@@ -303,20 +353,24 @@ export const InfiniteGallery: React.FC = () => {
 					end: () => `+=${dimensionsRef.current?.scrollableDistanceY ?? containerElement.clientHeight}`,
 					pin: true,
 					pinSpacing: true,
-					anticipatePin: 1,
-					// markers: true,
-					invalidateOnRefresh: true,
+					anticipatePin: 1, // Помогает избежать "прыжка" при входе/выходе
+					// markers: true, // Показать маркеры для отладки
+					invalidateOnRefresh: true, // Пересчитывать end при рефреше (важно для динамического end)
+
 					onToggle: (self) => {
-						console.log(`IFG: ScrollTrigger toggle. isActive: ${self.isActive}, direction: ${self.direction}`);
-						setScrollLocked(self.isActive);
+						setScrollLocked(self.isActive); // Включаем/выключаем Observer
+
+						// Умный сброс позиции Y при активации пина
 						if (self.isActive) {
 							const dims = dimensionsRef.current;
-							if (dims && contentWrapperElement) { // Добавили проверку contentWrapperElement
+							// Добавляем проверку contentWrapperElement для безопасности
+							if (dims && contentWrapperElement) {
+								// Определяем целевую позицию в зависимости от направления входа
 								const targetY = self.direction === 1 ? dims.minY : dims.maxY;
-								console.log(`IFG: Pin activated (direction: ${self.direction}). Setting internal Y to: ${targetY}`);
 								incrY.current = targetY;
+								// Устанавливаем позицию немедленно и обновляем quickTo
 								gsap.set(contentWrapperElement, { y: targetY });
-								yToRef.current?.(targetY);
+								yToRef.current?.(targetY); // Синхронизируем quickTo
 							}
 						}
 					},
@@ -325,37 +379,35 @@ export const InfiniteGallery: React.FC = () => {
 
 			// --- Инициализация ResizeObserver ---
 			const debouncedResizeHandler = debounce(() => {
-				console.log("IFG: Resize detected, recalculating...");
 				// 1. Пересчитываем базовые размеры
 				const newDims = calculateDimensions();
 
-				if (newDims && gsapCtx.current && contentWrapperElement) { // Добавили проверку contentWrapperElement
+				// Добавляем проверку contentWrapperElement для безопасности
+				if (newDims && gsapCtx.current && contentWrapperElement) {
 					// 2. Пересчитываем количество колонок на основе новых размеров
 					const newRenderCols = calculateRenderCols(newDims);
 
-					// 3. Обновляем GSAP и позицию
+					// 3. Обновляем GSAP и позицию ВНУТРИ контекста
 					gsapCtx.current.add(() => {
 						setupQuickTo(newDims);
+						// Сбрасываем X, клампим Y к новым границам
 						incrX.current = 0;
 						incrY.current = gsap.utils.clamp(newDims.maxY, newDims.minY, incrY.current);
 						gsap.set(contentWrapperElement, { x: 0, y: incrY.current });
-						console.log("IFG: Position reset/adjusted after resize.");
 					});
 
 					// 4. Обновляем state количества колонок, ЕСЛИ изменилось
 					// Сравниваем с текущим значением из state (renderColsCount)
 					if (newRenderCols !== renderColsCount) {
-						console.log(`IFG: Render cols changed from ${renderColsCount} to ${newRenderCols}. Updating state.`);
 						setRenderColsCount(newRenderCols); // Обновляем state -> React перерендерит колонки
 					}
 				}
 				// 5. Обновляем ScrollTrigger ПОСЛЕ всех расчетов и возможных ререндеров
 				ScrollTrigger.refresh();
-				console.log("IFG: ScrollTrigger refreshed.");
 			}, DEBOUNCE_RESIZE_MS);
 
 			resizeObserverRef.current = new ResizeObserver(debouncedResizeHandler);
-			resizeObserverRef.current.observe(containerElement);
+			resizeObserverRef.current.observe(containerElement); // Наблюдаем за ИЗМЕНЕНИЕМ РАЗМЕРА контейнера
 
 			// --- Первоначальный расчет и настройка ---
 			// 1. Рассчитываем начальные размеры
@@ -364,7 +416,6 @@ export const InfiniteGallery: React.FC = () => {
 			if (initialDims) {
 				// 2. Рассчитываем начальное количество колонок
 				const initialRenderCols = calculateRenderCols(initialDims);
-				console.log("IFG: Initial render cols calculated:", initialRenderCols);
 				// 3. Устанавливаем начальное количество колонок в state
 				setRenderColsCount(initialRenderCols);
 
@@ -373,51 +424,54 @@ export const InfiniteGallery: React.FC = () => {
 				gsap.set(contentWrapperElement, { x: 0, y: 0 });
 				incrX.current = 0;
 				incrY.current = 0;
-				isInitialized.current = true;
+				isInitialized.current = true; // Ставим флаг, что инициализация прошла
 
-				// 5. Обновляем ScrollTrigger
+				// 5. Обновляем ScrollTrigger ПОСЛЕ расчетов и рендеринга
 				ScrollTrigger.refresh();
-				console.log("IFG: Initial ScrollTrigger refresh.");
 
-				// 6. Проверяем начальное состояние блокировки (асинхронно)
+				// 6. Проверяем начальное состояние блокировки (асинхронно, после возможного обновления ST)
 				setTimeout(() => {
+					// Перепроверяем инстанс на случай быстрого размонтирования
 					if (scrollTriggerInstance.current) {
 						setScrollLocked(scrollTriggerInstance.current.isActive);
-						console.log("IFG: Initialization complete. Initial lock state checked:", isScrollLockedRef.current);
 					}
 				}, 0);
 
 			} else {
 				console.error("IFG: Failed to get initial dimensions. Component might not work.");
-				// Можно установить какое-то дефолтное количество колонок, если расчет не удался
-				setRenderColsCount(COLS); // Ставим хотя бы логическое число
+				// Устанавливаем какое-то дефолтное количество колонок, если расчет не удался
+				setRenderColsCount(COLS);
 			}
 
-		}, containerRef);
+		}, containerRef); // Привязываем контекст GSAP к containerRef
 
 		// --- Функция очистки при размонтировании компонента ---
 		return () => {
-			console.log("IFG: Cleaning up...");
+			// 1. Отключаем ResizeObserver
 			resizeObserverRef.current?.disconnect();
-			gsapCtx.current?.revert(); // Убьет Observer, ScrollTrigger, quickTo, созданные в контексте
+			// 2. Убиваем все, что создано в контексте GSAP
+			// Это включает Observer, ScrollTrigger, все анимации и quickTo
+			gsapCtx.current?.revert();
+			// 3. Убираем класс с body
 			document.body.classList.remove('ifg-locked');
+			// 4. Сбрасываем все рефы (хотя revert уже многое сделал, это для чистоты)
 			resizeObserverRef.current = null;
-			observerInstance.current = null; // Хотя revert должен убить, обнуляем для чистоты
-			scrollTriggerInstance.current = null; // Аналогично
+			observerInstance.current = null;
+			scrollTriggerInstance.current = null;
 			gsapCtx.current = null;
 			xToRef.current = null;
 			yToRef.current = null;
 			dimensionsRef.current = null;
-			isInitialized.current = false;
-			isScrollLockedRef.current = false;
-			console.log("IFG: Cleanup complete.");
+			isInitialized.current = false; // Сброс флага
+			isScrollLockedRef.current = false; // Сброс состояния блокировки
 		};
 
 		// Добавляем renderColsCount в зависимости, т.к. debouncedResizeHandler его читает
-	}, [renderColumn, setScrollLocked, renderColsCount]);
+	}, [renderColumn, setScrollLocked, renderColsCount]); // Зависимости useLayoutEffect
 
 	// --- JSX Разметка ---
 	return (
+		// Добавляем CSS класс, когда скролл заблокирован
 		<section
 			className={`${styles.mwg_effect} ${isLockedState ? styles.isLocked : ''}`}
 			ref={containerRef}
@@ -428,7 +482,6 @@ export const InfiniteGallery: React.FC = () => {
 					renderColumn(index)
 				)}
 			</div>
-			{/* <div className={styles.overlay}>Cols: {renderColsCount} | Locked: {isLockedState.toString()}</div> */}
 		</section>
 	);
 };

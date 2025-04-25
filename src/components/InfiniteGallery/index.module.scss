@@ -1,80 +1,82 @@
-/* src/components/InfiniteFiniteGrid/index.module.scss */
+/* src/components/InfiniteGallery/index.module.scss */
 
 // --- Переменные для настройки ---
-$item-height: 20vw; // Высота элемента сетки (можно использовать px)
-$column-width: 20vw; // Ширина колонки (можно использовать px)
-$row-gap: 10vw; // Вертикальный отступ
-$column-gap: 10vw; // Горизонтальный отступ
-$placeholder-bg: #333;
-$placeholder-text: #888;
+$item-height: 20vw;
+$column-width: 20vw;
+$row-gap: 10vw;
+$column-gap: 10vw;
+// Убрали переменные плейсхолдера
 
-// --- Основной контейнер ---
+// --- Основной контейнер (без изменений) ---
 .mwg_effect {
-	height: 100vh; // Занимает всю высоту экрана (или задайте другую высоту)
-	width: 100vw; // Занимает всю ширину экрана
-	overflow: hidden; // Скрываем все, что выходит за пределы
-	position: relative; // Для абсолютного позиционирования wrapper'а
-	background-color: #111; // Темный фон
+	height: 100vh;
+	width: 100vw;
+	overflow: hidden;
+	position: relative;
+	background-color: #111;
 	box-sizing: border-box;
+	cursor: grab;
 
-	cursor: grab; // Указываем на возможность перетаскивания по умолчанию
-
-	// Стиль, когда скролл ЗАБЛОКИРОВАН этим компонентом
 	&.isLocked {
-		cursor: grabbing; // Меняем курсор при активном перетаскивании/скролле
-		// Можно добавить другие стили для индикации, например:
-		// outline: 2px dashed lime;
-		// outline-offset: -2px;
+		cursor: grabbing;
 	}
 }
 
-// --- Обертка для всего контента (этот элемент двигается) ---
+// --- Обертка для контента (без изменений) ---
 .contentWrapper {
 	position: absolute;
 	top: 0;
 	left: 0;
-	display: flex; // Колонки в ряд
-	flex-direction: row; // Явно указываем направление
-	flex-wrap: nowrap; // Запрещаем перенос колонок
-	width: max-content; // Ширина определяется содержимым (всеми колонками)
-	height: auto; // Высота определяется содержимым (высотой колонок)
-	will-change: transform; // Оптимизация для анимации transform
-	gap: $column-gap; // Отступ МЕЖДУ колонками
-	padding: $row-gap 0; // Добавим вертикальный отступ сверху/снизу для всего блока
-	box-sizing: border-box;
-	// Важно: отключаем pointer-events на обертке, чтобы события проходили "сквозь" нее
-	// к нижележащим элементам или к window/контейнеру, где слушает Observer
-	pointer-events: none;
-}
-
-// --- Одна колонка сетки ---
-.column {
-	width: $column-width; // Фиксированная ширина колонки
-	display: grid;
-	grid-template-columns: 1fr; // Одна колонка внутри grid
-	// Автоматически создаем строки нужной высоты
-	grid-auto-rows: $item-height;
-	gap: $row-gap; // Вертикальный отступ МЕЖДУ элементами в колонке
-	box-sizing: border-box;
-	// Также отключаем события на колонке
-	pointer-events: none;
-}
-
-// --- Элемент сетки (плейсхолдер) ---
-.media {
-	height: $item-height; // Фиксированная высота
-	width: 100%; // Занимает всю ширину колонки
-	background-color: $placeholder-bg;
-	border-radius: 8px; // Небольшое скругление
 	display: flex;
-	align-items: center;
-	justify-content: center;
-	font-size: 12px;
-	color: $placeholder-text;
-	user-select: none; // Запрет выделения текста
+	flex-direction: row;
+	flex-wrap: nowrap;
+	width: max-content;
+	height: auto;
+	will-change: transform;
+	gap: $column-gap;
+	padding: $row-gap 0;
 	box-sizing: border-box;
-	// Если нужно взаимодействие с самими элементами (клик, ховер), установите 'auto'
-	// pointer-events: auto;
-	// Если взаимодействие не нужно, лучше оставить 'none' для производительности
 	pointer-events: none;
 }
+
+// --- Одна колонка сетки (без изменений) ---
+.column {
+	width: $column-width;
+	display: grid;
+	grid-template-columns: 1fr;
+	grid-auto-rows: $item-height;
+	gap: $row-gap;
+	box-sizing: border-box;
+	pointer-events: none;
+}
+
+// --- Элемент сетки (ОБНОВЛЕН) ---
+.media {
+	height: $item-height; // Контейнер задает высоту
+	width: 100%; // Контейнер задает ширину
+	border-radius: 8px; // Оставляем скругление на контейнере
+	user-select: none;
+	box-sizing: border-box;
+	pointer-events: none; // События отключены на контейнере
+	overflow: hidden; // Важно для object-fit: cover/contain, если изображение больше/меньше
+
+	// Стили для вложенного изображения
+	img {
+		display: block; // Убирает лишний отступ снизу
+		width: 100%; // Заполняет контейнер по ширине
+		height: 100%; // Заполняет контейнер по высоте
+		object-fit: cover; // Масштабирует с сохранением пропорций, обрезая лишнее. Можно заменить на 'contain', если нужно видеть все изображение.
+		pointer-events: none; // Убедимся, что и само изображение не ловит события
+		// border-radius: inherit; // Можно наследовать скругление, если нужно
+	}
+}
+
+// Опционально: стили для плейсхолдера, если изображения не загрузились
+// .placeholder {
+//   background-color: #222;
+//   color: #666;
+//   display: flex;
+//   align-items: center;
+//   justify-content: center;
+//   font-size: 11px;
+// }
