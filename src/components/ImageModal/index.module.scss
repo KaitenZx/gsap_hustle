@@ -1,0 +1,78 @@
+/* src/components/ImageModal/ImageModal.module.scss */
+
+.overlay {
+	position: fixed;
+	inset: 0; // Аналог top: 0; right: 0; bottom: 0; left: 0;
+	background-color: rgba(0, 0, 0, 0.7); // Полупрозрачный черный фон
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	z-index: 1000; // Убедимся, что поверх остального контента
+	padding: 20px; // Отступы на случай маленьких экранов
+	box-sizing: border-box;
+	// cursor: pointer; // Управляем курсором через инлайн-стиль в TSX
+
+	// --- Эффект "Frost Glass" ---
+	// Современный способ через backdrop-filter
+	@supports (backdrop-filter: blur(10px)) {
+		background-color: rgba(0, 0, 0, 0.4); // Менее темный фон с блюром
+		backdrop-filter: blur(8px) saturate(150%); // Размытие и небольшое насыщение
+	}
+
+	// Fallback для старых браузеров (можно убрать, если поддержка не нужна)
+	// @supports not (backdrop-filter: blur(10px)) {
+	//   background-color: rgba(0, 0, 0, 0.85); // Просто более темный фон
+	// }
+}
+
+.modalContent {
+	position: relative; // Для позиционирования кнопки закрытия
+	max-width: 50vw; // Не шире 90% ширины вьюпорта
+	max-height: 80vh; // Не выше 90% высоты вьюпорта
+	display: flex; // Чтобы img мог корректно использовать max-width/height
+	background-color: transparent; // Содержимое не имеет фона по умолчанию
+	border-radius: 8px; // Небольшое скругление краев контейнера (опционально)
+	overflow: hidden; // Скрываем части изображения, если оно больше контейнера
+	// cursor: default; // Управляем курсором через инлайн-стиль в TSX
+}
+
+.modalImage {
+	display: block; // Убирает лишний отступ снизу
+	width: auto; // Позволяет изображению масштабироваться по высоте
+	height: auto; // Позволяет изображению масштабироваться по ширине
+	max-width: 100%; // Ограничиваем максимальную ширину контейнером
+	max-height: 100%; // Ограничиваем максимальную высоту контейнером
+	object-fit: contain; // Показывает изображение целиком, сохраняя пропорции
+}
+
+// --- Стили для кнопки закрытия УДАЛЕНЫ ---
+/*
+.closeButton {
+	position: absolute;
+	top: 10px;
+	right: 10px;
+	background-color: rgba(0, 0, 0, 0.5);
+	color: white;
+	border: none;
+	border-radius: 50%;
+	width: 30px;
+	height: 30px;
+	font-size: 20px;
+	line-height: 28px;
+	text-align: center;
+	cursor: pointer;
+	z-index: 1001;
+	transition: background-color 0.2s ease;
+
+	&:hover,
+	&:focus {
+		background-color: rgba(0, 0, 0, 0.8);
+		outline: none;
+	}
+
+	&:focus-visible {
+		outline: 2px solid dodgerblue;
+		outline-offset: 2px;
+	}
+}
+*/

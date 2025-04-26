@@ -5,6 +5,9 @@ import { Observer } from 'gsap/Observer';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { debounce, throttle } from 'lodash';
 
+
+import { ImageModal } from '../ImageModal';
+
 import styles from './index.module.scss';
 
 gsap.registerPlugin(Observer, ScrollTrigger);
@@ -21,64 +24,92 @@ type ImageModule = {
 	default: string;
 }
 
-// --- Загрузка изображений с помощью Vite Glob Import ---
-const imageModules: Record<string, ImageModule | undefined> =
-	import.meta.glob('/src/assets/*.webp', { eager: true });
+// --- Загрузка И ПРЕВЬЮ, И ПОЛНЫХ изображений с помощью Vite Glob Import ---
+const previewImageModules: Record<string, ImageModule | undefined> =
+	import.meta.glob('/src/assets/preview/*.webp', { eager: true });
+const fullImageModules: Record<string, ImageModule | undefined> =
+	import.meta.glob('/src/assets/full/*.webp', { eager: true });
 
-// --- Обработка и сортировка URL ---
-const imageUrls = Object.entries(imageModules)
-	.map(([path, module]) => {
-		const match = /\/(\d+)\.webp$/.exec(path);
-		const id = match ? parseInt(match[1], 10) : -1;
-		const url = module?.default;
+// --- Вспомогательная функция для извлечения ID и URL из пути ---
+const extractImageData = (path: string, module: ImageModule | undefined): { id: number; url: string } | null => {
+	// Используем регулярное выражение, которое найдет число перед .webp, игнорируя путь
+	const match = /([\w-]+)\/(\d+)\.webp$/.exec(path); // Находит 'preview'/'full' и 'id'
+	const id = match ? parseInt(match[2], 10) : -1;
+	const url = module?.default;
+	if (id !== -1 && typeof url === 'string') {
 		return { id, url };
-	})
-	.filter(
-		(item): item is { id: number; url: string } =>
-			item.id !== -1 && typeof item.url === 'string'
-	)
-	.sort((a, b) => a.id - b.id)
-	.map(item => item.url); // Результат: string[]
+	}
+	return null;
+};
 
-// --- Типизация для элемента галереи ---
+// --- Обработка и СОПОСТАВЛЕНИЕ URL превью и полных изображений ---
+const previewImages = Object.entries(previewImageModules)
+	.map(([path, module]) => extractImageData(path, module))
+	.filter((item): item is { id: number; url: string } => item !== null);
+
+const fullImageUrlsById: Map<number, string> = new Map<number, string>();
+Object.entries(fullImageModules).forEach(([path, module]) => {
+	const imageData = extractImageData(path, module);
+	if (imageData) {
+		fullImageUrlsById.set(imageData.id, imageData.url);
+	}
+});
+
+// Сортируем превью по ID
+previewImages.sort((a, b) => a.id - b.id);
+
+// --- Обновленная типизация для элемента галереи ---
 type GalleryItem = {
 	id: number;
-	src: string;
+	previewSrc: string; // Превью
+	fullSrc: string;    // Полная версия
 	alt: string;
 }
 
 // --- Генерация данных ---
-const ITEMS: GalleryItem[] = imageUrls.slice(0, TOTAL_ITEMS).map((url, index) => ({
-	id: index,
-	src: url, // url - string, src - string
-	alt: `Gallery image ${index + 1}`
-}));
+const ITEMS: GalleryItem[] = previewImages
+	.slice(0, TOTAL_ITEMS) // Берем только нужное количество превью
+	.map((previewItem) => {
+		const fullSrc = fullImageUrlsById.get(previewItem.id);
+		// Возвращаем элемент, только если нашли соответствующее полное изображение
+		return fullSrc ? {
+			id: previewItem.id,
+			previewSrc: previewItem.url,
+			fullSrc: fullSrc,
+			alt: `Gallery image ${previewItem.id}` // Используем ID из файла для alt
+		} : null;
+	})
+	.filter((item): item is GalleryItem => item !== null); // Отфильтровываем null, если не нашлось полное изображение
 
-// Проверка, достаточно ли изображений найдено
-if (ITEMS.length < TOTAL_ITEMS) {
-	console.warn(`[InfiniteGallery] Warning: Expected ${TOTAL_ITEMS} images, but only found ${ITEMS.length}. Check '/src/assets/' folder and naming (1.webp, 2.webp...).`);
+// Проверка, достаточно ли ПОЛНЫХ изображений найдено для каждого превью
+if (ITEMS.length < previewImages.slice(0, TOTAL_ITEMS).length) {
+	console.warn(`[InfiniteGallery] Warning: Some full-size images corresponding to preview images (up to ${TOTAL_ITEMS}) were not found in '/src/assets/full/'. Check filenames.`);
+} else if (ITEMS.length < TOTAL_ITEMS) {
+	// Предупреждение, если изначально не хватило превью
+	console.warn(`[InfiniteGallery] Warning: Expected ${TOTAL_ITEMS} preview images, but only found ${previewImages.length} in '/src/assets/preview/'.`);
 }
 
-// --- Функция для предзагрузки одного изображения (вне компонента, т.к. не зависит от него) ---
-const _preloadedUrls = new Set<string>(); // Используем обычный Set вне компонента
+// --- Функция для предзагрузки одного ИЗОБРАЖЕНИЯ ПРЕВЬЮ ---
+const _preloadedUrls = new Set<string>();
 const preloadImage = (url: string) => {
 	if (!_preloadedUrls.has(url)) {
 		_preloadedUrls.add(url);
 		const img = new Image();
 		img.src = url;
-		// console.log(`[IFG Preload] Requesting: ${url.split('/').pop()}`); // Для отладки
+		// console.log(`[IFG Preload] Requesting: ${url.split('/').pop()}`);
 	}
 };
 
-// --- Вспомогательная функция для получения URL изображений колонки ---
-const getColumnImageUrls = (columnIndex: number): string[] => {
+// --- Вспомогательная функция для получения URL ПРЕВЬЮ изображений колонки ---
+const getColumnPreviewImageUrls = (columnIndex: number): string[] => {
 	const urls: string[] = [];
-	const wrappedIndex = (columnIndex % COLS + COLS) % COLS; // Учитываем отрицательные индексы
+	const wrappedIndex = (columnIndex % COLS + COLS) % COLS;
 	const baseItemIndex = wrappedIndex * ROWS;
 	for (let i = 0; i < ROWS; i++) {
 		const itemIndex = baseItemIndex + i;
 		if (itemIndex < ITEMS.length) {
-			urls.push(ITEMS[itemIndex].src);
+			// Используем previewSrc
+			urls.push(ITEMS[itemIndex].previewSrc);
 		}
 	}
 	return urls;
@@ -134,36 +165,33 @@ export const InfiniteGallery: React.FC = () => {
 	// --- Состояние для количества рендерящихся колонок ---
 	const [renderColsCount, setRenderColsCount] = useState(COLS); // Начинаем с COLS, будет пересчитано
 
-	// --- Создание throttled-функции для предзагрузки (вне useLayoutEffect) ---
-	// Используем useCallback для стабильной ссылки на функцию внутри throttle
+	// --- НОВОЕ Состояние для отслеживания выбранного изображения для модального окна ---
+	const [selectedFullSrc, setSelectedFullSrc] = useState<string | null>(null);
+
+	// --- Функция для предзагрузки ПРЕВЬЮ (использует обновленную getColumnPreviewImageUrls) ---
 	const performPreload = useCallback((scrollDirection: 1 | -1) => {
 		const dims = dimensionsRef.current;
 		if (dims && dims.columnTotalWidth > 0) {
-			// Определяем примерный индекс самой левой видимой колонки (может быть отрицательным)
 			const currentWrappedX = dims.wrapX(incrX.current);
 			const currentApproxFirstVisibleColIndex = Math.floor(-currentWrappedX / dims.columnTotalWidth);
-
-			// Предзагружаем следующие 2 колонки в направлении движения
 			const preloadColsCount = 2;
 			let firstColToPreload: number;
 
-			if (scrollDirection === 1) { // Движемся вправо, контент едет влево
-				// Нужны колонки слева от видимой области
+			if (scrollDirection === 1) {
 				firstColToPreload = currentApproxFirstVisibleColIndex - preloadColsCount;
-			} else { // Движемся влево, контент едет вправо
-				// Нужны колонки справа от видимой области
+			} else {
 				const visibleColsApprox = Math.ceil(dims.viewportWidth / dims.columnTotalWidth);
 				firstColToPreload = currentApproxFirstVisibleColIndex + visibleColsApprox;
 			}
 
 			for (let i = 0; i < preloadColsCount; i++) {
-				// Индекс для предзагрузки не зависит от направления в цикле, только начальный индекс
 				const colIndexToPreload = firstColToPreload + i;
-				const urlsToPreload = getColumnImageUrls(colIndexToPreload);
-				urlsToPreload.forEach(preloadImage);
+				// Получаем URL превью для предзагрузки
+				const urlsToPreload = getColumnPreviewImageUrls(colIndexToPreload);
+				urlsToPreload.forEach(preloadImage); // preloadImage теперь предзагружает превью
 			}
 		}
-	}, []); // Нет зависимостей, т.к. читает ref'ы
+	}, []); // Зависимости не изменились
 
 	// --- Функция для управления блокировкой скролла ---
 	const setScrollLocked = useCallback((locked: boolean) => {
@@ -180,53 +208,71 @@ export const InfiniteGallery: React.FC = () => {
 		}
 	}, []); // Пустой массив зависимостей
 
-	// --- Функция рендеринга одной колонки ---
+	// --- НОВАЯ Функция обработчика клика по изображению ---
+	const handleImageClick = useCallback((fullSrc: string) => {
+		setSelectedFullSrc(fullSrc);
+		// Опционально: Можно временно заблокировать скролл страницы пока модалка открыта,
+		// если она не будет сама это делать.
+		// document.body.style.overflow = 'hidden';
+	}, []); // Пустой массив зависимостей, т.к. использует только setSelectedFullSrc
+
+	// --- НОВАЯ Функция закрытия модального окна ---
+	const handleCloseModal = useCallback(() => {
+		setSelectedFullSrc(null);
+		// Опционально: Восстанавливаем скролл страницы
+		// document.body.style.overflow = '';
+	}, []);
+
+	// --- Функция рендеринга одной колонки (обновлена для клика и previewSrc) ---
 	const renderColumn = useCallback((columnIndex: number) => {
 		const isFirstColumn = columnIndex === 0;
 		const itemsInColumn = [];
-		// Определяем базовый индекс элемента для этой колонки, зацикливаясь по COLS
 		const baseItemIndex = (columnIndex % COLS) * ROWS;
 
 		for (let i = 0; i < ROWS; i++) {
 			const itemIndex = baseItemIndex + i;
-			// Убедимся, что у нас есть данные для этого индекса
-			if (itemIndex < ITEMS.length) { // Используем ITEMS.length для безопасности
-				const item: GalleryItem = ITEMS[itemIndex]; // item теперь имеет тип GalleryItem
+			if (itemIndex < ITEMS.length) {
+				const item: GalleryItem = ITEMS[itemIndex];
 				const isFirstItem = i === 0;
 				itemsInColumn.push(
-					// Оставляем div.media как контейнер для размеров и рефа
 					<div
 						className={styles.media}
 						key={`${columnIndex}-${item.id}`}
-						// Вешаем реф на контейнер .media
 						ref={isFirstColumn && isFirstItem ? itemRef : null}
+						role="button"
+						tabIndex={0}
+						onClick={() => handleImageClick(item.fullSrc)}
+						onKeyDown={(e) => {
+							if (e.key === 'Enter' || e.key === ' ') {
+								handleImageClick(item.fullSrc);
+							}
+						}}
+						style={{ cursor: 'pointer', pointerEvents: 'auto' }}
 					>
 						<img
-							src={item.src} // Безопасно: item.src это string
-							alt={item.alt} // Безопасно: item.alt это string
-							loading="lazy" // <-- ОЧЕНЬ ВАЖНО для производительности
-							decoding="async" // <-- Рекомендуется для изображений
+							src={item.previewSrc}
+							alt={item.alt}
+							loading="lazy"
+							decoding="async"
+							style={{ pointerEvents: 'none' }}
 						/>
 					</div>
 				);
-			} else {
-				// Опционально: рендерить плейсхолдер, если изображений не хватило
-				// itemsInColumn.push(<div className={`${styles.media} ${styles.placeholder}`} key={`placeholder-${columnIndex}-${i}`}>Missing Image</div>);
 			}
 		}
 		return (
 			<div
 				className={styles.column}
 				key={`col-${columnIndex}`}
-				// Вешаем реф только на первую колонку для измерений
 				ref={isFirstColumn ? columnRef : null}
+				style={{ pointerEvents: 'none' }} // Отключаем события на колонке (кроме .media)
 			>
 				{itemsInColumn}
 			</div>
 		);
-	}, []); // Зависимостей нет, т.к. ITEMS, ROWS, COLS константы вне компонента
+	}, [handleImageClick]);
 
-	// --- Основной useLayoutEffect для всей магии GSAP ---
+	// --- Основной useLayoutEffect (обновлен для использования getColumnPreviewImageUrls) ---
 	useLayoutEffect(() => {
 		const containerElement = containerRef.current;
 		const contentWrapperElement = contentWrapperRef.current;
@@ -311,9 +357,7 @@ export const InfiniteGallery: React.FC = () => {
 			return count;
 		};
 
-		// --- Создание контекста GSAP ---
 		gsapCtx.current = gsap.context(() => {
-
 			// --- Функция для (пере)создания quickTo ---
 			const setupQuickTo = (dims: GridDimensions) => {
 				if (!contentWrapperElement) return; // Доп. проверка
@@ -354,8 +398,7 @@ export const InfiniteGallery: React.FC = () => {
 						else { incrX.current += self.deltaX * multiplier }
 						xToRef.current(incrX.current);
 
-						// --- Предзагрузка изображений (через throttled функцию) --- 
-						// Вызываем throttled-функцию предзагрузки, передавая текущее направление
+						// Вызываем throttled-функцию предзагрузки ПРЕВЬЮ
 						throttledPreloadRef.current?.(self.deltaX > 0 ? 1 : -1);
 					},
 					onChangeY: (self) => {
@@ -479,13 +522,13 @@ export const InfiniteGallery: React.FC = () => {
 				// 5. Обновляем ScrollTrigger ПОСЛЕ всех расчетов и возможных ререндеров
 				ScrollTrigger.refresh();
 
-				// --- Предзагрузка начальных изображений ---
+				// --- Предзагрузка начальных ПРЕВЬЮ изображений ---
 				if (newDims && newDims.columnTotalWidth > 0) {
 					const visibleColsApprox = Math.ceil(newDims.viewportWidth / newDims.columnTotalWidth);
 					const preloadColsCount = 2; // Предзагружаем 2 колонки справа
 					for (let i = 0; i < preloadColsCount; i++) {
 						const colIndexToPreload = visibleColsApprox + i;
-						const urlsToPreload = getColumnImageUrls(colIndexToPreload);
+						const urlsToPreload = getColumnPreviewImageUrls(colIndexToPreload);
 						urlsToPreload.forEach(preloadImage);
 					}
 				}
@@ -511,13 +554,13 @@ export const InfiniteGallery: React.FC = () => {
 				incrY.current = 0;
 				isInitialized.current = true; // Ставим флаг, что инициализация прошла
 
-				// --- Предзагрузка начальных изображений ---
+				// --- Предзагрузка начальных ПРЕВЬЮ изображений ---
 				if (initialDims.columnTotalWidth > 0) {
 					const visibleColsApprox = Math.ceil(initialDims.viewportWidth / initialDims.columnTotalWidth);
 					const preloadColsCount = 2; // Предзагружаем 2 колонки справа
 					for (let i = 0; i < preloadColsCount; i++) {
 						const colIndexToPreload = visibleColsApprox + i;
-						const urlsToPreload = getColumnImageUrls(colIndexToPreload);
+						const urlsToPreload = getColumnPreviewImageUrls(colIndexToPreload);
 						urlsToPreload.forEach(preloadImage);
 					}
 				}
@@ -565,7 +608,7 @@ export const InfiniteGallery: React.FC = () => {
 			isScrollLockedRef.current = false; // Сброс состояния блокировки
 		};
 
-		// Добавляем renderColsCount и performPreload в зависимости
+		// Добавляем renderColsCount, performPreload, setScrollLocked в зависимости
 	}, [renderColumn, setScrollLocked, renderColsCount, performPreload]); // Зависимости useLayoutEffect
 
 	// --- Мемоизация массива колонок ---
@@ -575,17 +618,31 @@ export const InfiniteGallery: React.FC = () => {
 		);
 	}, [renderColsCount, renderColumn]);
 
-	// --- JSX Разметка ---
+	// --- JSX Разметка (раскомментируем и используем ImageModal) ---
 	return (
-		// Добавляем CSS класс, когда скролл заблокирован
 		<section
 			className={`${styles.mwg_effect} ${isLockedState ? styles.isLocked : ''}`}
 			ref={containerRef}
 		>
 			<div className={styles.contentWrapper} ref={contentWrapperRef}>
-				{/* Используем мемоизированный массив колонок */}
 				{columnsToRender}
 			</div>
+
+			{/* Используем ImageModal */}
+			{selectedFullSrc && (
+				<ImageModal
+					src={selectedFullSrc}
+					alt={`Full size view of image ${selectedFullSrc.split('/').pop()?.split('.')[0] ?? ''}`} // Генерируем alt
+					onClose={handleCloseModal}
+				/>
+			)}
+
 		</section>
 	);
 };
+
+// --- Убираем закомментированный код ImageModal из этого файла ---
+/*
+import stylesModal from './ImageModal.module.scss';
+... (весь закомментированный ImageModal) ...
+*/
