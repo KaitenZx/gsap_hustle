@@ -81,3 +81,27 @@ $column-gap: 20vw;
 //   justify-content: center;
 //   font-size: 11px;
 // }
+
+// --- Адаптация для мобильных устройств ---
+@media (max-width: 768px) {
+	// Новые значения для мобильных
+	$mobile-item-height: 70vw;
+	$mobile-column-width: 50vw; // Делаем колонки шире, возможно, одна колонка будет видна за раз
+	$mobile-row-gap: 10vw;
+	$mobile-column-gap: 10vw;
+
+	.contentWrapper {
+		gap: $mobile-column-gap;
+		padding: $mobile-row-gap 0;
+	}
+
+	.column {
+		width: $mobile-column-width;
+		grid-auto-rows: $mobile-item-height;
+		gap: $mobile-row-gap;
+	}
+
+	.media {
+		height: $mobile-item-height;
+	}
+}
