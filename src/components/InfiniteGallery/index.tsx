@@ -270,14 +270,17 @@ export const InfiniteGallery: React.FC = () => {
 			const fullWrapperHeight = gridContentHeight + wrapperPaddingTop + wrapperPaddingBottom;
 			// Логическая ширина контента (COLS колонок)
 			const totalContentLogicalWidth = COLS * columnWidth + Math.max(0, COLS - 1) * columnGap;
+			// ----- FIX: Рассчитываем корректную ширину одного полного цикла ----
+			const repeatingWidth = COLS * columnTotalWidth; // COLS * (ширина + gap)
 
 			// Проверка на columnTotalWidth > 0 перед использованием в wrap
-			if (columnTotalWidth <= 0 || !Number.isFinite(totalContentLogicalWidth)) {
-				console.error("IFG: Invalid calculated widths.", { columnTotalWidth, totalContentLogicalWidth });
+			if (columnTotalWidth <= 0 || !Number.isFinite(totalContentLogicalWidth) || !Number.isFinite(repeatingWidth)) { // Добавили проверку repeatingWidth
+				console.error("IFG: Invalid calculated widths.", { columnTotalWidth, totalContentLogicalWidth, repeatingWidth });
 				return null;
 			}
 
-			const wrapX = gsap.utils.wrap(-totalContentLogicalWidth, 0);
+			// ----- FIX: Используем repeatingWidth для wrapX -----
+			const wrapX = gsap.utils.wrap(-repeatingWidth, 0);
 			const minY = 0;
 			const maxY = Math.min(0, viewportHeight - fullWrapperHeight);
 			const scrollableDistanceY = Math.max(0, fullWrapperHeight - viewportHeight);
@@ -372,11 +375,23 @@ export const InfiniteGallery: React.FC = () => {
 						// Ограничиваем Y границами
 						const clampedY = gsap.utils.clamp(dims.maxY, dims.minY, targetY);
 
-						// Определяем, нужно ли предотвращать скролл страницы
-						// Если targetY был внутри границ (т.е. clamp не изменил значение), то предотвращаем
-						const shouldPreventDefault = Math.abs(targetY - clampedY) < 0.01; // Используем небольшой допуск
+						// --- FIX: Определяем, нужно ли предотвращать скролл страницы (новая логика) ---
+						// Определяем направление скролла (true = вниз, false = вверх)
+						// Важно: deltaY для wheel инвертирован по сравнению с touch/pointer
+						const isScrollingDown = self.event.type === "wheel" ? self.deltaY > 0 : self.deltaY < 0;
 
-						// Если НЕ нужно предотвращать скролл страницы, то и двигать внутренний контент не надо
+						let shouldPreventDefault = false;
+						if (isScrollingDown) {
+							// Если скроллим ВНИЗ, предотвращаем, если еще НЕ достигли НИЖНЕЙ границы (maxY)
+							// Используем небольшой допуск, чтобы избежать проблем с float-сравнением
+							shouldPreventDefault = incrY.current > dims.maxY + 0.01;
+						} else {
+							// Если скроллим ВВЕРХ, предотвращаем, если еще НЕ достигли ВЕРХНЕЙ границы (minY)
+							shouldPreventDefault = incrY.current < dims.minY - 0.01;
+						}
+						// --- Конец FIX ---
+
+						// Если нужно предотвращать скролл страницы (т.е. мы внутри границ И ЕСТЬ КУДА СКРОЛЛИТЬ)
 						if (shouldPreventDefault) {
 							// Накапливаем и двигаем внутренний контент
 							incrY.current = clampedY;
@@ -385,8 +400,10 @@ export const InfiniteGallery: React.FC = () => {
 							// Предотвращаем скролл страницы
 							self.event.preventDefault();
 						} else {
-							// Если вышли за границу и скролл не предотвращен, прилепляем к границе
-							if (gsap.getProperty(contentWrapperElement, "y") !== clampedY) {
+							// Если предотвращать не нужно (достигли границы ИЛИ пытаемся выйти за нее),
+							// то просто прилепляем контент к границе, если он еще не там.
+							// НЕ вызываем preventDefault(), позволяя странице скроллиться.
+							if (incrY.current !== clampedY) { // Сравниваем текущий ref с клампнутым значением
 								incrY.current = clampedY;
 								yToRef.current(clampedY);
 							}
