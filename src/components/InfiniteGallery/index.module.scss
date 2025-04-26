@@ -1,10 +1,10 @@
 /* src/components/InfiniteGallery/index.module.scss */
 
 // --- Переменные для настройки ---
-$item-height: 20vw;
-$column-width: 20vw;
-$row-gap: 10vw;
-$column-gap: 10vw;
+$item-height: 27vw;
+$column-width: 24vw;
+$row-gap: 15vw;
+$column-gap: 20vw;
 // Убрали переменные плейсхолдера
 
 // --- Основной контейнер (без изменений) ---
@@ -48,6 +48,7 @@ $column-gap: 10vw;
 	gap: $row-gap;
 	box-sizing: border-box;
 	pointer-events: none;
+	contain: layout style;
 }
 
 // --- Элемент сетки (ОБНОВЛЕН) ---
