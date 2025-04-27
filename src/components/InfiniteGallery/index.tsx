@@ -6,9 +6,13 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { debounce, throttle } from 'lodash';
 
 
+import lqipMapData from '../../lqip-map.json'; // <<< Импортируем карту плейсхолдеров (как data)
 import { ImageModal } from '../ImageModal';
 
 import styles from './index.module.scss';
+
+// <<< Явно типизируем карту >>>
+const lqipMap: Record<string, string> = lqipMapData;
 
 gsap.registerPlugin(Observer, ScrollTrigger);
 // --- Константы ---
@@ -166,7 +170,7 @@ export const InfiniteGallery: React.FC = () => {
 	const [renderColsCount, setRenderColsCount] = useState(COLS); // Начинаем с COLS, будет пересчитано
 
 	// --- НОВОЕ Состояние для отслеживания выбранного изображения для модального окна ---
-	const [selectedFullSrc, setSelectedFullSrc] = useState<string | null>(null);
+	const [selectedItem, setSelectedItem] = useState<GalleryItem | null>(null); // <<< Новое состояние
 
 	// --- Функция для предзагрузки ПРЕВЬЮ (использует обновленную getColumnPreviewImageUrls) ---
 	const performPreload = useCallback((scrollDirection: 1 | -1) => {
@@ -208,19 +212,14 @@ export const InfiniteGallery: React.FC = () => {
 		}
 	}, []); // Пустой массив зависимостей
 
-	// --- НОВАЯ Функция обработчика клика по изображению ---
-	const handleImageClick = useCallback((fullSrc: string) => {
-		setSelectedFullSrc(fullSrc);
-		// Опционально: Можно временно заблокировать скролл страницы пока модалка открыта,
-		// если она не будет сама это делать.
-		// document.body.style.overflow = 'hidden';
-	}, []); // Пустой массив зависимостей, т.к. использует только setSelectedFullSrc
+	// --- НОВАЯ Функция обработчика клика по изображению (обновлена) ---
+	const handleImageClick = useCallback((item: GalleryItem) => { // <<< Принимаем весь объект
+		setSelectedItem(item); // <<< Сохраняем весь объект
+	}, []);
 
-	// --- НОВАЯ Функция закрытия модального окна ---
+	// --- НОВАЯ Функция закрытия модального окна (обновлена) ---
 	const handleCloseModal = useCallback(() => {
-		setSelectedFullSrc(null);
-		// Опционально: Восстанавливаем скролл страницы
-		// document.body.style.overflow = '';
+		setSelectedItem(null); // <<< Сбрасываем объект
 	}, []);
 
 	// --- Функция рендеринга одной колонки (обновлена для клика и previewSrc) ---
@@ -241,10 +240,10 @@ export const InfiniteGallery: React.FC = () => {
 						ref={isFirstColumn && isFirstItem ? itemRef : null}
 						role="button"
 						tabIndex={0}
-						onClick={() => handleImageClick(item.fullSrc)}
+						onClick={() => handleImageClick(item)} // <<< Передаем весь объект item
 						onKeyDown={(e) => {
 							if (e.key === 'Enter' || e.key === ' ') {
-								handleImageClick(item.fullSrc);
+								handleImageClick(item); // <<< Передаем весь объект item
 							}
 						}}
 						style={{ cursor: 'pointer', pointerEvents: 'auto' }}
@@ -628,11 +627,13 @@ export const InfiniteGallery: React.FC = () => {
 				{columnsToRender}
 			</div>
 
-			{/* Используем ImageModal */}
-			{selectedFullSrc && (
+			{/* Используем ImageModal (обновлено) */}
+			{selectedItem && (
 				<ImageModal
-					src={selectedFullSrc}
-					alt={`Full size view of image ${selectedFullSrc.split('/').pop()?.split('.')[0] ?? ''}`} // Генерируем alt
+					src={selectedItem.fullSrc} // Используем URL из объекта
+					alt={selectedItem.alt}      // Используем alt из объекта
+					// <<< Ищем плейсхолдер по ID >>>
+					placeholderSrc={lqipMap[`/assets/full/${selectedItem.id}.webp`]}
 					onClose={handleCloseModal}
 				/>
 			)}
