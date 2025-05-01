@@ -12,34 +12,41 @@ type ImageModalProps = {
 export const ImageModal: React.FC<ImageModalProps> = ({ src, placeholderSrc, alt = "Full size view", onClose }) => {
 
 	const [isLoaded, setIsLoaded] = useState(false);
-	// Изначально показываем плейсхолдер, если он есть, иначе сразу основной src
-	const [currentSrc, setCurrentSrc] = useState(placeholderSrc || src);
+	// Убираем placeholderSrc из начального значения. Всегда начинаем с основного src,
+	// но будем скрывать его или применять стили, пока isLoaded = false.
+	// const [currentSrc, setCurrentSrc] = useState(placeholderSrc || src); // <<< УДАЛИТЬ
 
-	// --- Эффект для загрузки полного изображения, если есть плейсхолдер ---
+	// --- Эффект для загрузки полного изображения ---
 	useEffect(() => {
-		// Если не было плейсхолдера или изображение уже основное, ничего не делаем
-		if (!placeholderSrc || currentSrc === src) {
-			setIsLoaded(true); // Считаем загруженным
-			return;
-		}
+		// Сбросим isLoaded при смене src
+		setIsLoaded(false);
 
 		let isMounted = true; // Флаг для отслеживания размонтирования
 		const img = new Image();
 		img.onload = () => {
-			// Обновляем src и ставим флаг загрузки, только если компонент еще смонтирован
+			// Обновляем флаг загрузки, только если компонент еще смонтирован
 			if (isMounted) {
-				setCurrentSrc(src);
+				// setCurrentSrc(src); // <<< УДАЛИТЬ (currentSrc больше не нужен)
 				setIsLoaded(true);
 			}
 		};
+		img.onerror = () => {
+			// Обработка ошибки загрузки (опционально)
+			// Можно установить isLoaded в true, чтобы показать сломанную иконку,
+			// или оставить false, чтобы показать плейсхолдер.
+			if (isMounted) {
+				console.error(`Failed to load image: ${src}`);
+				setIsLoaded(true); // Показать alt текст / иконку ошибки
+			}
+		}
 		img.src = src; // Начинаем загрузку основного изображения
 
 		// Функция очистки: если компонент размонтируется до загрузки
 		return () => {
 			isMounted = false;
 		};
-		// Зависимости: основной src и плейсхолдер
-	}, [src, placeholderSrc, currentSrc]);
+		// Зависимость только от основного src
+	}, [src]);
 
 	// --- Эффект для блокировки скролла body и обработки Escape ---
 	useEffect(() => {
@@ -89,16 +96,25 @@ export const ImageModal: React.FC<ImageModalProps> = ({ src, placeholderSrc, alt
 				role="dialog"
 				aria-modal="true"
 				aria-label={alt}
+				// Применяем плейсхолдер как фон, пока isLoaded = false
+				style={!isLoaded && placeholderSrc ? {
+					backgroundImage: `url("${placeholderSrc}")`,
+					backgroundSize: 'contain', // Масштабирует фон, сохраняя пропорции
+					backgroundRepeat: 'no-repeat',
+					backgroundPosition: 'center center',
+				} : {}}
 			>
 
 				<img
-					src={currentSrc} // Используем текущий источник (плейсхолдер или основной)
+					// src={currentSrc} // <<< ИЗМЕНИТЬ
+					src={src} // Всегда используем основной src
 					alt={alt}
-					className={`${styles.modalImage} ${isLoaded ? styles.loaded : ''}`}
+					// Добавляем стиль для скрытия img, пока он не загружен, если есть плейсхолдер
+					className={`${styles.modalImage} ${isLoaded ? styles.loaded : styles.loadingWithPlaceholder}`}
 					style={{
-						// Можно добавить инлайн-стиль для размытия, если не хотите менять CSS-файл
-						// filter: isLoaded ? 'none' : 'blur(10px)',
-						// transition: 'filter 0.3s ease-in-out',
+						// Можно управлять видимостью через стили, чтобы избежать "прыжка"
+						// opacity: isLoaded ? 1 : 0,
+						// transition: 'opacity 0.3s ease-in-out',
 					}}
 				/>
 			</div>
