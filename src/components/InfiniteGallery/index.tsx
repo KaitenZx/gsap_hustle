@@ -1,4 +1,4 @@
-import React, { useRef, useLayoutEffect, useState, useCallback, useMemo } from 'react';
+import React, { useRef, useLayoutEffect, useState, useCallback, useMemo, useEffect } from 'react';
 
 import { gsap } from 'gsap';
 import { Observer } from 'gsap/Observer';
@@ -22,6 +22,9 @@ const TOTAL_ITEMS = ROWS * COLS; // Всего элементов (70)
 const DEBOUNCE_RESIZE_MS = 150; // Задержка debounce для ресайза
 const RENDER_COLS_BUFFER = 2; // Дополнительные колонки для рендеринга (запас)
 const PRELOAD_THROTTLE_MS = 200; // Задержка throttle для предзагрузки
+const ROTATION_CLAMP = 15; // <<< Уменьшили максимальный угол поворота
+const ROTATION_SENSITIVITY = 18; // <<< Чувствительность поворота (делитель)
+const ACCELERATION_FACTOR = 0.0008; // <<< Фактор ускорения скролла (чем больше, тем сильнее ускорение)
 
 // --- Типизация для импортированного модуля изображения ---
 type ImageModule = {
@@ -100,7 +103,6 @@ const preloadImage = (url: string) => {
 		_preloadedUrls.add(url);
 		const img = new Image();
 		img.src = url;
-		// console.log(`[IFG Preload] Requesting: ${url.split('/').pop()}`);
 	}
 };
 
@@ -117,6 +119,19 @@ const getColumnPreviewImageUrls = (columnIndex: number): string[] => {
 		}
 	}
 	return urls;
+};
+
+// --- Function for preloading ONE FULL-SIZE IMAGE ---
+const _preloadedFullUrls = new Set<string>();
+const preloadFullImage = (url: string) => {
+	if (!_preloadedFullUrls.has(url)) {
+		_preloadedFullUrls.add(url);
+		const img = new Image();
+		img.src = url;
+		// Optional: Add logging or callbacks for load/error
+		// img.onload = () => console.log(`Preloaded full: ${url}`);
+		// img.onerror = () => console.error(`Failed to preload full: ${url}`);
+	}
 };
 
 // --- Тип для хранения рассчитанных размеров ---
@@ -137,6 +152,13 @@ type GridDimensions = {
 	scrollableDistanceY: number;      // Расстояние, которое можно проскроллить по вертикали внутри
 }
 
+// --- Тип для хранения данных анимации элемента ---
+type MediaAnimData = {
+	element: HTMLDivElement | null;
+	rotX: ReturnType<typeof gsap.quickTo> | null;
+	rotY: ReturnType<typeof gsap.quickTo> | null;
+};
+
 // --- Компонент ---
 export const InfiniteGallery: React.FC = () => {
 	// --- Refs для DOM элементов ---
@@ -144,6 +166,7 @@ export const InfiniteGallery: React.FC = () => {
 	const contentWrapperRef = useRef<HTMLDivElement>(null); // Двигающийся контейнер (.contentWrapper)
 	const columnRef = useRef<HTMLDivElement>(null);         // Реф для измерения ОДНОЙ колонки
 	const itemRef = useRef<HTMLDivElement>(null);           // Реф для измерения ОДНОГО элемента (.media)
+	const canvasRef = useRef<HTMLCanvasElement>(null);        // Реф для холста анимации
 
 	// --- Refs для GSAP и других инстансов ---
 	const gsapCtx = useRef<gsap.Context | null>(null);             // Контекст GSAP для очистки
@@ -161,6 +184,19 @@ export const InfiniteGallery: React.FC = () => {
 
 	const dimensionsRef = useRef<GridDimensions | null>(null); // Хранение рассчитанных размеров
 	const isInitialized = useRef(false); // Флаг для однократной инициализации
+
+	// --- Refs для эффекта вращения ---
+	const mediaAnimRefs = useRef(new Map<string, MediaAnimData>());
+	const mousePos = useRef({ x: 0, y: 0 });
+	const isScrollingRef = useRef(false);
+	const containerCenterRef = useRef({ x: 0, y: 0 });
+	// <<< Используем number для ID таймаута >>>
+	const scrollStopTimeoutRef = useRef<number | null>(null);
+
+	// <<< Ref для холста анимации >>>
+	// const canvasRef = useRef<HTMLCanvasElement>(null); // <<< REMOVE THIS DUPLICATE
+	// <<< Ref для ID анимации >>>
+	const animationFrameIdRef = useRef<number | null>(null);
 
 	// --- Состояние для блокировки скролла ---
 	const isScrollLockedRef = useRef(false); // Ref для мгновенного доступа из GSAP
@@ -222,8 +258,15 @@ export const InfiniteGallery: React.FC = () => {
 		setSelectedItem(null); // <<< Сбрасываем объект
 	}, []);
 
-	// --- Функция рендеринга одной колонки (обновлена для клика и previewSrc) ---
+	// --- НОВАЯ Функция для начала предзагрузки при взаимодействии ---
+	const handleInteractionStart = useCallback((fullSrc: string) => {
+		preloadFullImage(fullSrc);
+	}, []); // Empty dependencies, preloadFullImage is stable
+
+	// --- Функция рендеринга одной колонки (ОБНОВЛЕНА - убираем аргумент animRefsMap) ---
 	const renderColumn = useCallback((columnIndex: number) => {
+		// <<< Access mediaAnimRefs directly from closure >>>
+
 		const isFirstColumn = columnIndex === 0;
 		const itemsInColumn = [];
 		const baseItemIndex = (columnIndex % COLS) * ROWS;
@@ -233,17 +276,55 @@ export const InfiniteGallery: React.FC = () => {
 			if (itemIndex < ITEMS.length) {
 				const item: GalleryItem = ITEMS[itemIndex];
 				const isFirstItem = i === 0;
+				const itemKey = `${columnIndex}-${item.id}`;
+
 				itemsInColumn.push(
 					<div
 						className={styles.media}
-						key={`${columnIndex}-${item.id}`}
-						ref={isFirstColumn && isFirstItem ? itemRef : null}
+						key={itemKey}
+						ref={(el: HTMLDivElement | null) => {
+							// Assign itemRef conditionally
+							if (isFirstColumn && isFirstItem) {
+								itemRef.current = el;
+							}
+
+							// <<< Log: Callback ref triggered >>>
+
+							// <<< Use mediaAnimRefs directly >>>
+							const currentMap = mediaAnimRefs.current;
+							const existingEntry = currentMap.get(itemKey);
+
+							if (el) {
+								// Element added or updated
+								if (!existingEntry || existingEntry.element !== el) {
+									const rotX = gsap.quickTo(el, 'rotationX', { duration: 0.6, ease: "power3.out" });
+									const rotY = gsap.quickTo(el, 'rotationY', { duration: 0.6, ease: "power3.out" });
+									currentMap.set(itemKey, { element: el, rotX, rotY });
+								} else if (existingEntry && !existingEntry.rotX) {
+									// <<< Log: Re-creating quickTo (recovery) >>>
+									const rotX = gsap.quickTo(el, 'rotationX', { duration: 0.6, ease: "power3.out" });
+									const rotY = gsap.quickTo(el, 'rotationY', { duration: 0.6, ease: "power3.out" });
+									currentMap.set(itemKey, { ...existingEntry, rotX, rotY });
+								}
+							} else {
+								// Element removed
+								if (existingEntry) {
+									currentMap.set(itemKey, { element: null, rotX: null, rotY: null });
+								}
+							}
+						}}
 						role="button"
 						tabIndex={0}
-						onClick={() => handleImageClick(item)} // <<< Передаем весь объект item
+						onClick={() => handleImageClick(item)}
+						// <<< Add interaction start handlers >>>
+						onMouseDown={() => handleInteractionStart(item.fullSrc)}
+						onTouchStart={() => handleInteractionStart(item.fullSrc)}
+						// <<< End interaction start handlers >>>
 						onKeyDown={(e) => {
 							if (e.key === 'Enter' || e.key === ' ') {
-								handleImageClick(item); // <<< Передаем весь объект item
+								// <<< Preload on keyboard activation too >>>
+								handleInteractionStart(item.fullSrc);
+								handleImageClick(item);
 							}
 						}}
 						style={{ cursor: 'pointer', pointerEvents: 'auto' }}
@@ -253,7 +334,7 @@ export const InfiniteGallery: React.FC = () => {
 							alt={item.alt}
 							loading="lazy"
 							decoding="async"
-							style={{ pointerEvents: 'none' }}
+							style={{ pointerEvents: 'none' }} // Убедимся, что img не ловит события мыши
 						/>
 					</div>
 				);
@@ -264,19 +345,19 @@ export const InfiniteGallery: React.FC = () => {
 				className={styles.column}
 				key={`col-${columnIndex}`}
 				ref={isFirstColumn ? columnRef : null}
-				style={{ pointerEvents: 'none' }} // Отключаем события на колонке (кроме .media)
+				style={{ pointerEvents: 'none' }}
 			>
 				{itemsInColumn}
 			</div>
 		);
-	}, [handleImageClick]);
+		// <<< Removed animRefsMap argument from useCallback dependencies (not needed) >>>
+	}, [handleImageClick, handleInteractionStart]);
 
-	// --- Основной useLayoutEffect (обновлен для использования getColumnPreviewImageUrls) ---
+	// --- Основной useLayoutEffect (ОБНОВЛЕН для эффекта вращения) ---
 	useLayoutEffect(() => {
 		const containerElement = containerRef.current;
 		const contentWrapperElement = contentWrapperRef.current;
 
-		// Ждем рефы и проверяем флаг инициализации
 		if (!containerElement || !contentWrapperElement || isInitialized.current) {
 			return;
 		}
@@ -313,10 +394,8 @@ export const InfiniteGallery: React.FC = () => {
 			const columnTotalWidth = columnWidth + columnGap; // Ширина колонки + правый отступ
 			const gridContentHeight = ROWS * itemHeight + Math.max(0, ROWS - 1) * rowGap;
 			const fullWrapperHeight = gridContentHeight + wrapperPaddingTop + wrapperPaddingBottom;
-			// Логическая ширина контента (COLS колонок)
 			const totalContentLogicalWidth = COLS * columnWidth + Math.max(0, COLS - 1) * columnGap;
-			// ----- FIX: Рассчитываем корректную ширину одного полного цикла ----
-			const repeatingWidth = COLS * columnTotalWidth; // COLS * (ширина + gap)
+			const repeatingWidth = COLS * columnTotalWidth;
 
 			// Проверка на columnTotalWidth > 0 перед использованием в wrap
 			if (columnTotalWidth <= 0 || !Number.isFinite(totalContentLogicalWidth) || !Number.isFinite(repeatingWidth)) { // Добавили проверку repeatingWidth
@@ -356,9 +435,92 @@ export const InfiniteGallery: React.FC = () => {
 			return count;
 		};
 
+		// Создаем GSAP контекст
 		gsapCtx.current = gsap.context(() => {
-			// --- Функция для (пере)создания quickTo ---
-			const setupQuickTo = (dims: GridDimensions) => {
+			// --- <<< Объявляем обработчики и функции обновления ВНУТРИ контекста >>> ---
+			let updateRotationsRequest: number | null = null;
+
+			const updateRotations = () => {
+				updateRotationsRequest = null; // Сбрасываем ID запроса
+				const currentMap = mediaAnimRefs.current;
+				const mapSize = currentMap.size;
+				if (mapSize === 0) return; // Exit if empty
+
+				// <<< Определяем целевую точку (центр контейнера или курсор) >>>
+				let targetX: number;
+				let targetY: number;
+
+				if (isScrollingRef.current) {
+					targetX = containerCenterRef.current.x;
+					targetY = containerCenterRef.current.y;
+				} else {
+					targetX = mousePos.current.x;
+					targetY = mousePos.current.y;
+				}
+				// <<< Конец определения цели >>>
+
+				currentMap.forEach((refData, _key) => {
+					if (refData.element && refData.rotX && refData.rotY) {
+						const el = refData.element;
+						const rotXQuickTo = refData.rotX;
+						const rotYQuickTo = refData.rotY;
+
+						const bounds = el.getBoundingClientRect();
+						if (bounds.top < window.innerHeight && bounds.bottom > 0 &&
+							bounds.left < window.innerWidth && bounds.right > 0) {
+							const midpointX = bounds.left + bounds.width / 2;
+							const midpointY = bounds.top + bounds.height / 2;
+
+							// <<< Используем targetX, targetY >>>
+							const rotX = (targetY - midpointY) / ROTATION_SENSITIVITY;
+							const rotY = (targetX - midpointX) / ROTATION_SENSITIVITY;
+							const clampedRotX = gsap.utils.clamp(-ROTATION_CLAMP, ROTATION_CLAMP, rotX);
+							const clampedRotY = gsap.utils.clamp(-ROTATION_CLAMP, ROTATION_CLAMP, rotY);
+
+							rotXQuickTo(clampedRotX * -1);
+							rotYQuickTo(clampedRotY);
+						} else {
+							// Optional reset logic here
+						}
+					}
+				});
+			};
+
+			// <<< Вспомогательная функция для запуска обновления вращения >>>
+			const requestRotationUpdate = () => {
+				if (!updateRotationsRequest) {
+					updateRotationsRequest = requestAnimationFrame(updateRotations);
+				}
+			};
+
+			const handleMouseMove = (event: MouseEvent) => {
+				mousePos.current = { x: event.clientX, y: event.clientY };
+				// <<< Используем вспомогательную функцию >>>
+				requestRotationUpdate();
+			};
+
+			// <<< Выносим хелпер за пределы create >>>
+			const handleScrollActivity = () => {
+				if (!containerElement) return;
+				if (!isScrollingRef.current) {
+					const bounds = containerElement.getBoundingClientRect();
+					containerCenterRef.current = {
+						x: bounds.left + bounds.width / 2,
+						y: bounds.top + bounds.height / 2,
+					};
+				}
+				isScrollingRef.current = true;
+				if (scrollStopTimeoutRef.current) {
+					clearTimeout(scrollStopTimeoutRef.current);
+				}
+				requestRotationUpdate();
+				scrollStopTimeoutRef.current = window.setTimeout(() => {
+					isScrollingRef.current = false;
+				}, 150);
+			};
+
+			// --- Функция для (пере)создания quickTo для СКРОЛЛА ---
+			const setupScrollQuickTo = (dims: GridDimensions) => {
 				if (!contentWrapperElement) return; // Доп. проверка
 				xToRef.current = gsap.quickTo(contentWrapperElement, "x", {
 					duration: 0.8, ease: "power3.out",
@@ -369,96 +531,90 @@ export const InfiniteGallery: React.FC = () => {
 				});
 			};
 
-			// --- Инициализация Observer ---
+			// --- Инициализация Observer для СКРОЛЛА ---
 			if (!observerInstance.current) {
 				observerInstance.current = Observer.create({
-					target: containerElement, // Слушаем сам контейнер
+					target: containerElement,
 					type: "wheel,touch,pointer",
-					preventDefault: false, // Управляем вручную
+					preventDefault: false,
 					tolerance: 5,
 					dragMinimum: 3,
 
 					onChangeX: (self) => {
-						// Игнорируем, если вертикальное движение доминирует
+						handleScrollActivity();
 						if (Math.abs(self.deltaX) < Math.abs(self.deltaY)) return;
-
-						// Предотвращаем горизонтальный свайп страницы колесом/тачпадом
 						if (self.event.type === 'wheel' && Math.abs(self.deltaX) > 0) {
-							self.event.preventDefault(); // Предотвратить действие по умолчанию
-							// self.event.stopPropagation(); // Обычно не нужен, но можно оставить при необходимости
+							self.event.preventDefault();
 						}
-
-						// Выходим, если не заблокировано или нет quickTo/размеров
 						if (!isScrollLockedRef.current || !xToRef.current || !dimensionsRef.current) return;
 
-						// Накапливаем и применяем смещение X
-						const multiplier = self.event.type === "wheel" ? 1 : 1.5;
-						if (self.event.type === "wheel") { incrX.current -= self.deltaX * multiplier }
-						else { incrX.current += self.deltaX * multiplier }
-						xToRef.current(incrX.current);
+						// <<< Расчет ускорения >>>
+						const baseMultiplier = self.event.type === "wheel" ? 1 : 1.5;
+						const velocityX = self.velocityX; // Получаем скорость от Observer
+						const accelMultiplier = 1 + Math.abs(velocityX) * ACCELERATION_FACTOR;
+						const incrementX = self.deltaX * baseMultiplier * accelMultiplier; // Применяем ускорение
 
-						// Вызываем throttled-функцию предзагрузки ПРЕВЬЮ
+						// <<< Применяем инкремент с правильным знаком >>>
+						if (self.event.type === "wheel") {
+							incrX.current -= incrementX;
+						} else {
+							// Для touch/pointer deltaX уже имеет правильный знак относительно смещения
+							incrX.current += incrementX;
+						}
+
+						xToRef.current(incrX.current);
 						throttledPreloadRef.current?.(self.deltaX > 0 ? 1 : -1);
 					},
 					onChangeY: (self) => {
-						// Выходим, если не заблокировано или нет quickTo/размеров
+						handleScrollActivity();
 						if (!isScrollLockedRef.current || !yToRef.current || !dimensionsRef.current) return;
-						// Игнорируем, если горизонтальное движение доминирует
 						if (Math.abs(self.deltaY) < Math.abs(self.deltaX)) return;
 
 						const dims = dimensionsRef.current;
-						const multiplier = self.event.type === "wheel" ? 1 : 1.5;
 
-						// Рассчитываем целевое значение Y
+						// <<< Расчет ускорения >>>
+						const baseMultiplier = self.event.type === "wheel" ? 1 : 1.5;
+						const velocityY = self.velocityY; // Получаем скорость от Observer
+						const accelMultiplier = 1 + Math.abs(velocityY) * ACCELERATION_FACTOR;
+						const incrementY = self.deltaY * baseMultiplier * accelMultiplier; // Применяем ускорение
+
+						// <<< Применяем инкремент к targetY с правильным знаком >>>
 						let targetY = incrY.current;
-						if (self.event.type === "wheel") targetY -= self.deltaY * multiplier;
-						else targetY += self.deltaY * multiplier;
+						if (self.event.type === "wheel") {
+							targetY -= incrementY;
+						} else {
+							// Для touch/pointer deltaY уже имеет правильный знак относительно смещения
+							targetY += incrementY;
+						}
 
-						// Ограничиваем Y границами
 						const clampedY = gsap.utils.clamp(dims.maxY, dims.minY, targetY);
-
-						// --- FIX: Определяем, нужно ли предотвращать скролл страницы (новая логика) ---
-						// Определяем направление скролла (true = вниз, false = вверх)
-						// Важно: deltaY для wheel инвертирован по сравнению с touch/pointer
 						const isScrollingDown = self.event.type === "wheel" ? self.deltaY > 0 : self.deltaY < 0;
-
 						let shouldPreventDefault = false;
 						if (isScrollingDown) {
-							// Если скроллим ВНИЗ, предотвращаем, если еще НЕ достигли НИЖНЕЙ границы (maxY)
-							// Используем небольшой допуск, чтобы избежать проблем с float-сравнением
 							shouldPreventDefault = incrY.current > dims.maxY + 0.01;
 						} else {
-							// Если скроллим ВВЕРХ, предотвращаем, если еще НЕ достигли ВЕРХНЕЙ границы (minY)
 							shouldPreventDefault = incrY.current < dims.minY - 0.01;
 						}
-						// --- Конец FIX ---
-
-						// Если нужно предотвращать скролл страницы (т.е. мы внутри границ И ЕСТЬ КУДА СКРОЛЛИТЬ)
 						if (shouldPreventDefault) {
-							// Накапливаем и двигаем внутренний контент
 							incrY.current = clampedY;
 							yToRef.current(clampedY);
-
-							// Предотвращаем скролл страницы
 							self.event.preventDefault();
 						} else {
-							// Если предотвращать не нужно (достигли границы ИЛИ пытаемся выйти за нее),
-							// то просто прилепляем контент к границе, если он еще не там.
-							// НЕ вызываем preventDefault(), позволяя странице скроллиться.
-							if (incrY.current !== clampedY) { // Сравниваем текущий ref с клампнутым значением
+							if (incrY.current !== clampedY) {
 								incrY.current = clampedY;
 								yToRef.current(clampedY);
 							}
 						}
 					},
 				});
-				observerInstance.current.disable(); // Сразу выключаем
+				observerInstance.current.disable();
 			}
 
-			// --- Создание throttled-функции для предзагрузки (внутри gsap.context) ---
-			// Создаем throttled-версию внутри контекста, используя performPreload из useCallback
-			// чтобы она тоже очистилась при revert
+			// --- Создание throttled-функции для ПРЕДЗАГРУЗКИ ---
 			throttledPreloadRef.current = throttle(performPreload, PRELOAD_THROTTLE_MS, { leading: false, trailing: true });
+
+			// --- Добавляем слушатель движения мыши ---
+			window.addEventListener('mousemove', handleMouseMove);
 
 			// --- Инициализация ScrollTrigger ---
 			if (!scrollTriggerInstance.current) {
@@ -505,20 +661,25 @@ export const InfiniteGallery: React.FC = () => {
 
 					// 3. Обновляем GSAP и позицию ВНУТРИ контекста
 					gsapCtx.current.add(() => {
-						setupQuickTo(newDims);
+						setupScrollQuickTo(newDims); // <<< Переименовали setupQuickTo в setupScrollQuickTo
 						// Сбрасываем X, клампим Y к новым границам
 						incrX.current = 0;
 						incrY.current = gsap.utils.clamp(newDims.maxY, newDims.minY, incrY.current);
 						gsap.set(contentWrapperElement, { x: 0, y: incrY.current });
+						// <<< Сброс вращений при ресайзе (опционально) >>>
+						mediaAnimRefs.current.forEach(refData => {
+							refData.rotX?.(0);
+							refData.rotY?.(0);
+						});
 					});
 
 					// 4. Обновляем state количества колонок, ЕСЛИ изменилось
-					// Сравниваем с текущим значением из state (renderColsCount)
 					if (newRenderCols !== renderColsCount) {
-						setRenderColsCount(newRenderCols); // Обновляем state -> React перерендерит колонки
+						// <<< Log: Clearing map in resize handler >>>
+						mediaAnimRefs.current.clear();
+						setRenderColsCount(newRenderCols);
 					}
 				}
-				// 5. Обновляем ScrollTrigger ПОСЛЕ всех расчетов и возможных ререндеров
 				ScrollTrigger.refresh();
 
 				// --- Предзагрузка начальных ПРЕВЬЮ изображений ---
@@ -531,23 +692,20 @@ export const InfiniteGallery: React.FC = () => {
 						urlsToPreload.forEach(preloadImage);
 					}
 				}
+
 			}, DEBOUNCE_RESIZE_MS);
 
 			resizeObserverRef.current = new ResizeObserver(debouncedResizeHandler);
 			resizeObserverRef.current.observe(containerElement); // Наблюдаем за ИЗМЕНЕНИЕМ РАЗМЕРА контейнера
 
 			// --- Первоначальный расчет и настройка ---
-			// 1. Рассчитываем начальные размеры
 			const initialDims = calculateDimensions();
 
 			if (initialDims) {
-				// 2. Рассчитываем начальное количество колонок
 				const initialRenderCols = calculateRenderCols(initialDims);
-				// 3. Устанавливаем начальное количество колонок в state
+				// <<< Log: Clearing map in initial setup >>>
 				setRenderColsCount(initialRenderCols);
-
-				// 4. Настраиваем GSAP (quickTo, начальная позиция)
-				setupQuickTo(initialDims);
+				setupScrollQuickTo(initialDims);
 				gsap.set(contentWrapperElement, { x: 0, y: 0 });
 				incrX.current = 0;
 				incrY.current = 0;
@@ -581,48 +739,175 @@ export const InfiniteGallery: React.FC = () => {
 				setRenderColsCount(COLS);
 			}
 
-		}, containerRef); // Привязываем контекст GSAP к containerRef
+			// <<< FIX: Возвращаем функцию очистки из КОНТЕКСТА GSAP >>>
+			return () => {
+				window.removeEventListener('mousemove', handleMouseMove);
+				if (updateRotationsRequest) {
+					cancelAnimationFrame(updateRotationsRequest);
+				}
+				// <<< Очищаем таймаут остановки скролла >>>
+				if (scrollStopTimeoutRef.current) {
+					clearTimeout(scrollStopTimeoutRef.current);
+				}
+				// Остальная очистка (Observer, ST, quickTo) управляется revert()
+			};
 
-		// --- Функция очистки при размонтировании компонента ---
+		}, containerRef);
+
+		// <<< FIX: Capture ref value for cleanup >>>
+		const currentMediaAnimRefs = mediaAnimRefs.current;
+
+		// --- Функция очистки для useLayoutEffect (вне контекста GSAP) ---
 		return () => {
-			// 1. Отключаем ResizeObserver
 			resizeObserverRef.current?.disconnect();
-			// 2. Отменяем любые ожидающие вызовы throttled-функции
 			throttledPreloadRef.current?.cancel();
-			// 3. Убиваем все, что создано в контексте GSAP
-			// Это включает Observer, ScrollTrigger, все анимации и quickTo
+
 			gsapCtx.current?.revert();
-			// 4. Убираем класс с body
+
 			document.body.classList.remove('ifg-locked');
-			// 5. Сбрасываем все рефы (хотя revert уже многое сделал, это для чистоты)
+			currentMediaAnimRefs.clear();
+
+			// Сброс рефов
 			resizeObserverRef.current = null;
 			observerInstance.current = null;
 			scrollTriggerInstance.current = null;
 			gsapCtx.current = null;
 			xToRef.current = null;
 			yToRef.current = null;
-			throttledPreloadRef.current = null; // Сброс рефа для throttle
+			throttledPreloadRef.current = null;
 			dimensionsRef.current = null;
-			isInitialized.current = false; // Сброс флага
-			isScrollLockedRef.current = false; // Сброс состояния блокировки
+			isInitialized.current = false;
+			isScrollLockedRef.current = false;
 		};
 
-		// Добавляем renderColsCount, performPreload, setScrollLocked в зависимости
-	}, [renderColumn, setScrollLocked, renderColsCount, performPreload]); // Зависимости useLayoutEffect
+	}, [setScrollLocked, renderColsCount, performPreload]);
 
-	// --- Мемоизация массива колонок ---
+	// --- Мемоизация массива колонок (ОБНОВЛЕНО - убираем аргумент mediaAnimRefs) ---
 	const columnsToRender = useMemo(() => {
 		return Array.from({ length: renderColsCount }).map((_, index) =>
+			// <<< Call renderColumn without the ref argument >>>
 			renderColumn(index)
 		);
+		// renderColumn зависит от handleImageClick и handleInteractionStart
+		// <<< Update dependencies for renderColumn >>>
 	}, [renderColsCount, renderColumn]);
 
-	// --- JSX Разметка (раскомментируем и используем ImageModal) ---
+	// --- useEffect for Background Canvas Animation ---
+	useEffect(() => {
+		const canvas = canvasRef.current;
+		const container = containerRef.current; // Use the main container for size
+		if (!canvas || !container) return;
+
+		const ctx = canvas.getContext('2d');
+		if (!ctx) return;
+
+		// --- Animation Settings (Adapt from provided code) ---
+		const pattern = [
+			' _&+glitchy+&_ ',
+			'*.+pixels+#!      '
+		];
+		// const col = ['#333', '#555']; // Darker colors for background
+		const fontColor = '#444'; // Single subtle color
+		const weights = ['normal', 'bold']; // Use string values for ctx.font
+		const fontSize = 12; // Adjust as needed
+		const lineHeight = 14; // Adjust as needed
+		const timeFactor = 0.0005; // Slower time progression
+		const xCoordFactor = 0.01; // Adjust pattern scaling
+		const yCoordFactor = 0.01;
+		const xyCoordFactor = 0.0008;
+		const sinMultiplier = 20; // Adjust pattern intensity
+
+		let cols = 0;
+		let rows = 0;
+
+		const resizeCanvas = () => {
+			const dpr = window.devicePixelRatio || 1;
+			const rect = container.getBoundingClientRect(); // Use container size
+			canvas.width = rect.width * dpr;
+			canvas.height = rect.height * dpr;
+			canvas.style.width = `${rect.width}px`;
+			canvas.style.height = `${rect.height}px`;
+			ctx.scale(dpr, dpr);
+
+			cols = Math.floor(rect.width / (fontSize * 0.6)); // Estimate character cols
+			rows = Math.floor(rect.height / lineHeight);     // Estimate character rows
+
+			// Set font styles after resize/scale
+			ctx.font = `${fontSize}px monospace`;
+			ctx.textAlign = 'center';
+			ctx.textBaseline = 'middle';
+		};
+
+		const drawBackground = (time: number) => {
+			if (!ctx || cols <= 0 || rows <= 0) return;
+
+			const t = time * timeFactor;
+			const cellWidth = canvas.width / window.devicePixelRatio / cols;
+			const cellHeight = canvas.height / window.devicePixelRatio / rows;
+			const centerCol = cols / 2;
+			const centerRow = rows / 2;
+
+			ctx.clearRect(0, 0, canvas.width, canvas.height);
+			ctx.fillStyle = fontColor;
+
+			for (let y = 0; y < rows; y++) {
+				for (let x = 0; x < cols; x++) {
+					const relX = x - centerCol;
+					const relY = y - centerRow;
+
+					const o = Math.sin(relX * relY * xyCoordFactor + relY * yCoordFactor + t) * sinMultiplier;
+					const i = Math.floor(Math.abs(relX * xCoordFactor + relY * yCoordFactor + o)); // Adjusted factors
+					const c = (Math.floor(x * 0.5) + Math.floor(y * 0.5)) % 2; // Simplified checker
+
+					const char = pattern[c]?.[i % pattern[c]?.length] ?? ' ';
+					const weight = weights[c] ?? 'normal';
+
+					ctx.font = `${weight} ${fontSize}px monospace`; // Set weight per char
+
+					// Calculate position to draw character
+					const drawX = x * cellWidth + cellWidth / 2;
+					const drawY = y * cellHeight + cellHeight / 2;
+
+					ctx.fillText(char, drawX, drawY);
+				}
+			}
+		};
+
+		const animate = (currentTime: number) => {
+			drawBackground(currentTime);
+			animationFrameIdRef.current = requestAnimationFrame(animate);
+		};
+
+		// Initial setup
+		resizeCanvas();
+		animationFrameIdRef.current = requestAnimationFrame(animate);
+
+		// Handle resize
+		const resizeObserver = new ResizeObserver(() => {
+			resizeCanvas();
+			// Optional: Redraw immediately on resize for better responsiveness
+			// drawBackground(performance.now());
+		});
+		resizeObserver.observe(container);
+
+		// Cleanup
+		return () => {
+			resizeObserver.disconnect();
+			if (animationFrameIdRef.current) {
+				cancelAnimationFrame(animationFrameIdRef.current);
+			}
+		};
+	}, []); // Empty dependency array: run only once on mount
+
+	// --- JSX Разметка (без изменений) ---
 	return (
 		<section
 			className={`${styles.mwg_effect} ${isLockedState ? styles.isLocked : ''}`}
 			ref={containerRef}
 		>
+			{/* Canvas for background animation */}
+			<canvas ref={canvasRef} className={styles.backgroundCanvas} />
+
 			<div className={styles.contentWrapper} ref={contentWrapperRef}>
 				{columnsToRender}
 			</div>
@@ -642,8 +927,3 @@ export const InfiniteGallery: React.FC = () => {
 	);
 };
 
-// --- Убираем закомментированный код ImageModal из этого файла ---
-/*
-import stylesModal from './ImageModal.module.scss';
-... (весь закомментированный ImageModal) ...
-*/
