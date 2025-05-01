@@ -915,11 +915,19 @@ export const InfiniteGallery: React.FC = () => {
 			{/* Используем ImageModal (обновлено) */}
 			{selectedItem && (
 				<ImageModal
-					src={selectedItem.fullSrc} // Используем URL из объекта
-					alt={selectedItem.alt}      // Используем alt из объекта
-					// <<< Ищем плейсхолдер по ID >>>
-					placeholderSrc={lqipMap[`/assets/full/${selectedItem.id}.webp`]}
+					src={selectedItem.fullSrc}
+					alt={selectedItem.alt}
 					onClose={handleCloseModal}
+					// Добавляем логгирование перед доступом к lqipMap
+					placeholderSrc={(() => {
+						if (!selectedItem) return undefined;
+						const key = `/assets/full/${selectedItem.id}.webp`;
+						console.log('[LQIP Debug] Trying key:', key);
+						console.log('[LQIP Debug] Key exists in map:', key in lqipMap);
+						// Показать несколько ключей из карты для сверки формата
+						console.log('[LQIP Debug] Map keys sample:', JSON.stringify(Object.keys(lqipMap).slice(0, 5)));
+						return lqipMap[key];
+					})()}
 				/>
 			)}
 
