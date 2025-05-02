@@ -46,7 +46,7 @@ async function generateLqip() {
 		try {
 			const imageBuffer = await fs.readFile(filePath);
 			const placeholderBuffer = await sharp(imageBuffer)
-				.resize(placeholderWidth)
+				.resize({ width: placeholderWidth }) // Preserve aspect ratio
 				.blur(blurSigma)
 				.webp({ quality: 70 }) // Используем WebP для лучшего сжатия
 				.toBuffer();

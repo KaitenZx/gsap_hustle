@@ -1,5 +1,3 @@
-/* src/components/ImageModal/ImageModal.module.scss */
-
 .overlay {
 	position: fixed;
 	inset: 0; // Аналог top: 0; right: 0; bottom: 0; left: 0;
@@ -10,91 +8,62 @@
 	z-index: 1000; // Убедимся, что поверх остального контента
 	padding: 20px; // Отступы на случай маленьких экранов
 	box-sizing: border-box;
-	// cursor: pointer; // Управляем курсором через инлайн-стиль в TSX
 
-	// --- Эффект "Frost Glass" ---
-	// Современный способ через backdrop-filter
+
 	@supports (backdrop-filter: blur(10px)) {
 		background-color: rgba(0, 0, 0, 0.4); // Менее темный фон с блюром
 		backdrop-filter: blur(8px) saturate(150%); // Размытие и небольшое насыщение
 	}
 
-	// Fallback для старых браузеров (можно убрать, если поддержка не нужна)
-	// @supports not (backdrop-filter: blur(10px)) {
-	//   background-color: rgba(0, 0, 0, 0.85); // Просто более темный фон
-	// }
+
 }
 
 .modalContent {
-	position: relative; // Для позиционирования кнопки закрытия
-	max-width: 50vw; // Не шире 90% ширины вьюпорта
-	max-height: 80vh; // Не выше 90% высоты вьюпорта
-	display: flex; // Чтобы img мог корректно использовать max-width/height
-	background-color: transparent; // Содержимое не имеет фона по умолчанию
-	border-radius: 8px; // Небольшое скругление краев контейнера (опционально)
-	overflow: hidden; // Скрываем части изображения, если оно больше контейнера
-	// Убираем стили фона отсюда, так как они теперь инлайновые
-	// cursor: default;
+	position: relative; // Для позиционирования абсолютно спозиционированных img
+	max-width: 50vw; // Не шире 50% ширины вьюпорта
+	max-height: 80vh; // Не выше 80% высоты вьюпорта
+	width: 100%; // Занять доступную ширину (до max-width)
+	height: 100%; // Занять доступную высоту (до max-height)
+	display: flex; // Сохраняем flex для выравнивания по умолчанию, хотя img будут абсолютными
+	background-color: transparent; // Фон не нужен
+	border-radius: 8px;
+	overflow: hidden;
+	// Важно задать ширину/высоту или aspect-ratio, чтобы position: absolute работало корректно
+	// Но т.к. у нас max-width/max-height + object-fit: contain на img,
+	// браузер сам должен рассчитать размеры. Оставим пока так.
 }
 
-.modalImage {
-	display: block; // Убирает лишний отступ снизу
-	width: 100%; // Заставляем занимать всю ширину контейнера
-	height: 100%; // Заставляем занимать всю высоту контейнера
-	object-fit: contain; // Показывает изображение целиком, сохраняя пропорции (для финального)
-
-	// Убираем стили для плейсхолдера отсюда
-	// filter: blur(10px); 
-	// transition: filter 0.3s ease-in-out;
-
-	// &.loaded {
-	// 	filter: blur(0);
-	// }
-
-	// Плавный переход для opacity (и можно для filter)
-	opacity: 0;
-	//filter: blur(10px); // Начальный блюр
-
-	//&.loadingWithPlaceholder {
-	//	opacity: 0; // Скрываем сам img
-	//	filter: blur(10px);
-	//}
-
-	// Когда изображение загружено
-	&.loaded {
-		opacity: 1; // Показываем img
-		filter: blur(0); // Убираем блюр
-	}
-}
-
-// --- Стили для кнопки закрытия УДАЛЕНЫ ---
-/*
-.closeButton {
+// Общие стили для обоих изображений
+.modalImageBase {
 	position: absolute;
-	top: 10px;
-	right: 10px;
-	background-color: rgba(0, 0, 0, 0.5);
-	color: white;
-	border: none;
-	border-radius: 50%;
-	width: 30px;
-	height: 30px;
-	font-size: 20px;
-	line-height: 28px;
-	text-align: center;
-	cursor: pointer;
-	z-index: 1001;
-	transition: background-color 0.2s ease;
+	inset: 0;
+	display: block;
+	width: 100%;
+	height: 100%;
+	object-fit: contain;
+	transition: opacity 0.3s ease-in-out; // Плавный переход для opacity
+}
 
-	&:hover,
-	&:focus {
-		background-color: rgba(0, 0, 0, 0.8);
-		outline: none;
-	}
+// Стили для основного изображения
+.modalImage {
+	@extend .modalImageBase; // Наследуем базовые стили
+	opacity: 0; // Изначально невидимо
 
-	&:focus-visible {
-		outline: 2px solid dodgerblue;
-		outline-offset: 2px;
+
+	&.loaded {
+		opacity: 1; // Показываем при загрузке
+		// filter: blur(0); // Этот блюр больше не нужен здесь, если он был для плейсхолдера
 	}
 }
-*/
+
+// Стили для плейсхолдера
+.placeholderImage {
+	@extend .modalImageBase; // Наследуем базовые стили
+	opacity: 1; // Изначально видимо
+	// filter: blur(5px); // Опционально: размытие для плейсхолдера, если он не data:uri
+
+
+	&.mainLoaded {
+		opacity: 0; // Скрываем, когда основное загружено
+	}
+}

@@ -1,13 +1,9 @@
-/* src/components/InfiniteGallery/index.module.scss */
-
 // --- Переменные для настройки ---
 $item-height: 18vw;
 $column-width: 15vw;
 $row-gap: 2vw;
 $column-gap: 2vw;
-// Убрали переменные плейсхолдера
 
-// --- Основной контейнер (без изменений) ---
 .mwg_effect {
 	height: 100vh;
 	width: 100vw;
@@ -23,7 +19,6 @@ $column-gap: 2vw;
 	}
 }
 
-// --- Обертка для контента (без изменений) ---
 .contentWrapper {
 	position: absolute;
 	top: 0;
@@ -40,7 +35,6 @@ $column-gap: 2vw;
 	pointer-events: none;
 }
 
-// --- Одна колонка сетки (без изменений) ---
 .column {
 	width: $column-width;
 	display: grid;
@@ -52,7 +46,6 @@ $column-gap: 2vw;
 	contain: layout style;
 }
 
-// --- Элемент сетки (ОБНОВЛЕН) ---
 .media {
 	height: $item-height; // Контейнер задает высоту
 	width: 100%; // Контейнер задает ширину
