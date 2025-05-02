@@ -17,8 +17,8 @@ const lqipMap: Record<string, string> = lqipMapData;
 gsap.registerPlugin(Observer, ScrollTrigger);
 // --- Константы ---
 const ROWS = 7; // Количество строк в логической сетке
-const COLS = 10; // Количество КОЛОНОК в ЛОГИЧЕСКОЙ сетке (определяет wrap)
-const TOTAL_ITEMS = ROWS * COLS; // Всего элементов (70)
+const COLS = 28; // Количество КОЛОНОК в ЛОГИЧЕСКОЙ сетке (определяет wrap)
+const TOTAL_ITEMS = ROWS * COLS;
 const DEBOUNCE_RESIZE_MS = 150; // Задержка debounce для ресайза
 const RENDER_COLS_BUFFER = 2; // Дополнительные колонки для рендеринга (запас)
 const PRELOAD_THROTTLE_MS = 200; // Задержка throttle для предзагрузки
