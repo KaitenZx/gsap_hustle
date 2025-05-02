@@ -42,29 +42,20 @@ html {
 }
 
 body {
-	/* overflow: hidden; */
-	/* !!! УБРАТЬ или ЗАМЕНИТЬ !!! */
 	overflow-y: auto;
-	/* РАЗРЕШИТЬ вертикальный скролл */
 	overflow-x: hidden;
-	/* ЗАПРЕТИТЬ горизонтальный скролл страницы (если он не нужен) */
-
-	/* overscroll-behavior-x: none; */
-	/* Можно оставить */
+	overscroll-behavior-x: contain;
 	overscroll-behavior-y: contain;
-	/* РЕКОМЕНДУЕТСЯ: Предотвращает "утягивание" страницы за пределы body при скролле внутри компонента */
 
 	background-color: #121212;
 	color: #f1f1f1;
 	margin: 0;
 	padding: 0;
 	min-height: 100vh;
-	/* Гарантирует, что body займет хотя бы всю высоту экрана */
 }
 
 *,
 *::before,
 *::after {
 	box-sizing: inherit;
-	/* Наследовать от html */
 }
