@@ -74,7 +74,7 @@ type GalleryItem = {
 }
 
 // --- Генерация данных ---
-const ITEMS: GalleryItem[] = previewImages
+export const ITEMS: GalleryItem[] = previewImages
 	.slice(0, TOTAL_ITEMS) // Берем только нужное количество превью
 	.map((previewItem) => {
 		const fullSrc = fullImageUrlsById.get(previewItem.id);
@@ -682,17 +682,6 @@ export const InfiniteGallery: React.FC = () => {
 				}
 				ScrollTrigger.refresh();
 
-				// --- Предзагрузка начальных ПРЕВЬЮ изображений ---
-				if (newDims && newDims.columnTotalWidth > 0) {
-					const visibleColsApprox = Math.ceil(newDims.viewportWidth / newDims.columnTotalWidth);
-					const preloadColsCount = 2; // Предзагружаем 2 колонки справа
-					for (let i = 0; i < preloadColsCount; i++) {
-						const colIndexToPreload = visibleColsApprox + i;
-						const urlsToPreload = getColumnPreviewImageUrls(colIndexToPreload);
-						urlsToPreload.forEach(preloadImage);
-					}
-				}
-
 			}, DEBOUNCE_RESIZE_MS);
 
 			resizeObserverRef.current = new ResizeObserver(debouncedResizeHandler);
@@ -710,17 +699,6 @@ export const InfiniteGallery: React.FC = () => {
 				incrX.current = 0;
 				incrY.current = 0;
 				isInitialized.current = true; // Ставим флаг, что инициализация прошла
-
-				// --- Предзагрузка начальных ПРЕВЬЮ изображений ---
-				if (initialDims.columnTotalWidth > 0) {
-					const visibleColsApprox = Math.ceil(initialDims.viewportWidth / initialDims.columnTotalWidth);
-					const preloadColsCount = 2; // Предзагружаем 2 колонки справа
-					for (let i = 0; i < preloadColsCount; i++) {
-						const colIndexToPreload = visibleColsApprox + i;
-						const urlsToPreload = getColumnPreviewImageUrls(colIndexToPreload);
-						urlsToPreload.forEach(preloadImage);
-					}
-				}
 
 				// 5. Обновляем ScrollTrigger ПОСЛЕ расчетов и рендеринга
 				ScrollTrigger.refresh();
