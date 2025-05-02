@@ -22,9 +22,9 @@ const TOTAL_ITEMS = ROWS * COLS; // Всего элементов (70)
 const DEBOUNCE_RESIZE_MS = 150; // Задержка debounce для ресайза
 const RENDER_COLS_BUFFER = 2; // Дополнительные колонки для рендеринга (запас)
 const PRELOAD_THROTTLE_MS = 200; // Задержка throttle для предзагрузки
-const ROTATION_CLAMP = 15; // <<< Уменьшили максимальный угол поворота
+const ROTATION_CLAMP = 18; // <<< Уменьшили максимальный угол поворота
 const ROTATION_SENSITIVITY = 18; // <<< Чувствительность поворота (делитель)
-const ACCELERATION_FACTOR = 0.0008; // <<< Фактор ускорения скролла (чем больше, тем сильнее ускорение)
+const ACCELERATION_FACTOR = 0.0002; // <<< Фактор ускорения скролла (чем больше, тем сильнее ускорение)
 
 // --- Типизация для импортированного модуля изображения ---
 type ImageModule = {

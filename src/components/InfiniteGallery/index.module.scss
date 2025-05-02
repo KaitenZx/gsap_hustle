@@ -1,10 +1,10 @@
 /* src/components/InfiniteGallery/index.module.scss */
 
 // --- Переменные для настройки ---
-$item-height: 27vw;
-$column-width: 24vw;
-$row-gap: 5vw;
-$column-gap: 5vw;
+$item-height: 18vw;
+$column-width: 15vw;
+$row-gap: 2vw;
+$column-gap: 2vw;
 // Убрали переменные плейсхолдера
 
 // --- Основной контейнер (без изменений) ---
@@ -74,17 +74,8 @@ $column-gap: 5vw;
 	}
 }
 
-// Опционально: стили для плейсхолдера, если изображения не загрузились
-// .placeholder {
-//   background-color: #222;
-//   color: #666;
-//   display: flex;
-//   align-items: center;
-//   justify-content: center;
-//   font-size: 11px;
-// }
 
-// --- Адаптация для мобильных устройств ---
+
 @media (max-width: 768px) {
 	// Новые значения для мобильных
 	$mobile-item-height: 70vw;
