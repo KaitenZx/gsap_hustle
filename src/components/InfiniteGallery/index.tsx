@@ -25,6 +25,8 @@ const PRELOAD_THROTTLE_MS = 200; // Задержка throttle для предз�
 const ROTATION_CLAMP = 18; // <<< Уменьшили максимальный угол поворота
 const ROTATION_SENSITIVITY = 18; // <<< Чувствительность поворота (делитель)
 const ACCELERATION_FACTOR = 0.0002; // <<< Фактор ускорения скролла (чем больше, тем сильнее ускорение)
+// <<< Малый порог для сравнения Y-позиции >>>
+const Y_THRESHOLD = 0.1;
 
 // --- Типизация для импортированного модуля изображения ---
 type ImageModule = {
@@ -536,17 +538,19 @@ export const InfiniteGallery: React.FC = () => {
 				observerInstance.current = Observer.create({
 					target: containerElement,
 					type: "wheel,touch,pointer",
-					preventDefault: false,
+					preventDefault: false, // <<< Мы управляем preventDefault вручную ниже
 					tolerance: 5,
 					dragMinimum: 3,
 
 					onChangeX: (self) => {
 						handleScrollActivity();
-						if (Math.abs(self.deltaX) < Math.abs(self.deltaY)) return;
-						if (self.event.type === 'wheel' && Math.abs(self.deltaX) > 0) {
+						// Пропускаем, если вертикальный скролл преобладает ИЛИ мы не заблокированы/не инициализированы
+						if (Math.abs(self.deltaX) < Math.abs(self.deltaY) || !isScrollLockedRef.current || !xToRef.current || !dimensionsRef.current) return;
+
+						// Предотвращаем стандартный горизонтальный скролл колесом, когда галерея активна
+						if (self.event.type === 'wheel') {
 							self.event.preventDefault();
 						}
-						if (!isScrollLockedRef.current || !xToRef.current || !dimensionsRef.current) return;
 
 						// <<< Расчет ускорения >>>
 						const baseMultiplier = self.event.type === "wheel" ? 1 : 1.5;
@@ -567,8 +571,8 @@ export const InfiniteGallery: React.FC = () => {
 					},
 					onChangeY: (self) => {
 						handleScrollActivity();
-						if (!isScrollLockedRef.current || !yToRef.current || !dimensionsRef.current) return;
-						if (Math.abs(self.deltaY) < Math.abs(self.deltaX)) return;
+						// Пропускаем, если горизонтальный скролл преобладает ИЛИ мы не заблокированы/не инициализированы
+						if (Math.abs(self.deltaY) < Math.abs(self.deltaX) || !isScrollLockedRef.current || !yToRef.current || !dimensionsRef.current || !contentWrapperElement) return;
 
 						const dims = dimensionsRef.current;
 
@@ -583,28 +587,33 @@ export const InfiniteGallery: React.FC = () => {
 						if (self.event.type === "wheel") {
 							targetY -= incrementY;
 						} else {
-							// Для touch/pointer deltaY уже имеет правильный знак относительно смещения
 							targetY += incrementY;
 						}
 
 						const clampedY = gsap.utils.clamp(dims.maxY, dims.minY, targetY);
+
+						// Обновляем целевое значение и запускаем/продолжаем анимацию quickTo
+						incrY.current = clampedY;
+						yToRef.current(clampedY);
+
+						// --- FIX (v3): Логика preventDefault на основе ФАКТИЧЕСКОЙ позиции ---
+						const actualY = gsap.getProperty(contentWrapperElement, "y") as number;
 						const isScrollingDown = self.event.type === "wheel" ? self.deltaY > 0 : self.deltaY < 0;
 						let shouldPreventDefault = false;
+
 						if (isScrollingDown) {
-							shouldPreventDefault = incrY.current > dims.maxY + 0.01;
+							// Скроллим вниз: предотвращаем, если фактическая позиция ЕЩЕ НЕ достигла нижней границы (maxY)
+							shouldPreventDefault = actualY > dims.maxY + Y_THRESHOLD; // Добавляем порог
 						} else {
-							shouldPreventDefault = incrY.current < dims.minY - 0.01;
+							// Скроллим вверх: предотвращаем, если фактическая позиция ЕЩЕ НЕ достигла верхней границы (minY)
+							shouldPreventDefault = actualY < dims.minY - Y_THRESHOLD; // Добавляем порог
 						}
+
+						// Предотвращаем стандартное поведение ТОЛЬКО если мы находимся внутри активной зоны скролла галереи
 						if (shouldPreventDefault) {
-							incrY.current = clampedY;
-							yToRef.current(clampedY);
 							self.event.preventDefault();
-						} else {
-							if (incrY.current !== clampedY) {
-								incrY.current = clampedY;
-								yToRef.current(clampedY);
-							}
 						}
+						// --- КОНЕЦ FIX (v3) ---
 					},
 				});
 				observerInstance.current.disable();
@@ -632,18 +641,25 @@ export const InfiniteGallery: React.FC = () => {
 					onToggle: (self) => {
 						setScrollLocked(self.isActive); // Включаем/выключаем Observer
 
-						// Умный сброс позиции Y при активации пина
+						const dims = dimensionsRef.current;
+						// Добавляем проверку contentWrapperElement для безопасности
+						if (!dims || !contentWrapperElement) return;
+
 						if (self.isActive) {
-							const dims = dimensionsRef.current;
-							// Добавляем проверку contentWrapperElement для безопасности
-							if (dims && contentWrapperElement) {
-								// Определяем целевую позицию в зависимости от направления входа
-								const targetY = self.direction === 1 ? dims.minY : dims.maxY;
-								incrY.current = targetY;
-								// Устанавливаем позицию немедленно и обновляем quickTo
-								gsap.set(contentWrapperElement, { y: targetY });
-								yToRef.current?.(targetY); // Синхронизируем quickTo
-							}
+							// Умный сброс позиции Y при активации пина
+							const targetY = self.direction === 1 ? dims.minY : dims.maxY;
+							incrY.current = targetY;
+							// Устанавливаем позицию немедленно и обновляем quickTo
+							gsap.set(contentWrapperElement, { y: targetY });
+							yToRef.current?.(targetY); // Синхронизируем quickTo
+						} else {
+							// <<< FIX (v3): Убираем gs.set, оставляем только синхронизацию quickTo >>>
+							// При снятии пина, просто убедимся, что quickTo знает
+							// о последнем целевом значении, к которому он должен был прийти.
+							// Фактическую остановку и preventDefault контролирует Observer.onChangeY
+							const targetY = self.direction === 1 ? dims.maxY : dims.minY;
+							yToRef.current?.(targetY);
+							// <<< КОНЕЦ FIX (v3) >>>
 						}
 					},
 				});
@@ -758,7 +774,7 @@ export const InfiniteGallery: React.FC = () => {
 			isScrollLockedRef.current = false;
 		};
 
-	}, [setScrollLocked, renderColsCount, performPreload]);
+	}, [setScrollLocked, renderColsCount, performPreload]); // <<< Dependencies updated
 
 	// --- Мемоизация массива колонок (ОБНОВЛЕНО - убираем аргумент mediaAnimRefs) ---
 	const columnsToRender = useMemo(() => {
@@ -900,10 +916,10 @@ export const InfiniteGallery: React.FC = () => {
 					placeholderSrc={(() => {
 						if (!selectedItem) return undefined;
 						const key = `/assets/full/${selectedItem.id}.webp`;
-						console.log('[LQIP Debug] Trying key:', key);
-						console.log('[LQIP Debug] Key exists in map:', key in lqipMap);
+						// console.log('[LQIP Debug] Trying key:', key);
+						// console.log('[LQIP Debug] Key exists in map:', key in lqipMap);
 						// Показать несколько ключей из карты для сверки формата
-						console.log('[LQIP Debug] Map keys sample:', JSON.stringify(Object.keys(lqipMap).slice(0, 5)));
+						// console.log('[LQIP Debug] Map keys sample:', JSON.stringify(Object.keys(lqipMap).slice(0, 5)));
 						return lqipMap[key];
 					})()}
 				/>
