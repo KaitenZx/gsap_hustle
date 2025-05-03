@@ -6,7 +6,7 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { debounce, throttle } from 'lodash';
 
 
-import lqipMapData from '../../lqip-map.json'; // <<< Импортируем карту плейсхолдеров (как data)
+import lqipMapData from '../../lqip-map.json';
 import { ImageModal } from '../ImageModal';
 
 import styles from './index.module.scss';
@@ -130,9 +130,6 @@ const preloadFullImage = (url: string) => {
 		_preloadedFullUrls.add(url);
 		const img = new Image();
 		img.src = url;
-		// Optional: Add logging or callbacks for load/error
-		// img.onload = () => console.log(`Preloaded full: ${url}`);
-		// img.onerror = () => console.error(`Failed to preload full: ${url}`);
 	}
 };
 
@@ -195,8 +192,6 @@ export const InfiniteGallery: React.FC = () => {
 	// <<< Используем number для ID таймаута >>>
 	const scrollStopTimeoutRef = useRef<number | null>(null);
 
-	// <<< Ref для холста анимации >>>
-	// const canvasRef = useRef<HTMLCanvasElement>(null); // <<< REMOVE THIS DUPLICATE
 	// <<< Ref для ID анимации >>>
 	const animationFrameIdRef = useRef<number | null>(null);
 
@@ -207,10 +202,9 @@ export const InfiniteGallery: React.FC = () => {
 	// --- Состояние для количества рендерящихся колонок ---
 	const [renderColsCount, setRenderColsCount] = useState(COLS); // Начинаем с COLS, будет пересчитано
 
-	// --- НОВОЕ Состояние для отслеживания выбранного изображения для модального окна ---
 	const [selectedItem, setSelectedItem] = useState<GalleryItem | null>(null); // <<< Новое состояние
 
-	// --- Функция для предзагрузки ПРЕВЬЮ (использует обновленную getColumnPreviewImageUrls) ---
+	// --- Функция для предзагрузки ПРЕВЬЮ  ---
 	const performPreload = useCallback((scrollDirection: 1 | -1) => {
 		const dims = dimensionsRef.current;
 		if (dims && dims.columnTotalWidth > 0) {
@@ -267,7 +261,6 @@ export const InfiniteGallery: React.FC = () => {
 
 	// --- Функция рендеринга одной колонки (ОБНОВЛЕНА - убираем аргумент animRefsMap) ---
 	const renderColumn = useCallback((columnIndex: number) => {
-		// <<< Access mediaAnimRefs directly from closure >>>
 
 		const isFirstColumn = columnIndex === 0;
 		const itemsInColumn = [];
@@ -290,14 +283,11 @@ export const InfiniteGallery: React.FC = () => {
 								itemRef.current = el;
 							}
 
-							// <<< Log: Callback ref triggered >>>
 
-							// <<< Use mediaAnimRefs directly >>>
 							const currentMap = mediaAnimRefs.current;
 							const existingEntry = currentMap.get(itemKey);
 
 							if (el) {
-								// Element added or updated
 								if (!existingEntry || existingEntry.element !== el) {
 									const rotX = gsap.quickTo(el, 'rotationX', { duration: 0.6, ease: "power3.out" });
 									const rotY = gsap.quickTo(el, 'rotationY', { duration: 0.6, ease: "power3.out" });
@@ -355,7 +345,7 @@ export const InfiniteGallery: React.FC = () => {
 		// <<< Removed animRefsMap argument from useCallback dependencies (not needed) >>>
 	}, [handleImageClick, handleInteractionStart]);
 
-	// --- Основной useLayoutEffect (ОБНОВЛЕН для эффекта вращения) ---
+	// --- Основной useLayoutEffect  ---
 	useLayoutEffect(() => {
 		const containerElement = containerRef.current;
 		const contentWrapperElement = contentWrapperRef.current;
@@ -653,13 +643,9 @@ export const InfiniteGallery: React.FC = () => {
 							gsap.set(contentWrapperElement, { y: targetY });
 							yToRef.current?.(targetY); // Синхронизируем quickTo
 						} else {
-							// <<< FIX (v3): Убираем gs.set, оставляем только синхронизацию quickTo >>>
-							// При снятии пина, просто убедимся, что quickTo знает
-							// о последнем целевом значении, к которому он должен был прийти.
 							// Фактическую остановку и preventDefault контролирует Observer.onChangeY
 							const targetY = self.direction === 1 ? dims.maxY : dims.minY;
 							yToRef.current?.(targetY);
-							// <<< КОНЕЦ FIX (v3) >>>
 						}
 					},
 				});
@@ -677,7 +663,7 @@ export const InfiniteGallery: React.FC = () => {
 
 					// 3. Обновляем GSAP и позицию ВНУТРИ контекста
 					gsapCtx.current.add(() => {
-						setupScrollQuickTo(newDims); // <<< Переименовали setupQuickTo в setupScrollQuickTo
+						setupScrollQuickTo(newDims);
 						// Сбрасываем X, клампим Y к новым границам
 						incrX.current = 0;
 						incrY.current = gsap.utils.clamp(newDims.maxY, newDims.minY, incrY.current);
@@ -691,7 +677,6 @@ export const InfiniteGallery: React.FC = () => {
 
 					// 4. Обновляем state количества колонок, ЕСЛИ изменилось
 					if (newRenderCols !== renderColsCount) {
-						// <<< Log: Clearing map in resize handler >>>
 						mediaAnimRefs.current.clear();
 						setRenderColsCount(newRenderCols);
 					}
@@ -708,7 +693,6 @@ export const InfiniteGallery: React.FC = () => {
 
 			if (initialDims) {
 				const initialRenderCols = calculateRenderCols(initialDims);
-				// <<< Log: Clearing map in initial setup >>>
 				setRenderColsCount(initialRenderCols);
 				setupScrollQuickTo(initialDims);
 				gsap.set(contentWrapperElement, { x: 0, y: 0 });
@@ -743,12 +727,10 @@ export const InfiniteGallery: React.FC = () => {
 				if (scrollStopTimeoutRef.current) {
 					clearTimeout(scrollStopTimeoutRef.current);
 				}
-				// Остальная очистка (Observer, ST, quickTo) управляется revert()
 			};
 
 		}, containerRef);
 
-		// <<< FIX: Capture ref value for cleanup >>>
 		const currentMediaAnimRefs = mediaAnimRefs.current;
 
 		// --- Функция очистки для useLayoutEffect (вне контекста GSAP) ---
@@ -776,14 +758,12 @@ export const InfiniteGallery: React.FC = () => {
 
 	}, [setScrollLocked, renderColsCount, performPreload]); // <<< Dependencies updated
 
-	// --- Мемоизация массива колонок (ОБНОВЛЕНО - убираем аргумент mediaAnimRefs) ---
+	// --- Мемоизация массива колонок  ---
 	const columnsToRender = useMemo(() => {
 		return Array.from({ length: renderColsCount }).map((_, index) =>
-			// <<< Call renderColumn without the ref argument >>>
 			renderColumn(index)
 		);
 		// renderColumn зависит от handleImageClick и handleInteractionStart
-		// <<< Update dependencies for renderColumn >>>
 	}, [renderColsCount, renderColumn]);
 
 	// --- useEffect for Background Canvas Animation ---
@@ -800,7 +780,6 @@ export const InfiniteGallery: React.FC = () => {
 			' _&+glitchy+&_ ',
 			'*.+pixels+#!      '
 		];
-		// const col = ['#333', '#555']; // Darker colors for background
 		const fontColor = '#444'; // Single subtle color
 		const weights = ['normal', 'bold']; // Use string values for ctx.font
 		const fontSize = 12; // Adjust as needed
@@ -826,7 +805,6 @@ export const InfiniteGallery: React.FC = () => {
 			cols = Math.floor(rect.width / (fontSize * 0.6)); // Estimate character cols
 			rows = Math.floor(rect.height / lineHeight);     // Estimate character rows
 
-			// Set font styles after resize/scale
 			ctx.font = `${fontSize}px monospace`;
 			ctx.textAlign = 'center';
 			ctx.textBaseline = 'middle';
@@ -879,8 +857,6 @@ export const InfiniteGallery: React.FC = () => {
 		// Handle resize
 		const resizeObserver = new ResizeObserver(() => {
 			resizeCanvas();
-			// Optional: Redraw immediately on resize for better responsiveness
-			// drawBackground(performance.now());
 		});
 		resizeObserver.observe(container);
 
@@ -893,7 +869,6 @@ export const InfiniteGallery: React.FC = () => {
 		};
 	}, []); // Empty dependency array: run only once on mount
 
-	// --- JSX Разметка (без изменений) ---
 	return (
 		<section
 			className={`${styles.mwg_effect} ${isLockedState ? styles.isLocked : ''}`}
@@ -906,7 +881,6 @@ export const InfiniteGallery: React.FC = () => {
 				{columnsToRender}
 			</div>
 
-			{/* Используем ImageModal (обновлено) */}
 			{selectedItem && (
 				<ImageModal
 					src={selectedItem.fullSrc}
@@ -916,10 +890,6 @@ export const InfiniteGallery: React.FC = () => {
 					placeholderSrc={(() => {
 						if (!selectedItem) return undefined;
 						const key = `/assets/full/${selectedItem.id}.webp`;
-						// console.log('[LQIP Debug] Trying key:', key);
-						// console.log('[LQIP Debug] Key exists in map:', key in lqipMap);
-						// Показать несколько ключей из карты для сверки формата
-						// console.log('[LQIP Debug] Map keys sample:', JSON.stringify(Object.keys(lqipMap).slice(0, 5)));
 						return lqipMap[key];
 					})()}
 				/>
