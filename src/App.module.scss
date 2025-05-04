@@ -19,6 +19,14 @@
 	/* Пример: центрирует блоки по горизонтали */
 }
 
+.footer {
+	width: 100%;
+	background: teal;
+	padding: 10px;
+	display: flex;
+	gap: 20px;
+}
+
 .placeholder {
 	/* Стили для плейсхолдеров */
 	height: 100vh;
