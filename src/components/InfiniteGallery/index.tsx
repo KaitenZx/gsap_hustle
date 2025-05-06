@@ -9,6 +9,7 @@ import { debounce, throttle } from 'lodash';
 import lqipMapData from '../../lqip-map.json';
 import { ImageModal } from '../ImageModal';
 
+import { ITEMS, GalleryItem, ROWS, COLS } from './galleryData';
 import styles from './index.module.scss';
 
 // <<< Явно типизируем карту >>>
@@ -16,101 +17,14 @@ const lqipMap: Record<string, string> = lqipMapData;
 
 gsap.registerPlugin(Observer, ScrollTrigger);
 // --- Константы ---
-const ROWS = 7; // Количество строк в логической сетке
-const COLS = 28; // Количество КОЛОНОК в ЛОГИЧЕСКОЙ сетке (определяет wrap)
-const TOTAL_ITEMS = ROWS * COLS;
 const DEBOUNCE_RESIZE_MS = 150; // Задержка debounce для ресайза
 const RENDER_COLS_BUFFER = 2; // Дополнительные колонки для рендеринга (запас)
 const RENDER_ROWS_BUFFER = 4; // Сколько доп. строк рендерить снизу
 const PRELOAD_THROTTLE_MS = 200; // Задержка throttle для предзагрузки
 const ROTATION_CLAMP = 18; // <<< Уменьшили максимальный угол поворота
 const ROTATION_SENSITIVITY = 18; // <<< Чувствительность поворота (делитель)
-const ACCELERATION_FACTOR = 0.0002; // <<< Фактор ускорения скролла (чем больше, тем сильнее ускорение)
-// Y_THRESHOLD больше не нужен для preventDefault
-// const Y_THRESHOLD = 0.1;
+const ACCELERATION_FACTOR = 0.00015; // <<< Фактор ускорения скролла (чем больше, тем сильнее ускорение)
 
-// --- Типизация для импортированного модуля изображения ---
-type ImageModule = {
-	default: string;
-}
-
-// --- Загрузка И ПРЕВЬЮ, И ПОЛНЫХ изображений с помощью Vite Glob Import ---
-const previewImageModules: Record<string, ImageModule | undefined> =
-	import.meta.glob('/src/assets/preview/*.webp', { eager: true });
-const fullImageModules: Record<string, ImageModule | undefined> =
-	import.meta.glob('/src/assets/full/*.webp', { eager: true });
-
-// --- Вспомогательная функция для извлечения ID и URL из пути ---
-const extractImageData = (path: string, module: ImageModule | undefined): { id: number; url: string } | null => {
-	// Используем регулярное выражение, которое найдет число перед .webp, игнорируя путь
-	const match = /([\w-]+)\/(\d+)\.webp$/.exec(path); // Находит 'preview'/'full' и 'id'
-	const id = match ? parseInt(match[2], 10) : -1;
-	const url = module?.default;
-	if (id !== -1 && typeof url === 'string') {
-		return { id, url };
-	}
-	return null;
-};
-
-// --- Обработка и СОПОСТАВЛЕНИЕ URL превью и полных изображений ---
-const previewImages = Object.entries(previewImageModules)
-	.map(([path, module]) => extractImageData(path, module))
-	.filter((item): item is { id: number; url: string } => item !== null);
-
-const fullImageUrlsById: Map<number, string> = new Map<number, string>();
-Object.entries(fullImageModules).forEach(([path, module]) => {
-	const imageData = extractImageData(path, module);
-	if (imageData) {
-		fullImageUrlsById.set(imageData.id, imageData.url);
-	}
-});
-
-// Сортируем превью по ID
-previewImages.sort((a, b) => a.id - b.id);
-
-// --- Обновленная типизация для элемента галереи ---
-type GalleryItem = {
-	id: number;
-	previewSrc: string; // Превью
-	fullSrc: string;    // Полная версия
-	alt: string;
-}
-
-// --- Генерация данных ---
-// Убедимся, что берем ровно TOTAL_ITEMS, если их достаточно
-const sourceItems = previewImages
-	.map((previewItem) => {
-		const fullSrc = fullImageUrlsById.get(previewItem.id);
-		return fullSrc ? {
-			id: previewItem.id,
-			previewSrc: previewItem.url,
-			fullSrc: fullSrc,
-			alt: `Gallery image ${previewItem.id}`
-		} : null;
-	})
-	.filter((item): item is GalleryItem => item !== null);
-
-// --- Заполняем массив ITEMS до TOTAL_ITEMS, повторяя элементы, если нужно ---
-export const ITEMS: GalleryItem[] = [];
-if (sourceItems.length > 0) {
-	for (let i = 0; i < TOTAL_ITEMS; i++) {
-		ITEMS.push(sourceItems[i % sourceItems.length]);
-	}
-	// Добавляем предупреждение, если исходных уникальных элементов меньше TOTAL_ITEMS
-	if (sourceItems.length < TOTAL_ITEMS) {
-		console.warn(`[InfiniteGallery] Warning: Only found ${sourceItems.length} unique valid image pairs, but TOTAL_ITEMS is ${TOTAL_ITEMS}. Repeating items to fill the grid.`);
-	}
-} else {
-	console.error("[InfiniteGallery] Error: No valid image pairs found. Gallery will be empty.");
-}
-
-// Проверка, достаточно ли ПОЛНЫХ изображений найдено для каждого превью
-if (ITEMS.length < previewImages.slice(0, TOTAL_ITEMS).length) {
-	console.warn(`[InfiniteGallery] Warning: Some full-size images corresponding to preview images (up to ${TOTAL_ITEMS}) were not found in '/src/assets/full/'. Check filenames.`);
-} else if (ITEMS.length < TOTAL_ITEMS) {
-	// Предупреждение, если изначально не хватило превью
-	console.warn(`[InfiniteGallery] Warning: Expected ${TOTAL_ITEMS} preview images, but only found ${previewImages.length} in '/src/assets/preview/'.`);
-}
 
 // --- Функция для предзагрузки одного ИЗОБРАЖЕНИЯ ПРЕВЬЮ ---
 const _preloadedUrls = new Set<string>();
@@ -258,12 +172,12 @@ export const InfiniteGallery: React.FC = () => {
 		}
 	}, []); // Пустой массив зависимостей
 
-	// --- НОВАЯ Функция обработчика клика по изображению (обновлена) ---
+	// --- НОВАЯ Функция обработчика клика по изображению  ---
 	const handleImageClick = useCallback((item: GalleryItem) => { // <<< Принимаем весь объект
 		setSelectedItem(item); // <<< Сохраняем весь объект
 	}, []);
 
-	// --- НОВАЯ Функция закрытия модального окна (обновлена) ---
+	// --- НОВАЯ Функция закрытия модального окна  ---
 	const handleCloseModal = useCallback(() => {
 		setSelectedItem(null); // <<< Сбрасываем объект
 	}, []);
@@ -273,7 +187,7 @@ export const InfiniteGallery: React.FC = () => {
 		preloadFullImage(fullSrc);
 	}, []); // Empty dependencies, preloadFullImage is stable
 
-	// --- Функция рендеринга одной колонки (ОБНОВЛЕНА для вертикального буфера) ---
+	// --- Функция рендеринга одной колонки  ---
 	const renderColumn = useCallback((columnIndex: number) => {
 		const isFirstColumn = columnIndex === 0;
 		const itemsInColumn = [];
@@ -286,7 +200,6 @@ export const InfiniteGallery: React.FC = () => {
 			// <<< Вычисляем логический индекс строки для данных >>>
 			const logicalRowIndex = renderRowIndex % ROWS;
 			// <<< Вычисляем финальный индекс элемента в массиве ITEMS (с оберткой) >>>
-			// Важно: Убедись, что ITEMS.length === TOTAL_ITEMS
 			const itemIndex = (baseItemIndex + logicalRowIndex); // % TOTAL_ITEMS; - не нужен если ITEMS.length === TOTAL_ITEMS
 
 			// Проверка на случай, если ITEMS пустой или itemIndex некорректен (хотя не должно быть при правильном заполнении ITEMS)
@@ -408,7 +321,6 @@ export const InfiniteGallery: React.FC = () => {
 			const fullWrapperHeight = gridContentHeight + wrapperPaddingTop + wrapperPaddingBottom;
 			const totalContentLogicalWidth = COLS * columnWidth + Math.max(0, COLS - 1) * columnGap;
 			const repeatingWidth = COLS * columnTotalWidth;
-			// <<< НОВОЕ: Высота для вертикального повторения >>>
 			const repeatingHeight = gridContentHeight; // Используем высоту контента без padding'ов wrapper'а
 
 			// Проверка на columnTotalWidth > 0 перед использованием в wrap
@@ -419,11 +331,8 @@ export const InfiniteGallery: React.FC = () => {
 
 			// ----- Используем repeatingWidth для wrapX -----
 			const wrapX = gsap.utils.wrap(-repeatingWidth, 0);
-			// <<< НОВОЕ: Используем repeatingHeight для wrapY >>>
-			// Обертываем от -height до 0, чтобы соответствовать уменьшению incrY при скролле вниз (колесом)
 			const wrapY = gsap.utils.wrap(-repeatingHeight, 0);
 
-			// minY, maxY, scrollableDistanceY больше не нужны
 
 			const newDimensions: GridDimensions = {
 				viewportWidth, viewportHeight, columnWidth, itemHeight, rowGap, columnGap,
@@ -538,21 +447,21 @@ export const InfiniteGallery: React.FC = () => {
 				}, 150);
 			};
 
-			// --- Функция для (пере)создания quickTo для СКРОЛЛА (ОБНОВЛЕНА) ---
+			// --- Функция для (пере)создания quickTo для СКРОЛЛА  ---
 			const setupScrollQuickTo = (dims: GridDimensions) => {
 				if (!contentWrapperElement) return; // Доп. проверка
 				xToRef.current = gsap.quickTo(contentWrapperElement, "x", {
-					duration: 0.8, ease: "power3.out",
+					duration: 1.2, ease: "expo.out",
 					modifiers: { x: gsap.utils.unitize(value => dims.wrapX(parseFloat(value as string)), "px") }
 				});
 				// <<< ОБНОВЛЕНО: Используем wrapY >>>
 				yToRef.current = gsap.quickTo(contentWrapperElement, "y", {
-					duration: 0.5, ease: "power3.out",
+					duration: 0.8, ease: "circ.out",
 					modifiers: { y: gsap.utils.unitize(value => dims.wrapY(parseFloat(value as string)), "px") }
 				});
 			};
 
-			// --- Инициализация Observer для СКРОЛЛА (ОБНОВЛЕНО onChangeY) ---
+			// --- Инициализация Observer для СКРОЛЛА  ---
 			if (!observerInstance.current) {
 				observerInstance.current = Observer.create({
 					target: containerElement,
@@ -595,7 +504,6 @@ export const InfiniteGallery: React.FC = () => {
 						// (Проверка isScrollLockedRef здесь не так критична, т.к. preventDefault ниже ее учтет, но оставим для симметрии)
 						if (Math.abs(self.deltaY) < Math.abs(self.deltaX) || !yToRef.current || !dimensionsRef.current) return;
 
-						const dims = dimensionsRef.current; // dims нужен только для wrapY внутри yToRef
 
 						// <<< Расчет ускорения >>>
 						const baseMultiplier = self.event.type === "wheel" ? 1 : 1.5;
@@ -613,7 +521,7 @@ export const InfiniteGallery: React.FC = () => {
 						// Запускаем анимацию quickTo, wrapY в модификаторе сделает свое дело
 						yToRef.current(incrY.current);
 
-						// --- ИЗМЕНЕНО: Логика preventDefault ---
+						// ---  Логика preventDefault ---
 						// Предотвращаем стандартное вертикальное поведение (скролл страницы)
 						// ВСЕГДА, когда ScrollTrigger активен (isScrollLockedRef.current === true).
 						// Горизонтальный скролл (если deltaX > deltaY) обрабатывается в onChangeX.
@@ -637,10 +545,6 @@ export const InfiniteGallery: React.FC = () => {
 				scrollTriggerInstance.current = ScrollTrigger.create({
 					trigger: containerElement,
 					start: "top top",
-					// <<< ВОЗВРАЩАЕМ end, но с ОЧЕНЬ БОЛЬШИМ значением >>>
-					// Это гарантирует, что при скролле вниз end не будет достигнут,
-					// пока preventDefault активен. Открепление произойдет только
-					// при скролле обратно вверх мимо start.
 					end: "+=2880", // Используем большое значение
 					pin: true,
 					pinSpacing: true,
@@ -648,10 +552,8 @@ export const InfiniteGallery: React.FC = () => {
 					// markers: true, // Показать маркеры для отладки
 					invalidateOnRefresh: true, // Пересчитывать при рефреше
 
-					// <<< ОБНОВЛЕНО onToggle: Убрана логика сброса/анимации Y >>>
 					onToggle: (self) => {
 						setScrollLocked(self.isActive); // Просто включаем/выключаем Observer
-						// Никаких манипуляций с incrY или yToRef здесь больше не нужно
 					},
 				});
 			}
