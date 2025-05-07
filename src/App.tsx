@@ -5,12 +5,11 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import Lenis from 'lenis';
 
 import styles from './App.module.scss'
-import AsciiBackground from './components/AsciiBackground/AsciiBackground';
+import { AboutMe } from './components/AboutMe';
 import { InfiniteGallery } from './components/InfiniteGallery'
 import { ITEMS, GalleryItem } from './components/InfiniteGallery/galleryData';
 
-// Импортируем CSS для Lenis (если вы устанавливали его через npm и используете сборщик)
-// import 'lenis/dist/lenis.css'; // Раскомментируйте, если используете npm-пакет
+import 'lenis/dist/lenis.css'; // Раскомментируйте, если используете npm-пакет
 
 // Set to track preloaded URLs
 const _appPreloadedUrls = new Set<string>();
@@ -69,8 +68,8 @@ function App() {
   return (
     <div className={styles.app}>
       <div id="placeholder1" className={styles.placeholder} >View 1 placeholder - landing</div>
-      <AsciiBackground className={styles.placeholder} />
-      <InfiniteGallery />  {/* галерея работ */}
+      <AboutMe />
+      <InfiniteGallery />
       <div id="placeholder3" className={styles.footer} >placeholder footer: link link link </div>
     </div>
   )

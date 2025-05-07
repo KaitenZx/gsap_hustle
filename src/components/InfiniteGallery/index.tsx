@@ -451,12 +451,12 @@ export const InfiniteGallery: React.FC = () => {
 			const setupScrollQuickTo = (dims: GridDimensions) => {
 				if (!contentWrapperElement) return; // Доп. проверка
 				xToRef.current = gsap.quickTo(contentWrapperElement, "x", {
-					duration: 1.2, ease: "expo.out",
+					duration: 1.2, ease: "power3.out",
 					modifiers: { x: gsap.utils.unitize(value => dims.wrapX(parseFloat(value as string)), "px") }
 				});
 				// <<< ОБНОВЛЕНО: Используем wrapY >>>
 				yToRef.current = gsap.quickTo(contentWrapperElement, "y", {
-					duration: 0.8, ease: "circ.out",
+					duration: 0.8, ease: "power3.out",
 					modifiers: { y: gsap.utils.unitize(value => dims.wrapY(parseFloat(value as string)), "px") }
 				});
 			};
@@ -696,9 +696,9 @@ export const InfiniteGallery: React.FC = () => {
 			'*.+pixels+#!      '
 		];
 		const fontColor = '#444'; // Single subtle color
-		const weights = ['normal', 'bold']; // Use string values for ctx.font
-		const fontSize = 12; // Adjust as needed
-		const lineHeight = 14; // Adjust as needed
+		const weights = ['normal', 'bold']; // Use string values for ctx.font // Должно быть как минимум 2 значения для логики ниже
+		const fontSize = 14; // Adjust as needed
+		const lineHeight = 16; // Adjust as needed
 		const timeFactor = 0.0005; // Slower time progression
 		const xCoordFactor = 0.01; // Adjust pattern scaling
 		const yCoordFactor = 0.01;
@@ -707,6 +707,12 @@ export const InfiniteGallery: React.FC = () => {
 
 		let cols = 0;
 		let rows = 0;
+
+		// --- Настройки для троттлинга анимации Canvas ---
+		const TARGET_CANVAS_FPS = 15; // Целевой FPS для фона (например, 20-30)
+		const frameInterval = 1000 / TARGET_CANVAS_FPS;
+		let lastFrameTime = 0;
+		// --- Конец настроек троттлинга ---
 
 		const resizeCanvas = () => {
 			const dpr = window.devicePixelRatio || 1;
@@ -720,7 +726,9 @@ export const InfiniteGallery: React.FC = () => {
 			cols = Math.floor(rect.width / (fontSize * 0.6)); // Estimate character cols
 			rows = Math.floor(rect.height / lineHeight);     // Estimate character rows
 
-			ctx.font = `${fontSize}px monospace`;
+			// Устанавливаем базовые стили текста один раз при ресайзе,
+			// так как fontSize, textAlign, textBaseline не меняются в drawBackground
+			// ctx.font = `${fontSize}px monospace`; // Убрано, т.к. вес меняется
 			ctx.textAlign = 'center';
 			ctx.textBaseline = 'middle';
 		};
@@ -729,48 +737,88 @@ export const InfiniteGallery: React.FC = () => {
 			if (!ctx || cols <= 0 || rows <= 0) return;
 
 			const t = time * timeFactor;
-			const cellWidth = canvas.width / window.devicePixelRatio / cols;
-			const cellHeight = canvas.height / window.devicePixelRatio / rows;
+			const cellWidth = (canvas.width / window.devicePixelRatio) / cols;
+			const cellHeight = (canvas.height / window.devicePixelRatio) / rows;
 			const centerCol = cols / 2;
 			const centerRow = rows / 2;
 
-			ctx.clearRect(0, 0, canvas.width, canvas.height);
+			ctx.clearRect(0, 0, canvas.width, canvas.height); // Очищаем весь канвас
 			ctx.fillStyle = fontColor;
 
-			for (let y = 0; y < rows; y++) {
-				for (let x = 0; x < cols; x++) {
-					const relX = x - centerCol;
-					const relY = y - centerRow;
+			// ОПТИМИЗАЦИЯ: Устанавливаем ctx.font только два раза
 
-					const o = Math.sin(relX * relY * xyCoordFactor + relY * yCoordFactor + t) * sinMultiplier;
-					const i = Math.floor(Math.abs(relX * xCoordFactor + relY * yCoordFactor + o)); // Adjusted factors
-					const c = (Math.floor(x * 0.5) + Math.floor(y * 0.5)) % 2; // Simplified checker
+			// Проход для первого стиля (weights[0])
+			if (weights.length > 0) {
+				ctx.font = `${weights[0]} ${fontSize}px monospace`;
+				for (let y = 0; y < rows; y++) {
+					for (let x = 0; x < cols; x++) {
+						const c_index_for_style = (Math.floor(x * 0.5) + Math.floor(y * 0.5)) % 2;
+						if (c_index_for_style === 0) { // Рендерим только символы этого стиля
+							const relX = x - centerCol;
+							const relY = y - centerRow;
 
-					const char = pattern[c]?.[i % pattern[c]?.length] ?? ' ';
-					const weight = weights[c] ?? 'normal';
+							const o = Math.sin(relX * relY * xyCoordFactor + relY * yCoordFactor + t) * sinMultiplier;
+							const i = Math.floor(Math.abs(relX * xCoordFactor + relY * yCoordFactor + o));
 
-					ctx.font = `${weight} ${fontSize}px monospace`; // Set weight per char
+							// Используем pattern[0] если c_index_for_style также 0, или pattern[c_index_for_style]
+							const currentPattern = pattern[c_index_for_style] || pattern[0] || '';
+							const char = currentPattern[i % currentPattern.length] ?? ' ';
 
-					// Calculate position to draw character
-					const drawX = x * cellWidth + cellWidth / 2;
-					const drawY = y * cellHeight + cellHeight / 2;
+							const drawX = x * cellWidth + cellWidth / 2;
+							const drawY = y * cellHeight + cellHeight / 2;
+							ctx.fillText(char, drawX, drawY);
+						}
+					}
+				}
+			}
 
-					ctx.fillText(char, drawX, drawY);
+			// Проход для второго стиля (weights[1])
+			if (weights.length > 1) {
+				ctx.font = `${weights[1]} ${fontSize}px monospace`;
+				for (let y = 0; y < rows; y++) {
+					for (let x = 0; x < cols; x++) {
+						const c_index_for_style = (Math.floor(x * 0.5) + Math.floor(y * 0.5)) % 2;
+						if (c_index_for_style === 1) { // Рендерим только символы этого стиля
+							const relX = x - centerCol;
+							const relY = y - centerRow;
+
+							const o = Math.sin(relX * relY * xyCoordFactor + relY * yCoordFactor + t) * sinMultiplier;
+							const i = Math.floor(Math.abs(relX * xCoordFactor + relY * yCoordFactor + o));
+
+							// Используем pattern[1] если c_index_for_style также 1, или pattern[c_index_for_style]
+							const currentPattern = pattern[c_index_for_style] || pattern[1] || '';
+							const char = currentPattern[i % currentPattern.length] ?? ' ';
+
+							const drawX = x * cellWidth + cellWidth / 2;
+							const drawY = y * cellHeight + cellHeight / 2;
+							ctx.fillText(char, drawX, drawY);
+						}
+					}
 				}
 			}
 		};
 
 		const animate = (currentTime: number) => {
-			drawBackground(currentTime);
-			animationFrameIdRef.current = requestAnimationFrame(animate);
+			animationFrameIdRef.current = requestAnimationFrame(animate); // Всегда запрашиваем следующий кадр rAF
+
+			// ОПТИМИЗАЦИЯ: Троттлинг вызова drawBackground
+			if (!lastFrameTime) { // Инициализация для первого кадра
+				lastFrameTime = currentTime;
+			}
+			const elapsed = currentTime - lastFrameTime;
+
+			if (elapsed > frameInterval) {
+				lastFrameTime = currentTime - (elapsed % frameInterval); // Корректируем lastFrameTime
+				drawBackground(currentTime); // Отрисовываем фон, только если прошло достаточно времени
+			}
 		};
 
 		// Initial setup
 		resizeCanvas();
-		animationFrameIdRef.current = requestAnimationFrame(animate);
+		animationFrameIdRef.current = requestAnimationFrame(animate); // Запускаем цикл анимации
 
 		// Handle resize
-		const resizeObserver = new ResizeObserver(() => {
+		const resizeObserver = new ResizeObserver(() => { // resizeCanvas уже содержит ctx.scale
 			resizeCanvas();
 		});
 		resizeObserver.observe(container);

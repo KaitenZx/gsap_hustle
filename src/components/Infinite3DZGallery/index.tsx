@@ -184,7 +184,6 @@ const Effect012: React.FC = () => {
 					loadedUrlsRef.current.push(img.src);
 				}
 			});
-			console.log('Preloaded image URLs:', loadedUrlsRef.current);
 			// Предупреждение, если URL не найдены
 			if (loadedUrlsRef.current.length === 0) {
 				console.warn("Warning: No image URLs were preloaded. Check image paths and the '.preloadMedias' div.");
@@ -223,7 +222,6 @@ const Effect012: React.FC = () => {
 			// --- 2.2 Начальная установка состояний элементов ---
 			// Применяем начальные позиции, Z, scale и первую картинку ко всем видимым элементам
 			validMediaElements.forEach(updateMedia);
-			console.log('Initial media positions and states set.');
 
 			// --- 2.3 Создание основного таймлайна анимации ---
 			const tl = gsap.timeline({
@@ -304,7 +302,7 @@ const Effect012: React.FC = () => {
 
 			// Сохраняем созданный таймлайн в реф для доступа из `tick()`
 			timelineRef.current = tl;
-			console.log('GSAP timeline created and configured.');
+			('GSAP timeline created and configured.');
 
 			// --- 2.4 Инициализация gsap.quickTo для плавных реакций ---
 			// quickTo - это высокооптимизированная функция для частого обновления одного свойства.
@@ -315,7 +313,6 @@ const Effect012: React.FC = () => {
 				duration: 0.5, // Длительность "сглаживания" значения delta
 				ease: "power1.out", // Изинг для плавности
 			});
-			console.log('GSAP quickTo for scroll delta initialized.');
 
 			// quickTo для вращения контейнера по оси Y
 			if (containerRef.current) { // Проверяем, что реф контейнера доступен
@@ -328,7 +325,6 @@ const Effect012: React.FC = () => {
 					duration: 0.5,
 					ease: 'power1.out'
 				});
-				console.log('GSAP quickTo for container rotation initialized.');
 			} else {
 				console.error("Container ref is not available for rotation quickTo setup.");
 			}
@@ -337,20 +333,17 @@ const Effect012: React.FC = () => {
 			// gsap.ticker.add() добавляет функцию в основной цикл обновления GSAP (requestAnimationFrame).
 			// Наша функция `tick` будет вызываться на каждом кадре.
 			gsap.ticker.add(tick);
-			console.log('GSAP ticker started with tick function.');
 
 			// --- 2.6 Добавление обработчиков событий ---
 			// Создаем обертку для handleWheel, чтобы передать актуальный `deltaToInstance`.
 			wheelHandler = (event: WheelEvent) => handleWheel(event, deltaToInstance);
 			window.addEventListener('wheel', wheelHandler, { passive: true }); // passive: true для оптимизации скролла
-			console.log('Wheel event listener added.');
 
 			// Добавляем обработчик движения мыши на корневой элемент секции
 			if (rootRef.current && rotYInstance && rotXInstance) {
 				// Создаем обертку для handleMouseMove, передавая актуальные quickTo для вращения.
 				mouseMoveHandler = (event: MouseEvent) => handleMouseMove(event, rotYInstance, rotXInstance);
 				rootRef.current.addEventListener('mousemove', mouseMoveHandler);
-				console.log('Mousemove event listener added.');
 			}
 
 			// --- 2.7 Функция очистки для контекста GSAP ---
@@ -358,7 +351,6 @@ const Effect012: React.FC = () => {
 			// Здесь мы должны УДАЛИТЬ все, что не управляется напрямую GSAP:
 			// слушатели событий и функции, добавленные в ticker.
 			return () => {
-				console.log('Context cleanup: Removing ticker and event listeners...');
 				gsap.ticker.remove(tick); // Удаляем нашу функцию из тикера
 
 				// Удаляем слушатель скролла с window
@@ -372,7 +364,6 @@ const Effect012: React.FC = () => {
 				// Очищаем таймер сброса скорости, если он активен
 				if (isWheelingTimeoutRef.current) clearTimeout(isWheelingTimeoutRef.current);
 
-				console.log('Ticker and listeners removed.');
 				// Все GSAP-сущности (timeline, quickTo, set-значения) будут очищены ниже вызовом ctx.revert()
 			};
 
@@ -382,7 +373,6 @@ const Effect012: React.FC = () => {
 		// Эта функция вызывается при размонтировании компонента (или перед следующим запуском эффекта, если меняются зависимости).
 		// Здесь мы вызываем ctx.revert() для очистки ВСЕХ GSAP-эффектов, созданных внутри контекста.
 		return () => {
-			console.log('Effect cleanup: Reverting GSAP context...');
 			// ctx.revert() останавливает все анимации, удаляет все созданные твины/таймлайны,
 			// сбрасывает все инлайн-стили, установленные GSAP через .set() или анимации, к их исходным значениям.
 			ctx.revert();
@@ -392,7 +382,6 @@ const Effect012: React.FC = () => {
 			incrRef.current = 0;
 			deltaObjectRef.current.delta = 0;
 
-			console.log('GSAP context reverted.');
 
 			// Опционально: Явно сбросить вращение контейнера, если revert не справился (редко)
 			// if (containerRef.current) {

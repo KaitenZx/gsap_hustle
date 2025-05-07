@@ -1,0 +1,144 @@
+.asciiCanvas {
+	display: block;
+	width: 100%;
+	height: 100vh;
+	background-color: #121212;
+	color: #fff;
+	opacity: 0.4;
+	overflow: hidden;
+	position: absolute;
+	top: 0;
+	left: 0;
+	z-index: 1;
+	pointer-events: auto;
+}
+
+.aboutMeContainer {
+	position: relative;
+	width: 100%;
+	z-index: 2;
+}
+
+.mwgEffect004 {
+	position: relative;
+	width: 100%;
+}
+
+.pinHeight {
+	height: 300vh;
+	position: relative;
+	pointer-events: none;
+}
+
+.textAnimationContainer {
+	height: 100vh;
+	width: 100%;
+	padding: 8vw 4vw 0 4vw;
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-around;
+	position: relative;
+	z-index: 4;
+	pointer-events: none;
+}
+
+.textColumn {
+	flex-basis: 30%;
+	padding: 0 1em;
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+}
+
+.aboutColumn h1,
+.exposColumn h2,
+.linksColumn h2 {
+	font-size: 20px;
+	font-weight: 600;
+	color: white;
+	margin-bottom: 1em;
+	pointer-events: none;
+	width: 100%;
+	text-align: left;
+}
+
+//.aboutColumn {}
+
+.paragraphsWrapper {
+	display: flex;
+	flex-direction: column;
+	width: 100%;
+}
+
+.paragraph {
+	width: 100%;
+	font-family: 'Alpha Lyrae', sans-serif;
+	font-weight: 600;
+	font-size: 20px;
+	line-height: 24px;
+	letter-spacing: -0.02em;
+	color: white;
+	text-align: left;
+	pointer-events: none;
+	margin-bottom: 1em;
+}
+
+.paragraph:last-child {
+	margin-bottom: 0;
+}
+
+.exposColumn ul,
+.linksColumn ul {
+	list-style: none;
+	padding: 0;
+	margin: 0;
+	width: 100%;
+}
+
+.exposColumn li,
+.linksColumn li {
+	margin-bottom: 0.8em;
+	font-size: 16px;
+	line-height: 1.3;
+	color: white;
+	pointer-events: none;
+}
+
+.linksColumn a {
+	color: white;
+	text-decoration: none;
+	pointer-events: auto;
+}
+
+.linksColumn a:hover {
+	text-decoration: underline;
+}
+
+.yearTag {
+	display: inline-block;
+	background-color: #007bff;
+	color: white;
+	padding: 0.1em 0.4em;
+	font-size: 0.8em;
+	border-radius: 3px;
+	margin-left: 0.5em;
+}
+
+.subText {
+	display: block;
+	font-size: 0.8em;
+	color: #ccc;
+	margin-top: 0.2em;
+}
+
+// Marker class for JavaScript to identify texts to animate word-by-word
+.animatableText {
+	color: inherit;
+}
+
+.word {
+	display: inline-block;
+	transform: translate(calc(100vw - 25px), 0);
+	color: inherit;
+	opacity: 1;
+}

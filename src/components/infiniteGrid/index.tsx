@@ -72,7 +72,6 @@ export const InfiniteGrid: React.FC = () => {
 
 		// --- Создание контекста GSAP ---
 		gsapCtx.current = gsap.context(() => {
-			console.log("InfiniteGrid: GSAP Context created.");
 
 			// --- Функция для создания/обновления quickTo ---
 			const setupQuickTo = (width: number, height: number) => {
@@ -83,7 +82,6 @@ export const InfiniteGrid: React.FC = () => {
 					console.error("InfiniteGrid: Invalid dimensions in setupQuickTo. Aborting.", { width, height, halfX, halfY });
 					return;
 				}
-				console.log(`InfiniteGrid: Setting up QuickTo with dimensions: ${width.toFixed(0)}x${height.toFixed(0)}`);
 
 				// Используем wrap как в оригинальном примере (-halfX, 0)
 				const wrapX = gsap.utils.wrap(-halfX, 0);
@@ -101,7 +99,6 @@ export const InfiniteGrid: React.FC = () => {
 						x: gsap.utils.unitize(value => {
 							const parsedValue = parseFloat(value as string);
 							const wrapped = wrapX(parsedValue);
-							// console.log(`ModX: In=${parsedValue.toFixed(0)}, HalfX=${halfX.toFixed(0)}, Out=${wrapped.toFixed(0)}`);
 							return wrapped;
 						}, "px")
 					}
@@ -125,7 +122,6 @@ export const InfiniteGrid: React.FC = () => {
 			// --- Инициализация Observer (один раз) ---
 			// Убедимся, что Observer не создается повторно при ресайзе
 			if (!observerInstance.current) {
-				console.log("InfiniteGrid: Creating Observer instance.");
 				observerInstance.current = Observer.create({
 					target: window,
 					type: "wheel,touch,pointer",
@@ -178,7 +174,6 @@ export const InfiniteGrid: React.FC = () => {
 					}
 
 					if (width > 0 && height > 0) {
-						console.log("InfiniteGrid: ResizeObserver detected size change.");
 						// Пересчитываем и обновляем quickTo
 						setupQuickTo(width, height);
 					} else {
@@ -216,7 +211,6 @@ export const InfiniteGrid: React.FC = () => {
 
 		// --- Функция очистки ---
 		return () => {
-			console.log("InfiniteGrid: Cleaning up GSAP Context, Observer, and ResizeObserver...");
 			// 1. Отключаем ResizeObserver
 			resizeObserverRef.current?.disconnect();
 			// 2. Убиваем Observer
