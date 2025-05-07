@@ -1,0 +1,11 @@
+.asciiCanvas {
+	display: block;
+	/* Removes extra space below canvas */
+	width: 100vw;
+	/* Default to full width */
+	height: 100vh;
+	/* Default to full height */
+	background-color: #121212;
+	color: #fff;
+	opacity: 0.6;
+}

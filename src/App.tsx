@@ -5,6 +5,7 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import Lenis from 'lenis';
 
 import styles from './App.module.scss'
+import AsciiBackground from './components/AsciiBackground/AsciiBackground';
 import { InfiniteGallery } from './components/InfiniteGallery'
 import { ITEMS, GalleryItem } from './components/InfiniteGallery/galleryData';
 
@@ -68,7 +69,7 @@ function App() {
   return (
     <div className={styles.app}>
       <div id="placeholder1" className={styles.placeholder} >View 1 placeholder - landing</div>
-      <div id="placeholder2" className={styles.placeholder} >View 2 placeholder - about me</div>
+      <AsciiBackground className={styles.placeholder} />
       <InfiniteGallery />  {/* галерея работ */}
       <div id="placeholder3" className={styles.footer} >placeholder footer: link link link </div>
     </div>
