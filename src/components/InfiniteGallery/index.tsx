@@ -1,6 +1,7 @@
 import React, { useRef, useLayoutEffect, useState, useCallback, useMemo, useEffect } from 'react';
 
 import { gsap } from 'gsap';
+import { InertiaPlugin } from 'gsap/InertiaPlugin';
 import { Observer } from 'gsap/Observer';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { debounce, throttle } from 'lodash';
@@ -15,15 +16,14 @@ import styles from './index.module.scss';
 // <<< Явно типизируем карту >>>
 const lqipMap: Record<string, string> = lqipMapData;
 
-gsap.registerPlugin(Observer, ScrollTrigger);
+gsap.registerPlugin(Observer, ScrollTrigger, InertiaPlugin);
 // --- Константы ---
 const DEBOUNCE_RESIZE_MS = 150; // Задержка debounce для ресайза
-const RENDER_COLS_BUFFER = 2; // Дополнительные колонки для рендеринга (запас)
+const RENDER_COLS_BUFFER = 4; // Дополнительные колонки для рендеринга (запас)
 const RENDER_ROWS_BUFFER = 4; // Сколько доп. строк рендерить снизу
 const PRELOAD_THROTTLE_MS = 200; // Задержка throttle для предзагрузки
 const ROTATION_CLAMP = 18; // <<< Уменьшили максимальный угол поворота
 const ROTATION_SENSITIVITY = 18; // <<< Чувствительность поворота (делитель)
-const ACCELERATION_FACTOR = 0.00015; // <<< Фактор ускорения скролла (чем больше, тем сильнее ускорение)
 
 
 // --- Функция для предзагрузки одного ИЗОБРАЖЕНИЯ ПРЕВЬЮ ---
@@ -100,10 +100,10 @@ export const InfiniteGallery: React.FC = () => {
 	const observerInstance = useRef<Observer | null>(null);        // Инстанс Observer
 	const resizeObserverRef = useRef<ResizeObserver | null>(null); // Инстанс ResizeObserver
 	const scrollTriggerInstance = useRef<ScrollTrigger | null>(null); // Инстанс ScrollTrigger
+	const inertiaXTweenRef = useRef<gsap.core.Tween | null>(null); // <<< ADDED: Ref for X inertia tween
+	const inertiaYTweenRef = useRef<gsap.core.Tween | null>(null); // <<< ADDED: Ref for Y inertia tween
 
 	// --- Refs для анимации и состояния ---
-	const xToRef = useRef<ReturnType<typeof gsap.quickTo> | null>(null); // quickTo для X
-	const yToRef = useRef<ReturnType<typeof gsap.quickTo> | null>(null); // quickTo для Y
 	const incrX = useRef(0); // Накопленное смещение X
 	const incrY = useRef(0); // Накопленное смещение Y
 	// Ref для throttled-функции предзагрузки
@@ -138,7 +138,7 @@ export const InfiniteGallery: React.FC = () => {
 		if (dims && dims.columnTotalWidth > 0) {
 			const currentWrappedX = dims.wrapX(incrX.current);
 			const currentApproxFirstVisibleColIndex = Math.floor(-currentWrappedX / dims.columnTotalWidth);
-			const preloadColsCount = 2;
+			const preloadColsCount = 4;
 			let firstColToPreload: number;
 
 			if (scrollDirection === 1) {
@@ -226,12 +226,12 @@ export const InfiniteGallery: React.FC = () => {
 
 							if (el) {
 								if (!existingEntry || existingEntry.element !== el) {
-									const rotX = gsap.quickTo(el, 'rotationX', { duration: 0.6, ease: "power3.out" });
-									const rotY = gsap.quickTo(el, 'rotationY', { duration: 0.6, ease: "power3.out" });
+									const rotX = gsap.quickTo(el, 'rotationX', { duration: 0.5, ease: "power3.out" });
+									const rotY = gsap.quickTo(el, 'rotationY', { duration: 0.5, ease: "power3.out" });
 									currentMap.set(itemKey, { element: el, rotX, rotY });
 								} else if (existingEntry && !existingEntry.rotX) {
-									const rotX = gsap.quickTo(el, 'rotationX', { duration: 0.6, ease: "power3.out" });
-									const rotY = gsap.quickTo(el, 'rotationY', { duration: 0.6, ease: "power3.out" });
+									const rotX = gsap.quickTo(el, 'rotationX', { duration: 0.5, ease: "power3.out" });
+									const rotY = gsap.quickTo(el, 'rotationY', { duration: 0.5, ease: "power3.out" });
 									currentMap.set(itemKey, { ...existingEntry, rotX, rotY });
 								}
 							} else {
@@ -328,6 +328,7 @@ export const InfiniteGallery: React.FC = () => {
 				console.error("IFG: Invalid calculated widths/heights.", { columnTotalWidth, totalContentLogicalWidth, repeatingWidth, repeatingHeight });
 				return null;
 			}
+
 
 			// ----- Используем repeatingWidth для wrapX -----
 			const wrapX = gsap.utils.wrap(-repeatingWidth, 0);
@@ -447,89 +448,141 @@ export const InfiniteGallery: React.FC = () => {
 				}, 150);
 			};
 
-			// --- Функция для (пере)создания quickTo для СКРОЛЛА  ---
-			const setupScrollQuickTo = (dims: GridDimensions) => {
-				if (!contentWrapperElement) return; // Доп. проверка
-				xToRef.current = gsap.quickTo(contentWrapperElement, "x", {
-					duration: 1.2, ease: "power3.out",
-					modifiers: { x: gsap.utils.unitize(value => dims.wrapX(parseFloat(value as string)), "px") }
-				});
-				// <<< ОБНОВЛЕНО: Используем wrapY >>>
-				yToRef.current = gsap.quickTo(contentWrapperElement, "y", {
-					duration: 0.8, ease: "power3.out",
-					modifiers: { y: gsap.utils.unitize(value => dims.wrapY(parseFloat(value as string)), "px") }
-				});
-			};
-
 			// --- Инициализация Observer для СКРОЛЛА  ---
 			if (!observerInstance.current) {
 				observerInstance.current = Observer.create({
 					target: containerElement,
 					type: "wheel,touch,pointer",
-					// <<< preventDefault будет управляться ИЗ onChangeX/onChangeY >>>
-					preventDefault: false,
+					preventDefault: false, // Will be handled manually
 					tolerance: 5,
 					dragMinimum: 3,
-
+					// <<< ADDED: onPress to kill ongoing inertia >>>
+					onPress: () => {
+						inertiaXTweenRef.current?.kill();
+						inertiaYTweenRef.current?.kill();
+						// Also, when a new press happens, it means any "centering" for rotation should stop
+						// and switch to mouse-following rotation if the gallery isn't actively scrolling via inertia/drag.
+						// However, handleScrollActivity already manages isScrollingRef, which should be okay.
+					},
 					onChangeX: (self) => {
 						handleScrollActivity();
-						// Пропускаем, если вертикальный скролл преобладает ИЛИ мы не заблокированы/не инициализированы
-						if (Math.abs(self.deltaX) < Math.abs(self.deltaY) || !isScrollLockedRef.current || !xToRef.current || !dimensionsRef.current) return;
+						const dims = dimensionsRef.current;
 
-						// <<< Предотвращаем стандартный горизонтальный скролл колесом, КОГДА ГАЛЕРЕЯ ЗАБЛОКИРОВАНА >>>
+						// Пропускаем, если мы не заблокированы/не инициализированы
+						if (!isScrollLockedRef.current || !dims || !contentWrapperElement) return;
+
+						// Для DRAG: Пропускаем, если вертикальный скролл преобладает
+						if (self.isDragging && Math.abs(self.deltaX) < Math.abs(self.deltaY)) return;
+
+
+						// Предотвращаем стандартный горизонтальный скролл колесом, КОГДА ГАЛЕРЕЯ ЗАБЛОКИРОВАНА
 						if (self.event.type === 'wheel' && isScrollLockedRef.current) {
 							self.event.preventDefault();
 						}
 
-						// <<< Расчет ускорения >>>
-						const baseMultiplier = self.event.type === "wheel" ? 1 : 1.5;
-						const velocityX = self.velocityX; // Получаем скорость от Observer
-						const accelMultiplier = 1 + Math.abs(velocityX) * ACCELERATION_FACTOR;
-						const incrementX = self.deltaX * baseMultiplier * accelMultiplier; // Применяем ускорение
+						const baseMultiplier = (self.event.type === "wheel" || !self.isDragging) ? 1 : 1.5;
+						const increment = self.deltaX * baseMultiplier;
 
-						// <<< Применяем инкремент с правильным знаком >>>
+						// Применяем инкремент с правильным знаком
+						// For wheel, positive deltaX usually means scrolling "right" (content moves left)
+						// For touch, positive deltaX means finger moved right (content moves right)
 						if (self.event.type === "wheel") {
-							incrX.current -= incrementX;
-						} else {
-							// Для touch/pointer deltaX уже имеет правильный знак относительно смещения
-							incrX.current += incrementX;
+							incrX.current -= increment;
+						} else { // Touch/Pointer
+							incrX.current += increment;
 						}
 
-						xToRef.current(incrX.current);
-						throttledPreloadRef.current?.(self.deltaX > 0 ? 1 : -1);
+						// Прямая установка позиции через gsap.set
+						gsap.set(contentWrapperElement, { x: dims.wrapX(incrX.current) });
+
+						// Предзагрузка (направление зависит от того, как движется КОНТЕНТ)
+						// Если incrX увеличивается, контент движется вправо (пользователь свайпнул вправо ИЛИ колесо "вниз/вправо")
+						// Если incrX уменьшается, контент движется влево (пользователь свайпнул влево ИЛИ колесо "вверх/влево")
+						// self.deltaX > 0: wheel down/right OR touch right.
+						// For wheel (incrX -= increment): if self.deltaX > 0, increment > 0, incrX decreases (content moves left) -> preload right (dir -1)
+						// For touch (incrX += increment): if self.deltaX > 0, increment > 0, incrX increases (content moves right) -> preload left (dir 1)
+
+						let preloadDirection: 1 | -1 = 1;
+						if (self.event.type === "wheel") {
+							if (self.deltaX > 0) preloadDirection = -1; // Content moves left
+							else if (self.deltaX < 0) preloadDirection = 1; // Content moves right
+						} else { // Touch
+							if (self.deltaX > 0) preloadDirection = 1; // Content moves right
+							else if (self.deltaX < 0) preloadDirection = -1; // Content moves left
+						}
+						if (self.deltaX !== 0) { // Only preload if there's horizontal movement
+							throttledPreloadRef.current?.(preloadDirection);
+						}
 					},
 					onChangeY: (self) => {
 						handleScrollActivity();
-						// Пропускаем, если горизонтальный скролл преобладает ИЛИ мы не заблокированы/не инициализированы
-						// (Проверка isScrollLockedRef здесь не так критична, т.к. preventDefault ниже ее учтет, но оставим для симметрии)
-						if (Math.abs(self.deltaY) < Math.abs(self.deltaX) || !yToRef.current || !dimensionsRef.current) return;
+						const dims = dimensionsRef.current;
 
+						if (!isScrollLockedRef.current || !dims || !contentWrapperElement) return;
+						// Для DRAG: Пропускаем, если горизонтальный скролл преобладает
+						if (self.isDragging && Math.abs(self.deltaY) < Math.abs(self.deltaX)) return;
 
-						// <<< Расчет ускорения >>>
-						const baseMultiplier = self.event.type === "wheel" ? 1 : 1.5;
-						const velocityY = self.velocityY; // Получаем скорость от Observer
-						const accelMultiplier = 1 + Math.abs(velocityY) * ACCELERATION_FACTOR;
-						const incrementY = self.deltaY * baseMultiplier * accelMultiplier; // Применяем ускорение
-
-						// <<< Применяем инкремент к incrY без clamp >>>
-						if (self.event.type === "wheel") {
-							incrY.current -= incrementY;
-						} else {
-							incrY.current += incrementY;
-						}
-
-						// Запускаем анимацию quickTo, wrapY в модификаторе сделает свое дело
-						yToRef.current(incrY.current);
-
-						// ---  Логика preventDefault ---
 						// Предотвращаем стандартное вертикальное поведение (скролл страницы)
-						// ВСЕГДА, когда ScrollTrigger активен (isScrollLockedRef.current === true).
-						// Горизонтальный скролл (если deltaX > deltaY) обрабатывается в onChangeX.
-						if (isScrollLockedRef.current) {
+						if (isScrollLockedRef.current) { // Applicable for both wheel and touch
 							self.event.preventDefault();
 						}
-						// --- КОНЕЦ ИЗМЕНЕНИЯ preventDefault ---
+
+						const baseMultiplier = (self.event.type === "wheel" || !self.isDragging) ? 1 : 1.5;
+						const increment = self.deltaY * baseMultiplier;
+
+						if (self.event.type === "wheel") {
+							incrY.current -= increment;
+						} else { // Touch/Pointer
+							incrY.current += increment;
+						}
+
+						gsap.set(contentWrapperElement, { y: dims.wrapY(incrY.current) });
+						// No vertical preloading implemented in performPreload, so skipping here.
 					},
+					// <<< ADDED: onDragEnd for Inertia >>>
+					onDragEnd: (self) => {
+						const dims = dimensionsRef.current;
+						if (!dims || !contentWrapperElement || !isScrollLockedRef.current) return;
+
+						inertiaXTweenRef.current?.kill(); // Kill previous X tween just in case
+						inertiaYTweenRef.current?.kill(); // Kill previous Y tween just in case
+
+						// Horizontal Inertia
+						inertiaXTweenRef.current = gsap.to(contentWrapperElement, {
+							inertia: {
+								x: { velocity: self.velocityX }
+							},
+							modifiers: {
+								x: gsap.utils.unitize(value => dims.wrapX(parseFloat(value as string)), "px")
+							},
+							ease: "power1.out",
+							onStart: () => {
+								// self.velocityX > 0: content is thrown to the right (user swiped right)
+								//   => preload content that will appear on the left of viewport (dir 1 for performPreload)
+								// self.velocityX < 0: content is thrown to the left (user swiped left)
+								//   => preload content that will appear on the right of viewport (dir -1 for performPreload)
+								if (self.velocityX > 50) throttledPreloadRef.current?.(1);
+								else if (self.velocityX < -50) throttledPreloadRef.current?.(-1);
+							},
+							// onUpdate: function() {
+							// For more accurate preloading during inertia, update incrX here.
+							// Example: incrX.current = parseFloat(gsap.getProperty(this.targets()[0], "x", "px_unwrapped_logical_equivalent"));
+							// This is complex; preloading at onStart is a good first step.
+							// }
+						});
+
+						// Vertical Inertia
+						inertiaYTweenRef.current = gsap.to(contentWrapperElement, {
+							inertia: {
+								y: { velocity: self.velocityY }
+							},
+							modifiers: {
+								y: gsap.utils.unitize(value => dims.wrapY(parseFloat(value as string)), "px")
+							},
+							ease: "power1.out",
+							// onStart for vertical preloading if it was implemented
+						});
+					}
 				});
 				observerInstance.current.disable(); // Начинаем в выключенном состоянии
 			}
@@ -568,9 +621,13 @@ export const InfiniteGallery: React.FC = () => {
 					// 2. Пересчитываем количество колонок на основе новых размеров
 					const newRenderCols = calculateRenderCols(newDims);
 
+					// <<< ADDED: Kill inertia tweens on resize before position reset >>>
+					inertiaXTweenRef.current?.kill();
+					inertiaYTweenRef.current?.kill();
+
 					// 3. Обновляем GSAP и позицию ВНУТРИ контекста
 					gsapCtx.current.add(() => {
-						setupScrollQuickTo(newDims);
+						// setupScrollQuickTo(newDims); // <<< REMOVED
 						// Сбрасываем X, Y остается как есть (будет обернут wrapY)
 						// Можно опционально сбросить X, но Y трогать не нужно, чтобы сохранить позицию в цикле
 						incrX.current = 0;
@@ -603,7 +660,7 @@ export const InfiniteGallery: React.FC = () => {
 			if (initialDims) {
 				const initialRenderCols = calculateRenderCols(initialDims);
 				setRenderColsCount(initialRenderCols);
-				setupScrollQuickTo(initialDims);
+				// setupScrollQuickTo(initialDims); // <<< REMOVED
 				// Устанавливаем начальные позиции в 0 (wrapX/wrapY их нормализуют если нужно)
 				incrX.current = 0;
 				incrY.current = 0;
@@ -662,12 +719,16 @@ export const InfiniteGallery: React.FC = () => {
 			resizeObserverRef.current = null;
 			observerInstance.current = null; // Должен быть убит ревертом, но для надежности
 			gsapCtx.current = null;
-			xToRef.current = null;
-			yToRef.current = null;
+			// xToRef.current = null; // <<< REMOVED
+			// yToRef.current = null; // <<< REMOVED
 			throttledPreloadRef.current = null;
 			dimensionsRef.current = null;
 			isInitialized.current = false;
 			isScrollLockedRef.current = false;
+
+			// <<< ADDED: Kill inertia tweens on unmount >>>
+			inertiaXTweenRef.current?.kill();
+			inertiaYTweenRef.current?.kill();
 		};
 		// <<< Обновлены зависимости (убраны minY/maxY/scrollableDistanceY если они где-то были косвенно) >>>
 	}, [setScrollLocked, renderColsCount, performPreload]); // Зависимости в основном для колбэков
