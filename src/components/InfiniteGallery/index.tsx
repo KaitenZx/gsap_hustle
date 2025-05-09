@@ -21,9 +21,10 @@ gsap.registerPlugin(Observer, ScrollTrigger, InertiaPlugin);
 const DEBOUNCE_RESIZE_MS = 150; // Задержка debounce для ресайза
 const RENDER_COLS_BUFFER = 4; // Дополнительные колонки для рендеринга (запас)
 const RENDER_ROWS_BUFFER = 4; // Сколько доп. строк рендерить снизу
-const PRELOAD_THROTTLE_MS = 200; // Задержка throttle для предзагрузки
+const PRELOAD_THROTTLE_MS = 100; // Задержка throttle для предзагрузки
 const ROTATION_CLAMP = 18; // <<< Уменьшили максимальный угол поворота
 const ROTATION_SENSITIVITY = 18; // <<< Чувствительность поворота (делитель)
+const LERP_FACTOR = 0.4; // <<< Коэффициент для лерпинга (0.0 - 1.0)
 
 
 // --- Функция для предзагрузки одного ИЗОБРАЖЕНИЯ ПРЕВЬЮ ---
@@ -112,6 +113,12 @@ export const InfiniteGallery: React.FC = () => {
 	const dimensionsRef = useRef<GridDimensions | null>(null); // Хранение рассчитанных размеров
 	const isInitialized = useRef(false); // Флаг для однократной инициализации
 
+	// --- Refs для Lerping ---
+	const currentActualXRef = useRef(0);
+	const currentActualYRef = useRef(0);
+	const lerpLoopIdRef = useRef<number | null>(null);
+	const isLerpingActiveRef = useRef(false);
+
 	// --- Refs для эффекта вращения ---
 	const mediaAnimRefs = useRef(new Map<string, MediaAnimData>());
 	const mousePos = useRef({ x: 0, y: 0 });
@@ -136,7 +143,8 @@ export const InfiniteGallery: React.FC = () => {
 	const performPreload = useCallback((scrollDirection: 1 | -1) => {
 		const dims = dimensionsRef.current;
 		if (dims && dims.columnTotalWidth > 0) {
-			const currentWrappedX = dims.wrapX(incrX.current);
+			// Используем currentActualXRef для более точного определения видимой колонки
+			const currentWrappedX = dims.wrapX(currentActualXRef.current);
 			const currentApproxFirstVisibleColIndex = Math.floor(-currentWrappedX / dims.columnTotalWidth);
 			const preloadColsCount = 4;
 			let firstColToPreload: number;
@@ -186,6 +194,70 @@ export const InfiniteGallery: React.FC = () => {
 	const handleInteractionStart = useCallback((fullSrc: string) => {
 		preloadFullImage(fullSrc);
 	}, []); // Empty dependencies, preloadFullImage is stable
+
+	// --- Функция Lerp Step ---
+	const lerpStep = useCallback(() => {
+		if (!isInitialized.current || !dimensionsRef.current || !contentWrapperRef.current) {
+			if (isLerpingActiveRef.current) {
+				lerpLoopIdRef.current = requestAnimationFrame(lerpStep);
+			} else {
+				lerpLoopIdRef.current = null;
+			}
+			return;
+		}
+
+		const dims = dimensionsRef.current;
+		const targetX = incrX.current;
+		const targetY = incrY.current;
+
+		let newActualX = currentActualXRef.current + (targetX - currentActualXRef.current) * LERP_FACTOR;
+		let newActualY = currentActualYRef.current + (targetY - currentActualYRef.current) * LERP_FACTOR;
+
+		const deltaThreshold = 0.01;
+
+		if (Math.abs(targetX - newActualX) < deltaThreshold) {
+			newActualX = targetX;
+		}
+		if (Math.abs(targetY - newActualY) < deltaThreshold) {
+			newActualY = targetY;
+		}
+
+		if (currentActualXRef.current !== newActualX || currentActualYRef.current !== newActualY) {
+			currentActualXRef.current = newActualX;
+			currentActualYRef.current = newActualY;
+
+			gsap.set(contentWrapperRef.current, {
+				x: dims.wrapX(currentActualXRef.current),
+				y: dims.wrapY(currentActualYRef.current),
+			});
+		}
+
+		if (isLerpingActiveRef.current) {
+			if (currentActualXRef.current !== targetX || currentActualYRef.current !== targetY) {
+				lerpLoopIdRef.current = requestAnimationFrame(lerpStep);
+			} else {
+				lerpLoopIdRef.current = null;
+			}
+		} else {
+			lerpLoopIdRef.current = null;
+		}
+	}, []); // LERP_FACTOR is a const, so no dependency needed
+
+	// --- useEffect for Lerping Loop ---
+	useEffect(() => {
+		if (isLerpingActiveRef.current && !lerpLoopIdRef.current) {
+			lerpLoopIdRef.current = requestAnimationFrame(lerpStep);
+		} else if (!isLerpingActiveRef.current && lerpLoopIdRef.current) {
+			cancelAnimationFrame(lerpLoopIdRef.current);
+			lerpLoopIdRef.current = null;
+		}
+		return () => {
+			if (lerpLoopIdRef.current) {
+				cancelAnimationFrame(lerpLoopIdRef.current);
+				lerpLoopIdRef.current = null;
+			}
+		};
+	}, [lerpStep]); // Dependency on lerpStep
 
 	// --- Функция рендеринга одной колонки  ---
 	const renderColumn = useCallback((columnIndex: number) => {
@@ -453,7 +525,7 @@ export const InfiniteGallery: React.FC = () => {
 				observerInstance.current = Observer.create({
 					target: containerElement,
 					type: "wheel,touch,pointer",
-					preventDefault: false, // Will be handled manually
+					// preventDefault: ["wheel", "touch", "pointer"], // Reverted due to TS error, default is false
 					tolerance: 5,
 					dragMinimum: 3,
 					// <<< ADDED: onPress to kill ongoing inertia >>>
@@ -463,6 +535,14 @@ export const InfiniteGallery: React.FC = () => {
 						// Also, when a new press happens, it means any "centering" for rotation should stop
 						// and switch to mouse-following rotation if the gallery isn't actively scrolling via inertia/drag.
 						// However, handleScrollActivity already manages isScrollingRef, which should be okay.
+
+						// <<< LERPING: Activate lerping, ensure actuals match targets >>>
+						currentActualXRef.current = incrX.current;
+						currentActualYRef.current = incrY.current;
+						isLerpingActiveRef.current = true;
+						if (!lerpLoopIdRef.current) {
+							lerpLoopIdRef.current = requestAnimationFrame(lerpStep);
+						}
 					},
 					onChangeX: (self) => {
 						handleScrollActivity();
@@ -477,7 +557,9 @@ export const InfiniteGallery: React.FC = () => {
 
 						// Предотвращаем стандартный горизонтальный скролл колесом, КОГДА ГАЛЕРЕЯ ЗАБЛОКИРОВАНА
 						if (self.event.type === 'wheel' && isScrollLockedRef.current) {
-							self.event.preventDefault();
+							if (self.event.cancelable) { // <<< ADDED cancelable check
+								self.event.preventDefault();
+							}
 						}
 
 						const baseMultiplier = (self.event.type === "wheel" || !self.isDragging) ? 1 : 1.5;
@@ -492,8 +574,11 @@ export const InfiniteGallery: React.FC = () => {
 							incrX.current += increment;
 						}
 
-						// Прямая установка позиции через gsap.set
-						gsap.set(contentWrapperElement, { x: dims.wrapX(incrX.current) });
+						// <<< LERPING: Activate and start loop if not already active >>>
+						isLerpingActiveRef.current = true;
+						if (!lerpLoopIdRef.current) {
+							lerpLoopIdRef.current = requestAnimationFrame(lerpStep);
+						}
 
 						// Предзагрузка (направление зависит от того, как движется КОНТЕНТ)
 						// Если incrX увеличивается, контент движется вправо (пользователь свайпнул вправо ИЛИ колесо "вниз/вправо")
@@ -524,7 +609,9 @@ export const InfiniteGallery: React.FC = () => {
 
 						// Предотвращаем стандартное вертикальное поведение (скролл страницы)
 						if (isScrollLockedRef.current) { // Applicable for both wheel and touch
-							self.event.preventDefault();
+							if (self.event.cancelable) { // <<< ADDED cancelable check
+								self.event.preventDefault();
+							}
 						}
 
 						const baseMultiplier = (self.event.type === "wheel" || !self.isDragging) ? 1 : 1.5;
@@ -536,7 +623,11 @@ export const InfiniteGallery: React.FC = () => {
 							incrY.current += increment;
 						}
 
-						gsap.set(contentWrapperElement, { y: dims.wrapY(incrY.current) });
+						// <<< LERPING: Activate and start loop if not already active >>>
+						isLerpingActiveRef.current = true;
+						if (!lerpLoopIdRef.current) {
+							lerpLoopIdRef.current = requestAnimationFrame(lerpStep);
+						}
 						// No vertical preloading implemented in performPreload, so skipping here.
 					},
 					// <<< ADDED: onDragEnd for Inertia >>>
@@ -544,18 +635,29 @@ export const InfiniteGallery: React.FC = () => {
 						const dims = dimensionsRef.current;
 						if (!dims || !contentWrapperElement || !isScrollLockedRef.current) return;
 
+						// <<< LERPING: Deactivate manual lerping for inertia >>>
+						isLerpingActiveRef.current = false;
+						if (lerpLoopIdRef.current) {
+							cancelAnimationFrame(lerpLoopIdRef.current);
+							lerpLoopIdRef.current = null;
+						}
+
 						inertiaXTweenRef.current?.kill(); // Kill previous X tween just in case
 						inertiaYTweenRef.current?.kill(); // Kill previous Y tween just in case
 
+						// <<< LERPING: Inertia proxy object initialized with current actual values >>>
+						const inertiaProxy = { x: currentActualXRef.current, y: currentActualYRef.current };
+
+
 						// Horizontal Inertia
-						inertiaXTweenRef.current = gsap.to(contentWrapperElement, {
+						inertiaXTweenRef.current = gsap.to(inertiaProxy, {
 							inertia: {
 								x: { velocity: self.velocityX }
 							},
-							modifiers: {
-								x: gsap.utils.unitize(value => dims.wrapX(parseFloat(value as string)), "px")
-							},
-							ease: "power1.out",
+							// modifiers: { // <<< REMOVED: wrapping is done via onUpdate and currentActualXRef
+							// 	x: gsap.utils.unitize(value => dims.wrapX(parseFloat(value as string)), "px")
+							// },
+							ease: "none",
 							onStart: () => {
 								// self.velocityX > 0: content is thrown to the right (user swiped right)
 								//   => preload content that will appear on the left of viewport (dir 1 for performPreload)
@@ -564,23 +666,43 @@ export const InfiniteGallery: React.FC = () => {
 								if (self.velocityX > 50) throttledPreloadRef.current?.(1);
 								else if (self.velocityX < -50) throttledPreloadRef.current?.(-1);
 							},
-							// onUpdate: function() {
-							// For more accurate preloading during inertia, update incrX here.
-							// Example: incrX.current = parseFloat(gsap.getProperty(this.targets()[0], "x", "px_unwrapped_logical_equivalent"));
-							// This is complex; preloading at onStart is a good first step.
-							// }
+							onUpdate: function () {
+								if (!dims || !contentWrapperElement) return;
+								// <<< LERPING: Update target and actual from proxy, then apply wrapped actual >>>
+								incrX.current = inertiaProxy.x;
+								currentActualXRef.current = inertiaProxy.x;
+								gsap.set(contentWrapperElement, { x: dims.wrapX(currentActualXRef.current) });
+							},
+							onComplete: () => {
+								if (dims) { // Ensure dims is still valid
+									incrX.current = inertiaProxy.x;
+									currentActualXRef.current = inertiaProxy.x;
+								}
+							}
 						});
 
 						// Vertical Inertia
-						inertiaYTweenRef.current = gsap.to(contentWrapperElement, {
+						inertiaYTweenRef.current = gsap.to(inertiaProxy, {
 							inertia: {
 								y: { velocity: self.velocityY }
 							},
-							modifiers: {
-								y: gsap.utils.unitize(value => dims.wrapY(parseFloat(value as string)), "px")
+							// modifiers: { // <<< REMOVED: wrapping is done via onUpdate and currentActualYRef
+							// 	y: gsap.utils.unitize(value => dims.wrapY(parseFloat(value as string)), "px")
+							// },
+							ease: "none",
+							onUpdate: function () {
+								if (!dims || !contentWrapperElement) return;
+								// <<< LERPING: Update target and actual from proxy, then apply wrapped actual >>>
+								incrY.current = inertiaProxy.y;
+								currentActualYRef.current = inertiaProxy.y;
+								gsap.set(contentWrapperElement, { y: dims.wrapY(currentActualYRef.current) });
 							},
-							ease: "power1.out",
-							// onStart for vertical preloading if it was implemented
+							onComplete: () => {
+								if (dims) { // Ensure dims is still valid
+									incrY.current = inertiaProxy.y;
+									currentActualYRef.current = inertiaProxy.y;
+								}
+							}
 						});
 					}
 				});
@@ -598,7 +720,7 @@ export const InfiniteGallery: React.FC = () => {
 				scrollTriggerInstance.current = ScrollTrigger.create({
 					trigger: containerElement,
 					start: "top top",
-					end: "+=2880", // Используем большое значение
+					end: "+=3200", // Используем большое значение
 					pin: true,
 					pinSpacing: true,
 					anticipatePin: 1,
@@ -631,9 +753,15 @@ export const InfiniteGallery: React.FC = () => {
 						// Сбрасываем X, Y остается как есть (будет обернут wrapY)
 						// Можно опционально сбросить X, но Y трогать не нужно, чтобы сохранить позицию в цикле
 						incrX.current = 0;
+						currentActualXRef.current = 0; // <<< LERPING: Reset actual as well
 						// incrY.current = newDims.wrapY(incrY.current); // Можно явно обернуть текущее значение на всякий случай
-						gsap.set(contentWrapperElement, { x: 0 }); // Сбрасываем X визуально
-						// Позицию Y не трогаем, quickTo ее держит
+						// currentActualYRef.current = newDims.wrapY(currentActualYRef.current); // <<< LERPING: And wrap actual Y
+						gsap.set(contentWrapperElement, {
+							x: newDims.wrapX(currentActualXRef.current), // Use wrapped actual
+							// y: newDims.wrapY(currentActualYRef.current) // Keep Y position, wrap happens in lerp/inertia
+						});
+						// Позицию Y не трогаем, quickTo ее держит (quickTo удален, но логика сохранения Y остается)
+
 						// <<< Сброс вращений при ресайзе (опционально) >>>
 						mediaAnimRefs.current.forEach(refData => {
 							refData.rotX?.(0);
@@ -664,7 +792,12 @@ export const InfiniteGallery: React.FC = () => {
 				// Устанавливаем начальные позиции в 0 (wrapX/wrapY их нормализуют если нужно)
 				incrX.current = 0;
 				incrY.current = 0;
-				gsap.set(contentWrapperElement, { x: incrX.current, y: incrY.current });
+				currentActualXRef.current = 0; // <<< LERPING: Initialize actual
+				currentActualYRef.current = 0; // <<< LERPING: Initialize actual
+				gsap.set(contentWrapperElement, {
+					x: initialDims.wrapX(currentActualXRef.current),
+					y: initialDims.wrapY(currentActualYRef.current)
+				});
 				isInitialized.current = true; // Ставим флаг, что инициализация прошла
 
 				// 5. Обновляем ScrollTrigger ПОСЛЕ расчетов и рендеринга
@@ -694,6 +827,12 @@ export const InfiniteGallery: React.FC = () => {
 				if (scrollStopTimeoutRef.current) {
 					clearTimeout(scrollStopTimeoutRef.current);
 				}
+				// <<< LERPING: Clear lerp loop on GSAP context cleanup >>>
+				if (lerpLoopIdRef.current) {
+					cancelAnimationFrame(lerpLoopIdRef.current);
+					lerpLoopIdRef.current = null;
+				}
+				isLerpingActiveRef.current = false;
 			};
 
 		}, containerRef);
@@ -725,13 +864,20 @@ export const InfiniteGallery: React.FC = () => {
 			dimensionsRef.current = null;
 			isInitialized.current = false;
 			isScrollLockedRef.current = false;
+			// <<< LERPING: Clear lerp loop on unmount (double check as it's also in GSAP context cleanup) >>>
+			if (lerpLoopIdRef.current) {
+				cancelAnimationFrame(lerpLoopIdRef.current);
+				lerpLoopIdRef.current = null;
+			}
+			isLerpingActiveRef.current = false;
+
 
 			// <<< ADDED: Kill inertia tweens on unmount >>>
 			inertiaXTweenRef.current?.kill();
 			inertiaYTweenRef.current?.kill();
 		};
 		// <<< Обновлены зависимости (убраны minY/maxY/scrollableDistanceY если они где-то были косвенно) >>>
-	}, [setScrollLocked, renderColsCount, performPreload]); // Зависимости в основном для колбэков
+	}, [setScrollLocked, renderColsCount, performPreload, lerpStep]); // Зависимости в основном для колбэков
 
 	// --- Мемоизация массива колонок  ---
 	const columnsToRender = useMemo(() => {
