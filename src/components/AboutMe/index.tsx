@@ -20,6 +20,11 @@ const wrapWordsInSpans = (elements: HTMLElement[]) => {
 	});
 };
 
+// Define scroll distances for animation and pause
+const TEXT_ANIM_SCROLL_DISTANCE_VH = 300; // Text animation happens over this scroll distance
+const PAUSE_SCROLL_DISTANCE_VH = 60;   // Pause lasts for this scroll distance
+// Total scroll distance is implicitly defined by .pinHeight in SCSS (set to 400vh)
+
 export const AboutMe = () => {
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const mousePositionRef = useRef<Vec2>({ x: 0, y: 0 });
@@ -30,34 +35,26 @@ export const AboutMe = () => {
 	const aboutMeContainerRef = useRef<HTMLDivElement>(null);
 	const pinHeightRef = useRef<HTMLDivElement>(null);
 	const pinnedTextContainerRef = useRef<HTMLDivElement>(null);
-	// Renamed paragraphRef to paragraphsContainerRef for clarity
 	const paragraphsContainerRef = useRef<HTMLDivElement>(null);
 
-	// Reusable Vec2 objects for optimization
 	const reusableCoord = useRef(vec2(0, 0)).current;
 	const reusableSt = useRef(vec2(0, 0)).current;
 	const reusablePointerInGridCoords = useRef(vec2(0, 0)).current;
 	const reusablePointerNormalized = useRef(vec2(0, 0)).current;
 	const reusableSubResult = useRef(vec2(0, 0)).current;
 
-	// --- Context for the animation ---
-	// These will be updated on resize
-	const colsRef = useRef(80); // Default character columns
-	const rowsRef = useRef(40); // Default character rows
-	const charWidthRef = useRef(10); // Approximate width of a character
-	const charHeightRef = useRef(20); // Approximate height of a character
-	const aspectRef = useRef(0.5); // charWidth / charHeight
+	const colsRef = useRef(80);
+	const rowsRef = useRef(40);
+	const charWidthRef = useRef(10);
+	const charHeightRef = useRef(20);
+	const aspectRef = useRef(0.5);
 
 	const calculateCharMetrics = (ctx: CanvasRenderingContext2D) => {
-		ctx.font = '16px monospace'; // Set a consistent font for measurement
-		const metrics = ctx.measureText('M'); // Measure a representative character
-
-		// Attempt to get actual bounding box dimensions if available
+		ctx.font = '16px monospace';
+		const metrics = ctx.measureText('M');
 		if (typeof metrics.actualBoundingBoxAscent === 'number' && typeof metrics.actualBoundingBoxDescent === 'number') {
 			charHeightRef.current = metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent;
 		} else {
-			// Fallback for browsers not supporting actualBoundingBoxAscent/Descent
-			// This is a rough estimate. 'fontBoundingBoxAscent/Descent' might be more accurate if available.
 			charHeightRef.current = parseInt(ctx.font, 10) * 1.2;
 		}
 		charWidthRef.current = metrics.width;
@@ -67,25 +64,24 @@ export const AboutMe = () => {
 	useEffect(() => {
 		gsap.registerPlugin(ScrollTrigger);
 
-		// Updated ref name
 		const paragraphsContainerEl = paragraphsContainerRef.current;
 		const pinHeightEl = pinHeightRef.current;
 		const pinnedTextContainerEl = pinnedTextContainerRef.current;
+		const currentCanvasElement = canvasRef.current; // For cleanup
 
 		if (!paragraphsContainerEl || !pinHeightEl || !pinnedTextContainerEl) {
 			console.warn('[AboutMe GSAP] Missing elements for text animation setup.');
 			return;
 		}
 
+		let masterTimeline: gsap.core.Timeline | null = null;
+		let canvasPinScrollTrigger: ScrollTrigger | null = null;
+
 		const initTextAnimation = () => {
-			// Get all elements that should have their text animated word-by-word
 			const elementsToAnimate: HTMLElement[] = Array.from(
 				pinnedTextContainerEl.querySelectorAll(
-					// About column content
 					`.${styles.aboutColumn} h1, .${styles.aboutColumn} p,` +
-					// Expos column content
 					`.${styles.exposColumn} h2, .${styles.exposColumn} .${styles.animatableText},` +
-					// Links column content
 					`.${styles.linksColumn} h2, .${styles.linksColumn} li a`
 				)
 			).filter(el => el instanceof HTMLElement);
@@ -94,17 +90,12 @@ export const AboutMe = () => {
 				console.warn('[AboutMe GSAP] No elements designated for animation found.');
 				return;
 			}
+			wrapWordsInSpans(elementsToAnimate);
 
-			wrapWordsInSpans(elementsToAnimate); // Call on the array of designated text elements
-
-			// Directly mark yearTag elements as words for animation
 			const yearTagElements: HTMLElement[] = Array.from(pinnedTextContainerEl.querySelectorAll(`.${styles.yearTag}`))
 				.filter(el => el instanceof HTMLElement);
-			yearTagElements.forEach(tagEl => {
-				tagEl.classList.add(styles.word);
-			});
+			yearTagElements.forEach(tagEl => tagEl.classList.add(styles.word));
 
-			// Query all words (including yearTags now directly marked as words) for animation
 			const words: HTMLElement[] = Array.from(pinnedTextContainerEl.querySelectorAll(`.${styles.word}`))
 				.filter(el => el instanceof HTMLElement);
 
@@ -113,24 +104,26 @@ export const AboutMe = () => {
 				return;
 			}
 
-			ScrollTrigger.create({
-				trigger: pinHeightEl,
-				start: 'top top',
-				end: 'bottom bottom',
-				pin: pinnedTextContainerEl,
-				// markers: true, // for debugging
+			// Create the master timeline that will be scrubbed
+			masterTimeline = gsap.timeline({
+				scrollTrigger: {
+					trigger: pinHeightEl,
+					pin: pinnedTextContainerEl,
+					scrub: true,
+					start: 'top top',
+					end: 'bottom bottom', // End refers to the full height of pinHeightEl (400vh)
+					// markers: {startColor: "magenta", endColor: "magenta", indent: 160, fontSize: "10px",}, // For debugging master timeline
+				}
 			});
 
-			// Pin the canvas as well, using the same trigger and duration
-			// Ensure canvasRef.current exists before creating the ScrollTrigger
-			if (canvasRef.current && pinHeightEl) {
-				ScrollTrigger.create({
+			// Pin the canvas as well, using a separate ScrollTrigger for the full duration
+			if (currentCanvasElement && pinHeightEl) {
+				canvasPinScrollTrigger = ScrollTrigger.create({
 					trigger: pinHeightEl,
-					pin: canvasRef.current,
+					pin: currentCanvasElement,
 					start: 'top top',
-					end: 'bottom bottom',
-					pinSpacing: false, // Important: no extra space
-					// markers: true, // for debugging canvas pin
+					end: 'bottom bottom', // Pin for the full duration
+					pinSpacing: false,
 				});
 			}
 
@@ -147,50 +140,103 @@ export const AboutMe = () => {
 				lines[lineIndex].push(word);
 			});
 
+			// Create word animation tweens (time-based, not scroll-triggered individually)
+			const wordAnimationTweens: gsap.core.Tween[] = [];
+			let maxTextAnimationImplicitDuration = 0;
+
 			lines.forEach(lineWords => {
-				if (lineWords.length === 0) return;
-				gsap.to(lineWords, {
-					x: 0,
-					stagger: 0.1, // Adjusted stagger for potentially more words
-					ease: 'power1.inOut',
-					scrollTrigger: {
-						trigger: pinHeightEl,
-						start: 'top top',
-						end: 'bottom bottom', // Animation progresses through the entire pinHeight scroll
-						scrub: true,
-						// markers: true, // for debugging
+				if (lineWords.length > 0) {
+					const tween = gsap.to(lineWords, {
+						x: 0,
+						stagger: 0.1, // Existing stagger
+						ease: 'power1.inOut', // Existing ease
+						// paused: true, // Not needed if added to master timeline correctly
+					});
+					wordAnimationTweens.push(tween);
+					if (tween.duration() > maxTextAnimationImplicitDuration) {
+						maxTextAnimationImplicitDuration = tween.duration();
 					}
-				});
-			});
-			console.log('[AboutMe GSAP] Text animation initialized.');
-		};
-
-		// A small timeout to help with layout and font loading before calculating offsets.
-		// Replace with a more robust font loading strategy if needed.
-		const timerId = setTimeout(initTextAnimation, 100);
-
-		// Capture the current canvas element for the cleanup function
-		const currentCanvasElement = canvasRef.current;
-
-		// Cleanup function
-		return () => {
-			clearTimeout(timerId);
-			const triggers = ScrollTrigger.getAll();
-			triggers.forEach(trigger => {
-				// More specific check if possible, e.g. by assigning an ID
-				// or checking the pinned element
-				if (trigger.vars.trigger === pinHeightEl ||
-					trigger.vars.pin === pinnedTextContainerEl ||
-					(currentCanvasElement && trigger.vars.pin === currentCanvasElement)
-				) {
-					trigger.kill();
 				}
 			});
-			// If tweens are created outside of scrollTrigger directly, kill them too.
-			// gsap.killTweensOf(pinnedTextContainerEl); // Example if direct tweens were used
-			console.log('[AboutMe GSAP] Text animation cleaned up.');
+
+			// Fallback if no words or all lines have 1 word (duration would be GSAP default 0.5s for .to())
+			if (wordAnimationTweens.length > 0 && maxTextAnimationImplicitDuration === 0) {
+				// This case means all tweens are for single words, so duration is default 0.5s
+				maxTextAnimationImplicitDuration = 0.5;
+			} else if (wordAnimationTweens.length === 0) {
+				maxTextAnimationImplicitDuration = 0.01; // Avoid 0 for calculations if no words
+			}
+
+
+			// Add all word animation tweens to the masterTimeline at the beginning (time 0)
+			// These animations will play out as the masterTimeline progresses through its first "segment"
+			if (wordAnimationTweens.length > 0) {
+				masterTimeline.add(wordAnimationTweens, 0);
+			} else {
+				// If no words to animate, ensure the text animation segment still "exists"
+				// with a tiny duration on the master timeline.
+				masterTimeline.to({}, { duration: 0.001 }, 0);
+			}
+
+
+			// Calculate the "timeline duration" for the pause part.
+			// This duration must be proportional to maxTextAnimationImplicitDuration,
+			// based on the ratio of PAUSE_SCROLL_DISTANCE_VH to TEXT_ANIM_SCROLL_DISTANCE_VH.
+			let pauseTimelineDuration = 0;
+			if (TEXT_ANIM_SCROLL_DISTANCE_VH > 0.001 && maxTextAnimationImplicitDuration > 0.0001) {
+				pauseTimelineDuration = maxTextAnimationImplicitDuration * (PAUSE_SCROLL_DISTANCE_VH / TEXT_ANIM_SCROLL_DISTANCE_VH);
+			} else if (PAUSE_SCROLL_DISTANCE_VH > 0) {
+				// If text animation part is effectively zero (or has no scroll distance assigned),
+				// but pause has scroll distance, give pause a default timeline duration (e.g., 1 unit).
+				// This means the pause will take up most/all of the scrubbed timeline.
+				pauseTimelineDuration = 1; // Arbitrary unit, makes sense if it's the only "active" part
+			}
+			pauseTimelineDuration = Math.max(0, pauseTimelineDuration); // Ensure non-negative
+
+
+			// Add an empty tween to the masterTimeline for the "pause"
+			// It starts after the text animations are meant to have finished on the timeline.
+			// The position is `maxTextAnimationImplicitDuration`.
+			// Its duration is `pauseTimelineDuration`.
+			if (pauseTimelineDuration > 0.0001) {
+				masterTimeline.to({}, { duration: pauseTimelineDuration }, maxTextAnimationImplicitDuration);
+			}
+
+			// Ensure the timeline has some minimal length if everything was zero
+			if (masterTimeline.duration() === 0) {
+				masterTimeline.to({}, { duration: 0.01 });
+			}
+
+			console.log(`[AboutMe GSAP] Master timeline initialized. Text anim implicit duration: ${maxTextAnimationImplicitDuration.toFixed(2)}s, Pause timeline duration: ${pauseTimelineDuration.toFixed(2)}s. Total timeline duration: ${masterTimeline.duration().toFixed(2)}s`);
 		};
-	}, []); // Empty dependency array to run once on mount and clean up on unmount
+
+		const timerId = setTimeout(initTextAnimation, 100);
+
+		return () => {
+			clearTimeout(timerId);
+
+			// Kill the master timeline and its associated ScrollTrigger
+			if (masterTimeline) {
+				const st = masterTimeline.scrollTrigger;
+				if (st) {
+					st.kill();
+				}
+				masterTimeline.kill();
+			}
+
+			// Kill the separate ScrollTrigger for canvas pinning
+			if (canvasPinScrollTrigger) {
+				canvasPinScrollTrigger.kill();
+			}
+
+			// Kill any other dynamically created tweens or ScrollTriggers if necessary
+			// (though the above should cover the main ones for this strategy)
+			// For instance, if wordAnimationTweens were not added to masterTimeline and had their own STs.
+			// But here, they are part of masterTimeline or just tweens.
+
+			console.log('[AboutMe GSAP] Master timeline and associated ScrollTriggers cleaned up.');
+		};
+	}, []);
 
 	// --- Canvas Animation useEffect ---
 	useEffect(() => {
@@ -202,11 +248,9 @@ export const AboutMe = () => {
 		const ctx = canvas.getContext('2d');
 		if (!ctx) return;
 
-		// --- Throttling settings for AboutMe Canvas --- 
-		const TARGET_CANVAS_FPS_ABOUTME = 15; // Target FPS for this canvas animation
+		const TARGET_CANVAS_FPS_ABOUTME = 15;
 		const animationFrameInterval_aboutme = 1000 / TARGET_CANVAS_FPS_ABOUTME;
 		let lastAnimationRunTime_aboutme = 0;
-		// --- End Throttling settings --- 
 
 		calculateCharMetrics(ctx);
 
@@ -224,7 +268,6 @@ export const AboutMe = () => {
 
 		const resizeObserver = new ResizeObserver(entries => {
 			for (let entry of entries) {
-				// Use container's contentRect for width, and window.innerHeight for height
 				const { width: newWidthFromContainer } = entry.contentRect;
 				const newHeightFromViewport = window.innerHeight;
 
@@ -233,77 +276,67 @@ export const AboutMe = () => {
 				canvas.style.width = `${newWidthFromContainer}px`;
 				canvas.style.height = `${newHeightFromViewport}px`;
 
-				ctx.scale(dpr, dpr); // Scale context for HiDPI displays
-
-				calculateCharMetrics(ctx); // Recalculate font metrics as they might depend on context state
+				ctx.scale(dpr, dpr);
+				calculateCharMetrics(ctx);
 
 				colsRef.current = Math.floor(newWidthFromContainer / charWidthRef.current);
 				rowsRef.current = Math.floor(newHeightFromViewport / charHeightRef.current);
 			}
 		});
 
-		// Observe the container for width changes
 		resizeObserver.observe(container);
 
 		const renderAnimation = () => {
-			animationFrameId.current = requestAnimationFrame(renderAnimation); // Keep rAF loop going
+			animationFrameId.current = requestAnimationFrame(renderAnimation);
 
-			const currentTime = Date.now(); // Get current time once for this frame
+			const currentTime = Date.now();
 			const elapsed = currentTime - lastAnimationRunTime_aboutme;
 
 			if (elapsed > animationFrameInterval_aboutme) {
 				lastAnimationRunTime_aboutme = currentTime - (elapsed % animationFrameInterval_aboutme);
 
-				// Actual drawing logic starts here
-				const t = (currentTime - startTime.current) / 1000; // time in seconds, use currentTime for consistency
+				const t = (currentTime - startTime.current) / 1000;
 
-				ctx.fillStyle = '#121212'; // Background color, same as body
-				ctx.fillRect(0, 0, canvas.width / dpr, canvas.height / dpr); // Clear canvas respecting DPR
+				ctx.fillStyle = '#121212';
+				ctx.fillRect(0, 0, canvas.width / dpr, canvas.height / dpr);
 
-				ctx.font = `${charHeightRef.current * 0.8}px monospace`; // Adjust font size based on calculated char height
-				ctx.fillStyle = '#E0E0E0'; // Light gray for text
+				ctx.font = `${charHeightRef.current * 0.8}px monospace`;
+				ctx.fillStyle = '#E0E0E0';
 				ctx.textAlign = 'center';
 				ctx.textBaseline = 'middle';
 
 				const m = Math.min(colsRef.current, rowsRef.current);
 
-				// Convert mouse screen pixels to "character grid" coordinates for the animation logic
 				vec2(
 					(mousePositionRef.current.x / charWidthRef.current),
 					(mousePositionRef.current.y / charHeightRef.current),
-					reusablePointerInGridCoords // Pass as out
+					reusablePointerInGridCoords
 				);
 
-				// Transform pointer to the normalized space expected by the sdf functions
 				vec2(
 					2.0 * (reusablePointerInGridCoords.x - colsRef.current / 2) / m * aspectRef.current,
 					2.0 * (reusablePointerInGridCoords.y - rowsRef.current / 2) / m,
-					reusablePointerNormalized // Pass as out
+					reusablePointerNormalized
 				);
 
-				for (let j = 0; j < rowsRef.current; j++) { // y-coordinate (row)
-					for (let i = 0; i < colsRef.current; i++) { // x-coordinate (col)
-						// Current character cell coordinate, using reusable object
+				for (let j = 0; j < rowsRef.current; j++) {
+					for (let i = 0; i < colsRef.current; i++) {
 						vec2(i, j, reusableCoord);
-
-						// Transform cell coordinate to normalized space for SDF, using reusable object
 						vec2(
 							2.0 * (reusableCoord.x - colsRef.current / 2) / m * aspectRef.current,
 							2.0 * (reusableCoord.y - rowsRef.current / 2) / m,
 							reusableSt
 						);
 
-						const d1 = sdCircle(reusableSt, 0.3 + 0.1 * Math.sin(t * 0.5)); // origin, radius animates
-						const d2 = sdCircle(sub(reusableSt, reusablePointerNormalized, reusableSubResult), 0.2 + 0.05 * Math.cos(t * 0.7)); // cursor, radius animates
-
-						const d = opSmoothUnion(d1, d2, 0.6 + 0.2 * Math.sin(t * 0.3)); // k animates
-
-						const c = 1.0 - Math.exp(-4 * Math.abs(d)); // Softer falloff
+						const d1 = sdCircle(reusableSt, 0.3 + 0.1 * Math.sin(t * 0.5));
+						const d2 = sdCircle(sub(reusableSt, reusablePointerNormalized, reusableSubResult), 0.2 + 0.05 * Math.cos(t * 0.7));
+						const d = opSmoothUnion(d1, d2, 0.6 + 0.2 * Math.sin(t * 0.3));
+						const c = 1.0 - Math.exp(-4 * Math.abs(d));
 						let index = Math.floor(c * DENSITY.length);
-						index = Math.max(0, Math.min(index, DENSITY.length - 1)); // Clamp index
+						index = Math.max(0, Math.min(index, DENSITY.length - 1));
 
 						const char = DENSITY[index];
-						if (char && char !== ' ') { // Avoid drawing empty spaces if not needed
+						if (char && char !== ' ') {
 							ctx.fillText(
 								char,
 								(i + 0.5) * charWidthRef.current,
@@ -315,8 +348,6 @@ export const AboutMe = () => {
 			}
 		};
 
-		// ScrollTrigger to manage canvas animation activity
-		// Ensure canvasRef.current and the container (aboutMeContainerRef.current) exist
 		let GsapAnimationScrollTrigger: ScrollTrigger | undefined;
 		if (container && canvasRef.current) {
 			GsapAnimationScrollTrigger = ScrollTrigger.create({
@@ -326,7 +357,7 @@ export const AboutMe = () => {
 				onToggle: self => {
 					if (self.isActive) {
 						cancelAnimationFrame(animationFrameId.current);
-						lastAnimationRunTime_aboutme = Date.now(); // Reset timer when starting
+						lastAnimationRunTime_aboutme = Date.now();
 						animationFrameId.current = requestAnimationFrame(renderAnimation);
 					} else {
 						cancelAnimationFrame(animationFrameId.current);
@@ -339,9 +370,7 @@ export const AboutMe = () => {
 			cancelAnimationFrame(animationFrameId.current);
 			canvas.removeEventListener('mousemove', handleMouseMove);
 			resizeObserver.disconnect();
-			// Kill the animation ScrollTrigger if it was created
 			GsapAnimationScrollTrigger?.kill();
-			// console.log('[AboutMe Canvas] Canvas animation cleaned up.'); // Optional log
 		};
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
@@ -355,7 +384,6 @@ export const AboutMe = () => {
 			<section className={styles.mwgEffect004}>
 				<div ref={pinHeightRef} className={styles.pinHeight}>
 					<div ref={pinnedTextContainerRef} className={styles.textAnimationContainer}>
-						{/* Column 1: About Me */}
 						<div ref={paragraphsContainerRef} className={`${styles.textColumn} ${styles.aboutColumn}`}>
 							<h1>ABOUT ME</h1>
 							<p className={styles.paragraph}>
@@ -379,7 +407,6 @@ export const AboutMe = () => {
 							</p>
 						</div>
 
-						{/* Column 2: Expos */}
 						<div className={`${styles.textColumn} ${styles.exposColumn}`}>
 							<h2>EXPOS</h2>
 							<ul>
@@ -392,9 +419,8 @@ export const AboutMe = () => {
 							</ul>
 						</div>
 
-						{/* Column 3: Links */}
 						<div className={`${styles.textColumn} ${styles.linksColumn}`}>
-							<h2>LINKS</h2> {/* Changed from h1 to h2 */}
+							<h2>LINKS</h2>
 							<ul>
 								<li><a href="https://www.instagram.com/glitchypixels/">INSTAGRAM</a></li>
 								<li><a href="https://x.com/iamglitchypixel">TWITTER</a></li>
