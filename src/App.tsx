@@ -67,7 +67,6 @@ function App() {
 
   return (
     <div className={styles.app}>
-      <div id="placeholder1" className={styles.placeholder} >View 1 placeholder - landing</div>
       <AboutMe />
       <InfiniteGallery />
       <div id="placeholder3" className={styles.footer} >placeholder footer: link link link </div>

@@ -7,7 +7,25 @@ import styles from './index.module.scss';
 import { sdCircle, opSmoothUnion } from './utils/sdf';
 import { vec2, sub, Vec2 } from './utils/vec2';
 
-const DENSITY = '#gLitCh?*:pxls×+=-· ';
+// Original density string
+const DENSITY_ORIGINAL = '#gLitCh?*:pxls×+=-· ';
+
+// Helper function for linear interpolation
+const lerp = (a: number, b: number, alpha: number): number => {
+	return a + alpha * (b - a);
+};
+
+// 4x4 Bayer matrix (normalized 0-1)
+const bayerMatrix4x4 = [
+	[0 / 16, 8 / 16, 2 / 16, 10 / 16],
+	[12 / 16, 4 / 16, 14 / 16, 6 / 16],
+	[3 / 16, 11 / 16, 1 / 16, 9 / 16],
+	[15 / 16, 7 / 16, 13 / 16, 5 / 16]
+];
+const BAYER_MATRIX_SIZE = 4;
+
+// Scroll distance for dither fade animation
+const DITHER_FADE_VH = 100; // Fade out over the first 100vh of scrolling
 
 // Utility function to wrap words in spans - now takes an array of elements
 const wrapWordsInSpans = (elements: HTMLElement[]) => {
@@ -22,14 +40,15 @@ const wrapWordsInSpans = (elements: HTMLElement[]) => {
 
 // Define scroll distances for animation and pause
 const TEXT_ANIM_SCROLL_DISTANCE_VH = 300; // Text animation happens over this scroll distance
-const PAUSE_SCROLL_DISTANCE_VH = 60;   // Pause lasts for this scroll distance
-// Total scroll distance is implicitly defined by .pinHeight in SCSS (set to 400vh)
+const PAUSE_SCROLL_DISTANCE_VH = 80;   // Pause lasts for this scroll distance
+// Total scroll distance is implicitly defined by .pinHeight in SCSS
 
 export const AboutMe = () => {
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const mousePositionRef = useRef<Vec2>({ x: 0, y: 0 });
 	const animationFrameId = useRef<number>(0);
 	const startTime = useRef<number>(Date.now());
+	const ditherStrength = useRef<number>(1.0); // Added: Controls dither effect (1 = max, 0 = none)
 
 	// Refs for GSAP text animation
 	const aboutMeContainerRef = useRef<HTMLDivElement>(null);
@@ -68,14 +87,28 @@ export const AboutMe = () => {
 		const pinHeightEl = pinHeightRef.current;
 		const pinnedTextContainerEl = pinnedTextContainerRef.current;
 		const currentCanvasElement = canvasRef.current; // For cleanup
+		const aboutMeContainerEl = aboutMeContainerRef.current; // For dither trigger
 
-		if (!paragraphsContainerEl || !pinHeightEl || !pinnedTextContainerEl) {
-			console.warn('[AboutMe GSAP] Missing elements for text animation setup.');
+		if (!paragraphsContainerEl || !pinHeightEl || !pinnedTextContainerEl || !aboutMeContainerEl) {
+			console.warn('[AboutMe GSAP] Missing elements for text/dither animation setup.');
 			return;
 		}
 
 		let masterTimeline: gsap.core.Timeline | null = null;
 		let canvasPinScrollTrigger: ScrollTrigger | null = null;
+		let ditherScrollTrigger: ScrollTrigger | null = null; // Added: ScrollTrigger for dither
+		let textPinScrollTrigger: ScrollTrigger | null = null; // Added: Separate trigger for pinning text
+
+		// --- Dither Fade Animation ---
+		ditherScrollTrigger = ScrollTrigger.create({
+			trigger: pinHeightEl, // Use pinHeightEl as the trigger area
+			start: "top top",
+			end: `+=${DITHER_FADE_VH}vh`, // End after scrolling DITHER_FADE_VH
+			scrub: true,
+			onUpdate: self => {
+				ditherStrength.current = 1 - self.progress; // Animate from 1 down to 0
+			}
+		});
 
 		const initTextAnimation = () => {
 			const elementsToAnimate: HTMLElement[] = Array.from(
@@ -104,14 +137,23 @@ export const AboutMe = () => {
 				return;
 			}
 
+			// *** Added: Separate ScrollTrigger for pinning text ***
+			textPinScrollTrigger = ScrollTrigger.create({
+				trigger: pinHeightEl,
+				pin: pinnedTextContainerEl,
+				start: `top top-=${DITHER_FADE_VH}vh`, // Start pinning when text animation starts
+				end: 'bottom bottom', // End pinning when canvas unpins
+				pinSpacing: false, // Avoid adding extra space if pinHeightEl already accounts for it
+			});
+
 			// Create the master timeline that will be scrubbed
 			masterTimeline = gsap.timeline({
 				scrollTrigger: {
 					trigger: pinHeightEl,
-					pin: pinnedTextContainerEl,
+					// pin: pinnedTextContainerEl, // *** REMOVED: Pinning is handled separately ***
 					scrub: true,
-					start: 'top top',
-					end: 'bottom bottom', // End refers to the full height of pinHeightEl (400vh)
+					start: `top top-=${DITHER_FADE_VH}vh`, // Start scrubbing after dither fade
+					end: `bottom bottom-=${DITHER_FADE_VH}vh`, // End scrubbing after text anim + pause distance
 					// markers: {startColor: "magenta", endColor: "magenta", indent: 160, fontSize: "10px",}, // For debugging master timeline
 				}
 			});
@@ -229,6 +271,16 @@ export const AboutMe = () => {
 				canvasPinScrollTrigger.kill();
 			}
 
+			// *** Added: Kill the dither ScrollTrigger ***
+			if (ditherScrollTrigger) {
+				ditherScrollTrigger.kill();
+			}
+
+			// *** Added: Kill the text pin ScrollTrigger ***
+			if (textPinScrollTrigger) {
+				textPinScrollTrigger.kill();
+			}
+
 			// Kill any other dynamically created tweens or ScrollTriggers if necessary
 			// (though the above should cover the main ones for this strategy)
 			// For instance, if wordAnimationTweens were not added to masterTimeline and had their own STs.
@@ -332,17 +384,36 @@ export const AboutMe = () => {
 						const d2 = sdCircle(sub(reusableSt, reusablePointerNormalized, reusableSubResult), 0.2 + 0.05 * Math.cos(t * 0.7));
 						const d = opSmoothUnion(d1, d2, 0.6 + 0.2 * Math.sin(t * 0.3));
 						const c = 1.0 - Math.exp(-4 * Math.abs(d));
-						let index = Math.floor(c * DENSITY.length);
-						index = Math.max(0, Math.min(index, DENSITY.length - 1));
 
-						const char = DENSITY[index];
+						// --- Dithering Logic ---
+						const threshold = bayerMatrix4x4[j % BAYER_MATRIX_SIZE][i % BAYER_MATRIX_SIZE];
+						const ditherTargetC = c > threshold ? 1.0 : 0.0; // Target intensity for full dither (binary)
+						const currentDitherStrength = ditherStrength.current; // Get current strength
+
+						// Interpolate between original intensity and dithered intensity
+						const effectiveC = lerp(c, ditherTargetC, currentDitherStrength);
+
+						// Map effective intensity to character index from ORIGINAL density string
+						let index = Math.floor(effectiveC * DENSITY_ORIGINAL.length);
+						index = Math.max(0, Math.min(index, DENSITY_ORIGINAL.length - 1));
+						const char = DENSITY_ORIGINAL[index];
+
+						// --- Drawing Logic ---
 						if (char && char !== ' ') {
+							// Optionally: If full dither, force color or character?
+							// Removed Example: if (currentDitherStrength > 0.99 && c > threshold) { char = DITHER_WHITE_CHAR; }
+							// Current approach uses interpolated intensity mapped to original density.
+
+							// Set color (could also interpolate color based on ditherStrength)
+							ctx.fillStyle = '#E0E0E0'; // Keep original color for now
+
 							ctx.fillText(
 								char,
 								(i + 0.5) * charWidthRef.current,
 								(j + 0.5) * charHeightRef.current
 							);
 						}
+						// --- End Dithering/Drawing Logic ---
 					}
 				}
 			}
@@ -371,6 +442,7 @@ export const AboutMe = () => {
 			canvas.removeEventListener('mousemove', handleMouseMove);
 			resizeObserver.disconnect();
 			GsapAnimationScrollTrigger?.kill();
+			// Note: ditherScrollTrigger and masterTimeline's ST are killed in the other useEffect cleanup
 		};
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
