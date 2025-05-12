@@ -2,6 +2,7 @@ import { useRef, useEffect } from 'react';
 
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import debounce from 'lodash/debounce'; // Import debounce
 
 import styles from './index.module.scss';
 import { sdCircle, opSmoothUnion } from './utils/sdf';
@@ -76,17 +77,53 @@ export const AboutMe = () => {
 	const charWidthRef = useRef(10);
 	const charHeightRef = useRef(20);
 	const aspectRef = useRef(0.5);
+	const dprRef = useRef(window.devicePixelRatio || 1);
 
-	const calculateCharMetrics = (ctx: CanvasRenderingContext2D) => {
-		ctx.font = '16px monospace';
+	// Moved calculateCharMetrics outside useEffect to be reusable
+	const calculateCharMetrics = (ctx: CanvasRenderingContext2D | null) => {
+		if (!ctx) return;
+		ctx.font = '16px monospace'; // Use a consistent base size for measurement
 		const metrics = ctx.measureText('M');
 		if (typeof metrics.actualBoundingBoxAscent === 'number' && typeof metrics.actualBoundingBoxDescent === 'number') {
 			charHeightRef.current = metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent;
 		} else {
-			charHeightRef.current = parseInt(ctx.font, 10) * 1.2;
+			charHeightRef.current = parseInt(ctx.font, 10) * 1.2; // Fallback
 		}
 		charWidthRef.current = metrics.width;
-		aspectRef.current = charWidthRef.current / charHeightRef.current;
+		aspectRef.current = charWidthRef.current > 0 ? charWidthRef.current / charHeightRef.current : 1;
+
+		// --- Recalculate cols/rows based on current container/window size --- 
+		const container = aboutMeContainerRef.current;
+		if (container) {
+			const dpr = window.devicePixelRatio || 1;
+			dprRef.current = dpr;
+			const rect = container.getBoundingClientRect();
+			const newWidthFromContainer = rect.width;
+			const newHeightFromViewport = window.innerHeight;
+
+			// Update canvas size based on container width and viewport height
+			const canvas = canvasRef.current;
+			if (canvas) {
+				// Preserve the context before resizing
+				ctx.save();
+				// Reset transform before setting new dimensions
+				ctx.setTransform(1, 0, 0, 1, 0, 0);
+
+				canvas.width = newWidthFromContainer * dpr;
+				canvas.height = newHeightFromViewport * dpr;
+				canvas.style.width = `${newWidthFromContainer}px`;
+				canvas.style.height = `${newHeightFromViewport}px`;
+
+				// Restore context settings (like font, fillStyle etc.)
+				ctx.restore();
+				// Apply scaling for High DPI
+				ctx.scale(dpr, dpr);
+			}
+
+			// Update grid dimensions
+			colsRef.current = charWidthRef.current > 0 ? Math.floor(newWidthFromContainer / charWidthRef.current) : 0;
+			rowsRef.current = charHeightRef.current > 0 ? Math.floor(newHeightFromViewport / charHeightRef.current) : 0;
+		}
 	};
 
 	useEffect(() => {
@@ -315,7 +352,7 @@ export const AboutMe = () => {
 		};
 	}, []);
 
-	// --- Canvas Animation useEffect ---
+	// --- Canvas Animation & Resize Handling useEffect ---
 	useEffect(() => {
 		const canvas = canvasRef.current;
 		const container = aboutMeContainerRef.current;
@@ -329,6 +366,7 @@ export const AboutMe = () => {
 		const animationFrameInterval_aboutme = 1000 / TARGET_CANVAS_FPS_ABOUTME;
 		let lastAnimationRunTime_aboutme = 0;
 
+		// Initial calculation
 		calculateCharMetrics(ctx);
 
 		const handleMouseMove = (event: MouseEvent) => {
@@ -341,28 +379,19 @@ export const AboutMe = () => {
 
 		canvas.addEventListener('mousemove', handleMouseMove);
 
-		const dpr = window.devicePixelRatio || 1;
+		// --- Resize Handler --- 
+		const handleResize = debounce(() => {
+			console.log('[AboutMe] Window resized, recalculating...');
+			// Recalculate canvas dimensions, char metrics, cols, rows
+			calculateCharMetrics(ctx);
+			// Refresh GSAP ScrollTrigger calculations
+			ScrollTrigger.refresh();
+			console.log(`[AboutMe] Recalculated metrics: ${colsRef.current}x${rowsRef.current} cols/rows. ScrollTrigger refreshed.`);
+		}, 250); // Debounce timeout
 
-		const resizeObserver = new ResizeObserver(entries => {
-			for (let entry of entries) {
-				const { width: newWidthFromContainer } = entry.contentRect;
-				const newHeightFromViewport = window.innerHeight;
+		window.addEventListener('resize', handleResize);
 
-				canvas.width = newWidthFromContainer * dpr;
-				canvas.height = newHeightFromViewport * dpr;
-				canvas.style.width = `${newWidthFromContainer}px`;
-				canvas.style.height = `${newHeightFromViewport}px`;
-
-				ctx.scale(dpr, dpr);
-				calculateCharMetrics(ctx);
-
-				colsRef.current = Math.floor(newWidthFromContainer / charWidthRef.current);
-				rowsRef.current = Math.floor(newHeightFromViewport / charHeightRef.current);
-			}
-		});
-
-		resizeObserver.observe(container);
-
+		// --- Render Loop --- 
 		const renderAnimation = () => {
 			animationFrameId.current = requestAnimationFrame(renderAnimation);
 
@@ -375,7 +404,7 @@ export const AboutMe = () => {
 				const t = (currentTime - startTime.current) / 1000;
 
 				ctx.fillStyle = '#121212';
-				ctx.fillRect(0, 0, canvas.width / dpr, canvas.height / dpr);
+				ctx.fillRect(0, 0, canvas.width / dprRef.current, canvas.height / dprRef.current);
 
 				ctx.font = `${charHeightRef.current * 0.8}px monospace`;
 				ctx.fillStyle = '#E0E0E0';
@@ -480,15 +509,25 @@ export const AboutMe = () => {
 			});
 		}
 
+		// --- Initial render call after setup ---
+		// Start animation immediately if initially visible (or let ScrollTrigger handle it)
+		// Consider checking initial visibility if needed
+		// cancelAnimationFrame(animationFrameId.current); // Ensure clean start
+		// lastAnimationRunTime_aboutme = Date.now();
+		// animationFrameId.current = requestAnimationFrame(renderAnimation);
+
+		// --- Cleanup Function --- 
 		return () => {
+			console.log('[AboutMe] Cleaning up canvas animation and listeners...');
 			cancelAnimationFrame(animationFrameId.current);
 			canvas.removeEventListener('mousemove', handleMouseMove);
-			resizeObserver.disconnect();
+			window.removeEventListener('resize', handleResize);
+			handleResize.cancel(); // Cancel any pending debounced calls
 			GsapAnimationScrollTrigger?.kill();
-			// Note: ditherScrollTrigger and masterTimeline's ST are killed in the other useEffect cleanup
+			// Note: GSAP timelines/triggers from the other useEffect are cleaned up there
 		};
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, []);
+	}, []); // Keep dependencies empty to run once on mount
 
 	return (
 		<div ref={aboutMeContainerRef} className={styles.aboutMeContainer}>

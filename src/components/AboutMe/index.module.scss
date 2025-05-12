@@ -25,7 +25,7 @@
 }
 
 .pinHeight {
-	height: 580vh;
+	height: 520vh;
 	position: relative;
 	pointer-events: none;
 }
@@ -141,4 +141,121 @@
 	transform: translate(calc(100vw - 25px), 0);
 	color: inherit;
 	opacity: 1;
+}
+
+/* --- Breakpoints --- */
+/* Mobile (до 767px) */
+@media (max-width: 767px) {
+	.pinHeight {
+		height: 400vh;
+		/* Уменьшаем общую высоту прокрутки */
+	}
+
+	.textAnimationContainer {
+		flex-direction: column;
+		align-items: flex-start;
+		/* или center, если нужно */
+		padding-left: 16px;
+		padding-right: 16px;
+		justify-content: center;
+		/* Чтобы контент был по центру в колонке */
+	}
+
+	.textColumn {
+		flex-basis: auto;
+		width: 100%;
+		/* Каждая колонка занимает всю ширину */
+		padding: 0;
+		margin-bottom: 2.5em;
+		/* Отступ между колонками */
+	}
+
+	.textColumn:last-child {
+		margin-bottom: 0;
+	}
+
+	.aboutColumn h1,
+	.exposColumn h2,
+	.linksColumn h2 {
+		font-size: 18px;
+		/* Уменьшаем шрифт заголовков */
+		margin-bottom: 0.8em;
+	}
+
+	.paragraph {
+		font-size: 16px;
+		/* Уменьшаем шрифт параграфов */
+		line-height: 22px;
+		margin-bottom: 0.8em;
+	}
+
+	.exposColumn li,
+	.linksColumn li {
+		font-size: 14px;
+		/* Уменьшаем шрифт списков */
+		margin-bottom: 0.6em;
+	}
+
+	.yearTag {
+		font-size: 0.7em;
+		padding: 0.1em 0.3em;
+	}
+
+	.subText {
+		font-size: 0.75em;
+	}
+}
+
+/* Tablet (768px - 1023px) */
+@media (min-width: 768px) and (max-width: 1023px) {
+	.pinHeight {
+		height: 480vh;
+		/* Промежуточная высота */
+	}
+
+	.textAnimationContainer {
+		padding-left: 32px;
+		/* Немного больше отступ */
+		padding-right: 32px;
+		/* Можно оставить 3 колонки, но возможно уменьшить их flex-basis или отступы между ними */
+	}
+
+	.textColumn {
+		flex-basis: 31%;
+		/* Чуть меньше, чтобы влезли с отступами */
+		padding: 0 0.8em;
+	}
+
+	.aboutColumn h1,
+	.exposColumn h2,
+	.linksColumn h2 {
+		font-size: 19px;
+	}
+
+	.paragraph {
+		font-size: 18px;
+		line-height: 23px;
+	}
+
+	.exposColumn li,
+	.linksColumn li {
+		font-size: 15px;
+	}
+}
+
+/* Large Desktop (1600px и более) */
+@media (min-width: 1600px) {
+	.textAnimationContainer {
+		max-width: 1400px;
+		/* Ограничиваем максимальную ширину текстового блока */
+		margin-left: auto;
+		margin-right: auto;
+		/* padding-left: 4vw; может остаться или быть скорректирован, если слишком большой */
+	}
+
+	/* Можно немного увеличить шрифты, если базовые кажутся мелкими */
+	/* .paragraph {
+		font-size: 22px;
+		line-height: 28px;
+	} */
 }
