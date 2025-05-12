@@ -11,11 +11,14 @@ import { vec2, sub, Vec2 } from './utils/vec2';
 const DENSITY_ORIGINAL = '#gLitCh?*:pxls×+=-· ';
 
 // Helper function for linear interpolation
+/* // Removed lerp - no longer needed for dithering
 const lerp = (a: number, b: number, alpha: number): number => {
 	return a + alpha * (b - a);
 };
+*/
 
 // 4x4 Bayer matrix (normalized 0-1)
+/* // Removed Bayer matrix - switching to glitch effect
 const bayerMatrix4x4 = [
 	[0 / 16, 8 / 16, 2 / 16, 10 / 16],
 	[12 / 16, 4 / 16, 14 / 16, 6 / 16],
@@ -23,11 +26,12 @@ const bayerMatrix4x4 = [
 	[15 / 16, 7 / 16, 13 / 16, 5 / 16]
 ];
 const BAYER_MATRIX_SIZE = 4;
+*/
 
-// Scroll distance for dither fade animation
+// Scroll distance for dither/glitch fade animation
 const DITHER_FADE_VH = 100; // Fade out over the first 100vh of scrolling
 
-// Utility function to wrap words in spans - now takes an array of elements
+// Utility function to wrap words in spans - reinstated
 const wrapWordsInSpans = (elements: HTMLElement[]) => {
 	elements.forEach(element => {
 		if (!element?.textContent) return;
@@ -42,6 +46,11 @@ const wrapWordsInSpans = (elements: HTMLElement[]) => {
 const TEXT_ANIM_SCROLL_DISTANCE_VH = 300; // Text animation happens over this scroll distance
 const PAUSE_SCROLL_DISTANCE_VH = 80;   // Pause lasts for this scroll distance
 // Total scroll distance is implicitly defined by .pinHeight in SCSS
+
+// --- Constants for Glitch Effect ---
+const MAX_SYMBOL_GLITCH_PROB = 0.15; // Max probability (at strength=1) of replacing a symbol
+const MAX_GLITCH_OFFSET_X_FACTOR = 0.6; // Max X offset as a factor of char width
+const MAX_GLITCH_OFFSET_Y_FACTOR = 0.3; // Max Y offset as a factor of char height
 
 export const AboutMe = () => {
 	const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -106,7 +115,14 @@ export const AboutMe = () => {
 			end: `+=${DITHER_FADE_VH}vh`, // End after scrolling DITHER_FADE_VH
 			scrub: true,
 			onUpdate: self => {
-				ditherStrength.current = 1 - self.progress; // Animate from 1 down to 0
+				// Update glitch strength (1 -> 0)
+				ditherStrength.current = 1 - self.progress;
+
+				// Update canvas opacity (1 -> 0.4)
+				if (currentCanvasElement) {
+					const targetOpacity = 1 - self.progress * (1 - 0.4);
+					currentCanvasElement.style.opacity = targetOpacity.toFixed(2);
+				}
 			}
 		});
 
@@ -386,34 +402,52 @@ export const AboutMe = () => {
 						const c = 1.0 - Math.exp(-4 * Math.abs(d));
 
 						// --- Dithering Logic ---
+						/* // Removed Bayer Dithering Logic
 						const threshold = bayerMatrix4x4[j % BAYER_MATRIX_SIZE][i % BAYER_MATRIX_SIZE];
 						const ditherTargetC = c > threshold ? 1.0 : 0.0; // Target intensity for full dither (binary)
-						const currentDitherStrength = ditherStrength.current; // Get current strength
+						*/
+						const currentGlitchStrength = ditherStrength.current; // Use ditherStrength for glitch intensity
 
+						/* // Removed Lerp logic
 						// Interpolate between original intensity and dithered intensity
-						const effectiveC = lerp(c, ditherTargetC, currentDitherStrength);
+						const effectiveC = lerp(c, ditherTargetC, currentGlitchStrength);
+						*/
 
-						// Map effective intensity to character index from ORIGINAL density string
-						let index = Math.floor(effectiveC * DENSITY_ORIGINAL.length);
+						// --- Original Character Selection ---
+						// Map original intensity 'c' back to character index
+						let index = Math.floor(c * DENSITY_ORIGINAL.length);
 						index = Math.max(0, Math.min(index, DENSITY_ORIGINAL.length - 1));
-						const char = DENSITY_ORIGINAL[index];
+						let char = DENSITY_ORIGINAL[index]; // Start with the calculated character
+
+						// --- Glitch Effect Logic (Symbolic + Positional) ---
+						let offsetX = 0;
+						let offsetY = 0;
+
+						if (currentGlitchStrength > 0.001) { // Apply glitch only if strength is noticeable
+							// 1. Symbolic Glitch:
+							if (Math.random() < currentGlitchStrength * MAX_SYMBOL_GLITCH_PROB) {
+								const randomIndex = Math.floor(Math.random() * DENSITY_ORIGINAL.length);
+								char = DENSITY_ORIGINAL[randomIndex]; // Replace with random char
+							}
+
+							// 2. Positional Glitch:
+							const maxOffsetX = charWidthRef.current * MAX_GLITCH_OFFSET_X_FACTOR;
+							const maxOffsetY = charHeightRef.current * MAX_GLITCH_OFFSET_Y_FACTOR;
+							offsetX = (Math.random() - 0.5) * 2 * maxOffsetX * currentGlitchStrength;
+							offsetY = (Math.random() - 0.5) * 2 * maxOffsetY * currentGlitchStrength;
+						}
 
 						// --- Drawing Logic ---
 						if (char && char !== ' ') {
-							// Optionally: If full dither, force color or character?
-							// Removed Example: if (currentDitherStrength > 0.99 && c > threshold) { char = DITHER_WHITE_CHAR; }
-							// Current approach uses interpolated intensity mapped to original density.
-
-							// Set color (could also interpolate color based on ditherStrength)
-							ctx.fillStyle = '#E0E0E0'; // Keep original color for now
+							ctx.fillStyle = '#E0E0E0'; // Keep original color
 
 							ctx.fillText(
-								char,
-								(i + 0.5) * charWidthRef.current,
-								(j + 0.5) * charHeightRef.current
+								char, // Use potentially glitched character
+								(i + 0.5) * charWidthRef.current + offsetX, // Add X offset
+								(j + 0.5) * charHeightRef.current + offsetY  // Add Y offset
 							);
 						}
-						// --- End Dithering/Drawing Logic ---
+						// --- End Glitch/Drawing Logic ---
 					}
 				}
 			}
