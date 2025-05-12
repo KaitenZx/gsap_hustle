@@ -4,17 +4,16 @@ import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import debounce from 'lodash/debounce'; // Import debounce
 
-import MailIcon from '../../assets/icons/email_icon.webp';
-import InstagramIcon from '../../assets/icons/instagramm_icon.webp';
-import RedditIcon from '../../assets/icons/reddit_icon.webp';
-import TheHugIcon from '../../assets/icons/thehug_icon.webp';
-import TwitterIcon from '../../assets/icons/twitter_icon.webp';
-
 import styles from './index.module.scss';
 import { sdCircle, opSmoothUnion } from './utils/sdf';
 import { vec2, sub, Vec2 } from './utils/vec2';
 
 // Import icons
+import instagramIcon from '../../assets/icons/instagramm_icon.webp';
+import twitterIcon from '../../assets/icons/twitter_icon.webp';
+import redditIcon from '../../assets/icons/reddit_icon.webp';
+import thehugIcon from '../../assets/icons/thehug_icon.webp';
+import emailIcon from '../../assets/icons/email_icon.webp';
 
 // Original density string
 const DENSITY_ORIGINAL = '#gLitCh?*:pxls×+=-· ';
@@ -159,33 +158,34 @@ export const AboutMe = () => {
 			const elementsToAnimate: HTMLElement[] = Array.from(
 				pinnedTextContainerEl.querySelectorAll(
 					`.${styles.aboutColumn} h1, .${styles.aboutColumn} p,` +
-					`.${styles.exposColumn} h2, .${styles.exposColumn} .${styles.animatableText}`
+					`.${styles.exposColumn} h2, .${styles.exposColumn} .${styles.animatableText},` +
+					`.${styles.linksColumn} h2, .${styles.linksColumn} .${styles.animatableText}`
 				)
 			).filter(el => el instanceof HTMLElement);
 
 			if (elementsToAnimate.length === 0) {
-				console.warn('[AboutMe GSAP] No elements designated for word wrapping found.');
-				// Don't return, as we still need to process links and year tags
+				console.warn('[AboutMe GSAP] No elements designated for animation found.');
+				return;
 			}
-			wrapWordsInSpans(elementsToAnimate); // Wrap words only for specified elements
+			wrapWordsInSpans(elementsToAnimate);
+
+			// --- Add .word class to icons in the links column --- 
+			const linkIcons: HTMLElement[] = Array.from(
+				pinnedTextContainerEl.querySelectorAll(`.${styles.linksColumn} .${styles.linkIcon}`)
+			).filter(el => el instanceof HTMLElement);
+			linkIcons.forEach(icon => icon.classList.add(styles.word));
+			// --- End icon class addition ---
 
 			const yearTagElements: HTMLElement[] = Array.from(pinnedTextContainerEl.querySelectorAll(`.${styles.yearTag}`))
 				.filter(el => el instanceof HTMLElement);
 			yearTagElements.forEach(tagEl => tagEl.classList.add(styles.word));
 
-			// --- Add .word class to link list items --- 
-			const linkListItems: HTMLElement[] = Array.from(pinnedTextContainerEl.querySelectorAll(`.${styles.linksColumn} li`))
-				.filter(el => el instanceof HTMLElement);
-			linkListItems.forEach(liEl => liEl.classList.add(styles.word));
-			// --- End adding .word class to links ---
-
-			// Now collect all elements with the .word class (spans from text, year tags, link LIs)
-			const words: HTMLElement[] = Array.from(pinnedTextContainerEl.querySelectorAll(`.${styles.word}`))
+			const words: HTMLElement[] = Array.from(pinnedTextContainerEl.querySelectorAll(`.${styles.word}`)) // This selector now includes icons and yearTags
 				.filter(el => el instanceof HTMLElement);
 
 			if (words.length === 0) {
-				console.warn('[AboutMe GSAP] No words found to animate (including link items and year tags).');
-				return; // Return here if truly nothing to animate
+				console.warn('[AboutMe GSAP] No words found to animate.');
+				return;
 			}
 
 			// *** Added: Separate ScrollTrigger for pinning text ***
@@ -527,6 +527,15 @@ export const AboutMe = () => {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []); // Keep dependencies empty to run once on mount
 
+	// Data for links column
+	const linksData = [
+		{ href: "https://www.instagram.com/glitchypixels/", text: "INSTAGRAM", iconSrc: instagramIcon, alt: "Instagram Icon" },
+		{ href: "https://x.com/iamglitchypixel", text: "TWITTER", iconSrc: twitterIcon, alt: "Twitter Icon" },
+		{ href: "https://www.reddit.com/user/iamglitchypixels/", text: "REDDIT", iconSrc: redditIcon, alt: "Reddit Icon" },
+		{ href: "https://thehug.xyz/artists/glitchypixels", text: "THEHUG", iconSrc: thehugIcon, alt: "TheHug Icon" },
+		{ href: "mailto:iamglitchypixel@gmail.com", text: "MAIL", iconSrc: emailIcon, alt: "Email Icon" } // Corrected mailto link
+	];
+
 	return (
 		<div ref={aboutMeContainerRef} className={styles.aboutMeContainer}>
 			<canvas
@@ -574,26 +583,15 @@ export const AboutMe = () => {
 						<div className={`${styles.textColumn} ${styles.linksColumn}`}>
 							<h2>LINKS</h2>
 							<ul>
-								<li>
-									<img src={InstagramIcon} alt="Instagram" className={styles.linkIcon} />
-									<a href="https://www.instagram.com/glitchypixels/">INSTAGRAM</a>
-								</li>
-								<li>
-									<img src={TwitterIcon} alt="Twitter" className={styles.linkIcon} />
-									<a href="https://x.com/iamglitchypixel">TWITTER</a>
-								</li>
-								<li>
-									<img src={RedditIcon} alt="Reddit" className={styles.linkIcon} />
-									<a href="https://www.reddit.com/user/iamglitchypixels/">REDDIT</a>
-								</li>
-								<li>
-									<img src={TheHugIcon} alt="TheHug" className={styles.linkIcon} />
-									<a href="https://thehug.xyz/artists/glitchypixels">THEHUG</a>
-								</li>
-								<li>
-									<img src={MailIcon} alt="Mail" className={styles.linkIcon} />
-									<a href="mailto:iamglitchypixel@gmail.com">MAIL</a>
-								</li>
+								{/* Map over linksData to generate list items */}
+								{linksData.map((link) => (
+									<li key={link.text}>
+										<a href={link.href} target="_blank" rel="noopener noreferrer"> {/* Added target and rel for external links */}
+											<img src={link.iconSrc} alt={link.alt} className={styles.linkIcon} />
+											<span className={styles.animatableText}>{link.text}</span> {/* Ensure text is animatable */}
+										</a>
+									</li>
+								))}
 							</ul>
 						</div>
 					</div>
