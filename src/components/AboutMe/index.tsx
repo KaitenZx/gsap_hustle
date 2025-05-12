@@ -11,23 +11,7 @@ import { vec2, sub, Vec2 } from './utils/vec2';
 // Original density string
 const DENSITY_ORIGINAL = '#gLitCh?*:pxls×+=-· ';
 
-// Helper function for linear interpolation
-/* // Removed lerp - no longer needed for dithering
-const lerp = (a: number, b: number, alpha: number): number => {
-	return a + alpha * (b - a);
-};
-*/
 
-// 4x4 Bayer matrix (normalized 0-1)
-/* // Removed Bayer matrix - switching to glitch effect
-const bayerMatrix4x4 = [
-	[0 / 16, 8 / 16, 2 / 16, 10 / 16],
-	[12 / 16, 4 / 16, 14 / 16, 6 / 16],
-	[3 / 16, 11 / 16, 1 / 16, 9 / 16],
-	[15 / 16, 7 / 16, 13 / 16, 5 / 16]
-];
-const BAYER_MATRIX_SIZE = 4;
-*/
 
 // Scroll distance for dither/glitch fade animation
 const DITHER_FADE_VH = 100; // Fade out over the first 100vh of scrolling
