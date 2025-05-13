@@ -1,142 +1,251 @@
-.asciiCanvas {
-	display: block;
-	width: 100%;
-	height: 100vh;
-	background-color: #121212;
-	color: #fff;
-	opacity: 1;
-	overflow: hidden;
-	position: absolute;
-	top: 0;
-	left: 0;
-	z-index: 1;
-	pointer-events: auto;
-}
-
 .aboutMeContainer {
 	position: relative;
 	width: 100%;
 	z-index: 2;
+
+	.asciiCanvas {
+		display: block;
+		width: 100%;
+		height: 100vh;
+		background-color: #121212;
+		color: #fff;
+		opacity: 1;
+		overflow: hidden;
+		position: absolute;
+		top: 0;
+		left: 0;
+		z-index: 1;
+		pointer-events: auto;
+	}
+
+	.mwgEffect004 {
+		position: relative;
+		width: 100%;
+
+		.pinHeight {
+			height: 520vh;
+			position: relative;
+			pointer-events: none;
+
+			@media (max-width: 767px) {
+				height: 400vh;
+			}
+
+			@media (min-width: 768px) and (max-width: 1023px) {
+				height: 480vh;
+			}
+
+			.textAnimationContainer {
+				height: 100vh;
+				width: 100%;
+				padding-left: 4vw;
+				padding-top: 10vh;
+				display: flex;
+				align-items: flex-start;
+				justify-content: space-around;
+				position: relative;
+				z-index: 4;
+				pointer-events: none;
+
+				@media (max-width: 767px) {
+					flex-direction: column;
+					align-items: flex-start;
+					padding-left: 16px;
+					padding-right: 16px;
+					justify-content: center;
+				}
+
+				@media (min-width: 768px) and (max-width: 1023px) {
+					padding-left: 32px;
+					padding-right: 32px;
+				}
+
+				@media (min-width: 1600px) {
+					max-width: 1440px;
+					margin-left: auto;
+					margin-right: auto;
+				}
+
+				.textColumn {
+					flex-basis: 30%;
+					display: flex;
+					flex-direction: column;
+					align-items: flex-start;
+					gap: 1em;
+
+					@media (max-width: 767px) {
+						flex-basis: auto;
+						width: 100%;
+						padding: 0;
+						margin-bottom: 2.5em;
+
+						&:last-child {
+							margin-bottom: 0;
+						}
+					}
+
+					@media (min-width: 768px) and (max-width: 1023px) {
+						flex-basis: 31%;
+						padding: 0 0.8em;
+					}
+
+					h2 {
+						font-size: 20px;
+						font-weight: 600;
+						color: white;
+						pointer-events: none;
+						width: 100%;
+						text-align: left;
+
+						@media (max-width: 767px) {
+							font-size: 18px;
+							margin-bottom: 0.8em;
+						}
+
+						@media (min-width: 768px) and (max-width: 1023px) {
+							font-size: 19px;
+						}
+					}
+
+					// &.aboutColumn {} // No specific styles for .aboutColumn itself, only its children
+
+					&.aboutColumn {
+						.paragraph {
+							width: 100%;
+							font-family: 'Alpha Lyrae', sans-serif;
+							font-weight: 600;
+							font-size: 20px;
+							line-height: 24px;
+							letter-spacing: -0.02em;
+							color: white;
+							text-align: left;
+							pointer-events: none;
+							margin-bottom: 1em;
+
+							&:last-child {
+								margin-bottom: 0;
+							}
+
+							@media (max-width: 767px) {
+								font-size: 16px;
+								line-height: 22px;
+								margin-bottom: 0.8em;
+							}
+
+							@media (min-width: 768px) and (max-width: 1023px) {
+								font-size: 18px;
+								line-height: 23px;
+							}
+
+							/* @media (min-width: 1600px) {
+								// Original commented out styles for large desktops
+								// font-size: 22px;
+								// line-height: 28px;
+							} */
+						}
+					}
+
+					&.exposColumn {
+						padding-left: 4em;
+					}
+
+					&.exposColumn,
+					&.linksColumn {
+						ul {
+							list-style: none;
+							padding: 0;
+							margin: 0;
+							width: 100%;
+						}
+
+						li {
+							font-size: 16px;
+							line-height: 1.3;
+							color: white;
+							pointer-events: none;
+							padding: 0.5em 0;
+
+							&:first-child {
+								padding-top: 0;
+							}
+
+							@media (max-width: 767px) {
+								font-size: 14px;
+								margin-bottom: 0.6em;
+							}
+
+							@media (min-width: 768px) and (max-width: 1023px) {
+								font-size: 15px;
+							}
+						}
+					}
+
+					&.exposColumn {
+						li {
+
+							// Specific children of li in exposColumn
+							.yearTag {
+								display: inline-block;
+								background-color: #007bff;
+								color: white;
+								padding: 0.1em 0.4em;
+								font-size: 0.8em;
+								border-radius: 3px;
+								margin-left: 0.5em;
+
+								@media (max-width: 767px) {
+									font-size: 0.7em;
+									padding: 0.1em 0.3em;
+								}
+							}
+
+							.subText {
+								display: block;
+								font-size: 0.8em;
+								color: #ccc;
+								margin-top: 0.2em;
+
+								@media (max-width: 767px) {
+									font-size: 0.75em;
+								}
+							}
+						}
+					}
+
+					&.linksColumn {
+						a {
+							color: white;
+							text-decoration: none;
+							pointer-events: auto;
+							display: flex;
+							align-items: center;
+
+							&:hover {
+								text-decoration: underline;
+							}
+
+							.linkIcon {
+								width: 18px;
+								height: 18px;
+								margin-right: 8px;
+
+								@media (max-width: 767px) {
+									width: 16px;
+									height: 16px;
+									margin-right: 6px;
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
 }
 
-.mwgEffect004 {
-	position: relative;
-	width: 100%;
-}
-
-.pinHeight {
-	height: 520vh;
-	position: relative;
-	pointer-events: none;
-}
-
-.textAnimationContainer {
-	height: 100vh;
-	width: 100%;
-	padding-left: 4vw;
-	display: flex;
-	align-items: center;
-	justify-content: space-around;
-	position: relative;
-	z-index: 4;
-	pointer-events: none;
-}
-
-.textColumn {
-	flex-basis: 30%;
-	padding: 0 1em;
-	display: flex;
-	flex-direction: column;
-	align-items: flex-start;
-}
-
-.aboutColumn h1,
-.exposColumn h2,
-.linksColumn h2 {
-	font-size: 20px;
-	font-weight: 600;
-	color: white;
-	margin-bottom: 1em;
-	pointer-events: none;
-	width: 100%;
-	text-align: left;
-}
-
-//.aboutColumn {}
-
-.paragraphsWrapper {
-	display: flex;
-	flex-direction: column;
-	width: 100%;
-}
-
-.paragraph {
-	width: 100%;
-	font-family: 'Alpha Lyrae', sans-serif;
-	font-weight: 600;
-	font-size: 20px;
-	line-height: 24px;
-	letter-spacing: -0.02em;
-	color: white;
-	text-align: left;
-	pointer-events: none;
-	margin-bottom: 1em;
-}
-
-.paragraph:last-child {
-	margin-bottom: 0;
-}
-
-.exposColumn ul,
-.linksColumn ul {
-	list-style: none;
-	padding: 0;
-	margin: 0;
-	width: 100%;
-}
-
-.exposColumn li,
-.linksColumn li {
-	margin-bottom: 0.8em;
-	font-size: 16px;
-	line-height: 1.3;
-	color: white;
-	pointer-events: none;
-}
-
-.linksColumn a {
-	color: white;
-	text-decoration: none;
-	pointer-events: auto;
-	display: flex;
-	align-items: center;
-}
-
-.linksColumn a:hover {
-	text-decoration: underline;
-}
-
-.linkIcon {
-	width: 18px;
-	height: 18px;
-	margin-right: 8px;
-}
-
-.yearTag {
-	display: inline-block;
-	background-color: #007bff;
-	color: white;
-	padding: 0.1em 0.4em;
-	font-size: 0.8em;
-	border-radius: 3px;
-	margin-left: 0.5em;
-}
-
-.subText {
-	display: block;
-	font-size: 0.8em;
-	color: #ccc;
-	margin-top: 0.2em;
+// Global p tag style for this module
+p {
+	margin-block-start: 0;
 }
 
 // Marker class for JavaScript to identify texts to animate word-by-word
@@ -152,124 +261,7 @@
 }
 
 /* --- Breakpoints --- */
+/* All media queries are now nested within their respective selectors above. */
 /* Mobile (до 767px) */
-@media (max-width: 767px) {
-	.pinHeight {
-		height: 400vh;
-		/* Уменьшаем общую высоту прокрутки */
-	}
-
-	.textAnimationContainer {
-		flex-direction: column;
-		align-items: flex-start;
-		/* или center, если нужно */
-		padding-left: 16px;
-		padding-right: 16px;
-		justify-content: center;
-		/* Чтобы контент был по центру в колонке */
-	}
-
-	.textColumn {
-		flex-basis: auto;
-		width: 100%;
-		/* Каждая колонка занимает всю ширину */
-		padding: 0;
-		margin-bottom: 2.5em;
-		/* Отступ между колонками */
-	}
-
-	.textColumn:last-child {
-		margin-bottom: 0;
-	}
-
-	.aboutColumn h1,
-	.exposColumn h2,
-	.linksColumn h2 {
-		font-size: 18px;
-		/* Уменьшаем шрифт заголовков */
-		margin-bottom: 0.8em;
-	}
-
-	.paragraph {
-		font-size: 16px;
-		/* Уменьшаем шрифт параграфов */
-		line-height: 22px;
-		margin-bottom: 0.8em;
-	}
-
-	.exposColumn li,
-	.linksColumn li {
-		font-size: 14px;
-		/* Уменьшаем шрифт списков */
-		margin-bottom: 0.6em;
-	}
-
-	.yearTag {
-		font-size: 0.7em;
-		padding: 0.1em 0.3em;
-	}
-
-	.subText {
-		font-size: 0.75em;
-	}
-
-	.linkIcon {
-		width: 16px;
-		height: 16px;
-		margin-right: 6px;
-	}
-}
-
 /* Tablet (768px - 1023px) */
-@media (min-width: 768px) and (max-width: 1023px) {
-	.pinHeight {
-		height: 480vh;
-		/* Промежуточная высота */
-	}
-
-	.textAnimationContainer {
-		padding-left: 32px;
-		/* Немного больше отступ */
-		padding-right: 32px;
-		/* Можно оставить 3 колонки, но возможно уменьшить их flex-basis или отступы между ними */
-	}
-
-	.textColumn {
-		flex-basis: 31%;
-		/* Чуть меньше, чтобы влезли с отступами */
-		padding: 0 0.8em;
-	}
-
-	.aboutColumn h1,
-	.exposColumn h2,
-	.linksColumn h2 {
-		font-size: 19px;
-	}
-
-	.paragraph {
-		font-size: 18px;
-		line-height: 23px;
-	}
-
-	.exposColumn li,
-	.linksColumn li {
-		font-size: 15px;
-	}
-}
-
 /* Large Desktop (1600px и более) */
-@media (min-width: 1600px) {
-	.textAnimationContainer {
-		max-width: 1400px;
-		/* Ограничиваем максимальную ширину текстового блока */
-		margin-left: auto;
-		margin-right: auto;
-		/* padding-left: 4vw; может остаться или быть скорректирован, если слишком большой */
-	}
-
-	/* Можно немного увеличить шрифты, если базовые кажутся мелкими */
-	/* .paragraph {
-		font-size: 22px;
-		line-height: 28px;
-	} */
-}

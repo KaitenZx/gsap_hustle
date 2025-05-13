@@ -4,16 +4,17 @@ import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import debounce from 'lodash/debounce'; // Import debounce
 
+import emailIcon from '../../assets/icons/email_icon.webp';
+import instagramIcon from '../../assets/icons/instagramm_icon.webp';
+import redditIcon from '../../assets/icons/reddit_icon.webp';
+import thehugIcon from '../../assets/icons/thehug_icon.webp';
+import twitterIcon from '../../assets/icons/twitter_icon.webp';
+
 import styles from './index.module.scss';
 import { sdCircle, opSmoothUnion } from './utils/sdf';
 import { vec2, sub, Vec2 } from './utils/vec2';
 
 // Import icons
-import instagramIcon from '../../assets/icons/instagramm_icon.webp';
-import twitterIcon from '../../assets/icons/twitter_icon.webp';
-import redditIcon from '../../assets/icons/reddit_icon.webp';
-import thehugIcon from '../../assets/icons/thehug_icon.webp';
-import emailIcon from '../../assets/icons/email_icon.webp';
 
 // Original density string
 const DENSITY_ORIGINAL = '#gLitCh?*:pxls×+=-· ';
@@ -157,7 +158,7 @@ export const AboutMe = () => {
 		const initTextAnimation = () => {
 			const elementsToAnimate: HTMLElement[] = Array.from(
 				pinnedTextContainerEl.querySelectorAll(
-					`.${styles.aboutColumn} h1, .${styles.aboutColumn} p,` +
+					`.${styles.aboutColumn} h2, .${styles.aboutColumn} p,` +
 					`.${styles.exposColumn} h2, .${styles.exposColumn} .${styles.animatableText},` +
 					`.${styles.linksColumn} h2, .${styles.linksColumn} .${styles.animatableText}`
 				)
@@ -546,7 +547,7 @@ export const AboutMe = () => {
 				<div ref={pinHeightRef} className={styles.pinHeight}>
 					<div ref={pinnedTextContainerRef} className={styles.textAnimationContainer}>
 						<div ref={paragraphsContainerRef} className={`${styles.textColumn} ${styles.aboutColumn}`}>
-							<h1>ABOUT ME</h1>
+							<h2>ABOUT ME</h2>
 							<p className={styles.paragraph}>
 								As a glitch artist and multidisciplinary designer from Russia,
 								currently based in Cyprus, I explore the intersection of digital aesthetics and human experience. My journey into glitch art began in 2022,
