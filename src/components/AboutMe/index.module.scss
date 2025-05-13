@@ -260,6 +260,10 @@ p {
 	opacity: 1;
 }
 
+.textContainerHiddenByOpacity {
+	opacity: 0;
+}
+
 /* --- Breakpoints --- */
 /* All media queries are now nested within their respective selectors above. */
 /* Mobile (до 767px) */

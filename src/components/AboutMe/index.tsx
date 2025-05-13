@@ -189,6 +189,14 @@ export const AboutMe = () => {
 				return;
 			}
 
+			// *** Set initial state of words to be off-screen and invisible ***
+			gsap.set(words, { autoAlpha: 0, xPercent: -100 });
+
+			// *** Make the container visible after words are set up ***
+			if (pinnedTextContainerEl) {
+				gsap.set(pinnedTextContainerEl, { opacity: 1 });
+			}
+
 			// *** Added: Separate ScrollTrigger for pinning text ***
 			textPinScrollTrigger = ScrollTrigger.create({
 				trigger: pinHeightEl,
@@ -250,7 +258,9 @@ export const AboutMe = () => {
 			lines.forEach(lineWords => {
 				if (lineWords.length > 0) {
 					const tween = gsap.to(lineWords, {
-						x: 0,
+						autoAlpha: 1, // Animate to visible
+						xPercent: 0,  // Animate to final X position (was x:0, xPercent is better with initial xPercent: -100)
+						x: 0, // Ensure x is explicitly set to 0 if xPercent is not enough (sometimes needed)
 						stagger: 0.1, // Existing stagger
 						ease: 'power1.inOut', // Existing ease
 						// paused: true, // Not needed if added to master timeline correctly
@@ -545,7 +555,7 @@ export const AboutMe = () => {
 			/>
 			<section className={styles.mwgEffect004}>
 				<div ref={pinHeightRef} className={styles.pinHeight}>
-					<div ref={pinnedTextContainerRef} className={styles.textAnimationContainer}>
+					<div ref={pinnedTextContainerRef} className={`${styles.textAnimationContainer} ${styles.textContainerHiddenByOpacity}`}>
 						<div ref={paragraphsContainerRef} className={`${styles.textColumn} ${styles.aboutColumn}`}>
 							<h2>ABOUT ME</h2>
 							<p className={styles.paragraph}>
