@@ -759,10 +759,10 @@ export const InfiniteGallery: React.FC = () => {
 				scrollTriggerInstance.current = ScrollTrigger.create({
 					trigger: containerElement,
 					start: "top top",
-					end: "+=20000", // Используем ОЧЕНЬ большое значение для "бесконечного" пиннинга вниз
+					end: "+=30000", // Используем ОЧЕНЬ большое значение для "бесконечного" пиннинга вниз
 					pin: true,
 					pinSpacing: true,
-					anticipatePin: 1,
+					anticipatePin: 0,
 					// markers: true, // Показать маркеры для отладки
 					invalidateOnRefresh: true, // Пересчитывать при рефреше
 
@@ -797,7 +797,7 @@ export const InfiniteGallery: React.FC = () => {
 						// currentActualYRef.current = newDims.wrapY(currentActualYRef.current); // <<< LERPING: And wrap actual Y
 						gsap.set(contentWrapperElement, {
 							x: newDims.wrapX(currentActualXRef.current), // Use wrapped actual
-							// y: newDims.wrapY(currentActualYRef.current) // Keep Y position, wrap happens in lerp/inertia
+							y: 0 // Directly set initial Y to 0 to prevent upward shift from wrapY(0)
 						});
 						// Позицию Y не трогаем, quickTo ее держит (quickTo удален, но логика сохранения Y остается)
 
@@ -834,8 +834,8 @@ export const InfiniteGallery: React.FC = () => {
 				currentActualXRef.current = 0; // <<< LERPING: Initialize actual
 				currentActualYRef.current = 0; // <<< LERPING: Initialize actual
 				gsap.set(contentWrapperElement, {
-					x: initialDims.wrapX(currentActualXRef.current),
-					y: initialDims.wrapY(currentActualYRef.current)
+					x: initialDims.wrapX(currentActualXRef.current), // Keep wrapX for horizontal start
+					y: 0 // Directly set initial Y to 0 to prevent upward shift from wrapY(0)
 				});
 				isInitialized.current = true; // Ставим флаг, что инициализация прошла
 
@@ -916,7 +916,7 @@ export const InfiniteGallery: React.FC = () => {
 			inertiaYTweenRef.current?.kill();
 		};
 		// <<< Обновлены зависимости (убраны minY/maxY/scrollableDistanceY если они где-то были косвенно) >>>
-	}, [setScrollLocked, renderColsCount, performPreload, lerpStep]); // REMOVED checkFooterVisibility from dependencies
+	}, [setScrollLocked, renderColsCount, performPreload, lerpStep, checkFooterVisibility]); // ADDED checkFooterVisibility back
 
 	// --- Мемоизация массива колонок  ---
 	const columnsToRender = useMemo(() => {
