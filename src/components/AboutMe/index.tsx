@@ -74,7 +74,7 @@ export const AboutMe = () => {
 	// Moved calculateCharMetrics outside useEffect to be reusable
 	const calculateCharMetrics = (ctx: CanvasRenderingContext2D | null) => {
 		if (!ctx) return;
-		ctx.font = '16px monospace'; // Use a consistent base size for measurement
+		ctx.font = '16px "Alpha Lyrae", monospace'; // Use a consistent base size for measurement
 		const metrics = ctx.measureText('M');
 		if (typeof metrics.actualBoundingBoxAscent === 'number' && typeof metrics.actualBoundingBoxDescent === 'number') {
 			charHeightRef.current = metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent;
@@ -405,7 +405,7 @@ export const AboutMe = () => {
 				ctx.fillStyle = '#121212';
 				ctx.fillRect(0, 0, canvas.width / dprRef.current, canvas.height / dprRef.current);
 
-				ctx.font = `${charHeightRef.current * 0.8}px monospace`;
+				ctx.font = `${charHeightRef.current * 0.8}px "Alpha Lyrae", monospace`;
 				ctx.fillStyle = '#E0E0E0';
 				ctx.textAlign = 'center';
 				ctx.textBaseline = 'middle';

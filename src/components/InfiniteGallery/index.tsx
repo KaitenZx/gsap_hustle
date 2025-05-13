@@ -995,7 +995,7 @@ export const InfiniteGallery: React.FC = () => {
 
 			// Проход для первого стиля (weights[0])
 			if (weights.length > 0) {
-				ctx.font = `${weights[0]} ${fontSize}px monospace`;
+				ctx.font = `${weights[0]} ${fontSize}px 'Alpha Lyrae', monospace`;
 				for (let y = 0; y < rows; y++) {
 					for (let x = 0; x < cols; x++) {
 						const c_index_for_style = (Math.floor(x * 0.5) + Math.floor(y * 0.5)) % 2;
@@ -1020,7 +1020,7 @@ export const InfiniteGallery: React.FC = () => {
 
 			// Проход для второго стиля (weights[1])
 			if (weights.length > 1) {
-				ctx.font = `${weights[1]} ${fontSize}px monospace`;
+				ctx.font = `${weights[1]} ${fontSize}px 'Alpha Lyrae', monospace`;
 				for (let y = 0; y < rows; y++) {
 					for (let x = 0; x < cols; x++) {
 						const c_index_for_style = (Math.floor(x * 0.5) + Math.floor(y * 0.5)) % 2;
