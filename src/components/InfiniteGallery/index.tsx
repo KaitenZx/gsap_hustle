@@ -26,6 +26,9 @@ const ROTATION_CLAMP = 18; // <<< Уменьшили максимальный у
 const ROTATION_SENSITIVITY = 18; // <<< Чувствительность поворота (делитель)
 const LERP_FACTOR = 0.4; // <<< Коэффициент для лерпинга (0.0 - 1.0)
 
+// --- Footer Visibility Constants ---
+const INTERNAL_FOOTER_THRESHOLD = -4000; // Pixels scrolled down internally
+const INTERNAL_FOOTER_HYSTERESIS = 500;  // Pixels to scroll back up before hiding
 
 // --- Функция для предзагрузки одного ИЗОБРАЖЕНИЯ ПРЕВЬЮ ---
 const _preloadedUrls = new Set<string>();
@@ -138,6 +141,30 @@ export const InfiniteGallery: React.FC = () => {
 	const [renderColsCount, setRenderColsCount] = useState(COLS); // Начинаем с COLS, будет пересчитано
 
 	const [selectedItem, setSelectedItem] = useState<GalleryItem | null>(null); // <<< Новое состояние
+
+	// --- Состояние и Ref для внутреннего футера ---
+	const [showInternalFooter, setShowInternalFooter] = useState(false);
+	const internalFooterRef = useRef<HTMLDivElement>(null);
+	const showInternalFooterRef = useRef(showInternalFooter); // Ref to mirror state for stable callback
+
+	// Update ref whenever state changes
+	useEffect(() => {
+		showInternalFooterRef.current = showInternalFooter;
+	}, [showInternalFooter]);
+
+	// --- Функция для проверки видимости внутреннего футера ---
+	const checkFooterVisibility = useCallback(() => {
+		const yScrolled = incrY.current;
+		console.log(`[IFG Footer Check] yScrolled: ${yScrolled}, current visibility: ${showInternalFooterRef.current}`);
+
+		if (!showInternalFooterRef.current && yScrolled < INTERNAL_FOOTER_THRESHOLD) {
+			console.log('[IFG Footer Check] Showing footer');
+			setShowInternalFooter(true);
+		} else if (showInternalFooterRef.current && yScrolled > INTERNAL_FOOTER_THRESHOLD + INTERNAL_FOOTER_HYSTERESIS) {
+			console.log('[IFG Footer Check] Hiding footer');
+			setShowInternalFooter(false);
+		}
+	}, []); // INTERNAL_FOOTER_THRESHOLD and HYSTERESIS are constants, so no deps needed
 
 	// --- Функция для предзагрузки ПРЕВЬЮ  ---
 	const performPreload = useCallback((scrollDirection: 1 | -1) => {
@@ -598,6 +625,9 @@ export const InfiniteGallery: React.FC = () => {
 						if (self.deltaX !== 0) { // Only preload if there's horizontal movement
 							throttledPreloadRef.current?.(preloadDirection);
 						}
+
+						// Check for footer visibility
+						checkFooterVisibility();
 					},
 					onChangeY: (self) => {
 						handleScrollActivity();
@@ -629,6 +659,9 @@ export const InfiniteGallery: React.FC = () => {
 							lerpLoopIdRef.current = requestAnimationFrame(lerpStep);
 						}
 						// No vertical preloading implemented in performPreload, so skipping here.
+
+						// Check for footer visibility
+						checkFooterVisibility();
 					},
 					// <<< ADDED: onDragEnd for Inertia >>>
 					onDragEnd: (self) => {
@@ -672,12 +705,14 @@ export const InfiniteGallery: React.FC = () => {
 								incrX.current = inertiaProxy.x;
 								currentActualXRef.current = inertiaProxy.x;
 								gsap.set(contentWrapperElement, { x: dims.wrapX(currentActualXRef.current) });
+								// NO checkFooterVisibility() here
 							},
 							onComplete: () => {
 								if (dims) { // Ensure dims is still valid
 									incrX.current = inertiaProxy.x;
 									currentActualXRef.current = inertiaProxy.x;
 								}
+								// NO checkFooterVisibility() here
 							}
 						});
 
@@ -696,12 +731,16 @@ export const InfiniteGallery: React.FC = () => {
 								incrY.current = inertiaProxy.y;
 								currentActualYRef.current = inertiaProxy.y;
 								gsap.set(contentWrapperElement, { y: dims.wrapY(currentActualYRef.current) });
+								// Check for footer visibility during vertical inertia update
+								checkFooterVisibility();
 							},
 							onComplete: () => {
 								if (dims) { // Ensure dims is still valid
 									incrY.current = inertiaProxy.y;
 									currentActualYRef.current = inertiaProxy.y;
 								}
+								// Check for footer visibility on vertical inertia complete
+								checkFooterVisibility();
 							}
 						});
 					}
@@ -720,7 +759,7 @@ export const InfiniteGallery: React.FC = () => {
 				scrollTriggerInstance.current = ScrollTrigger.create({
 					trigger: containerElement,
 					start: "top top",
-					end: "+=3200", // Используем большое значение
+					end: "+=20000", // Используем ОЧЕНЬ большое значение для "бесконечного" пиннинга вниз
 					pin: true,
 					pinSpacing: true,
 					anticipatePin: 1,
@@ -877,7 +916,7 @@ export const InfiniteGallery: React.FC = () => {
 			inertiaYTweenRef.current?.kill();
 		};
 		// <<< Обновлены зависимости (убраны minY/maxY/scrollableDistanceY если они где-то были косвенно) >>>
-	}, [setScrollLocked, renderColsCount, performPreload, lerpStep]); // Зависимости в основном для колбэков
+	}, [setScrollLocked, renderColsCount, performPreload, lerpStep]); // REMOVED checkFooterVisibility from dependencies
 
 	// --- Мемоизация массива колонок  ---
 	const columnsToRender = useMemo(() => {
@@ -1039,6 +1078,19 @@ export const InfiniteGallery: React.FC = () => {
 		};
 	}, []); // Empty dependency array: run only once on mount
 
+	// --- useEffect for Footer Animation ---
+	useEffect(() => {
+		if (internalFooterRef.current) {
+			gsap.to(internalFooterRef.current, {
+				opacity: showInternalFooter ? 1 : 0,
+				visibility: showInternalFooter ? 'visible' : 'hidden',
+				pointerEvents: showInternalFooter ? 'auto' : 'none',
+				duration: 0.5,
+				ease: 'power2.inOut'
+			});
+		}
+	}, [showInternalFooter]);
+
 	return (
 		<section
 			className={`${styles.mwg_effect} ${isLockedState ? styles.isLocked : ''}`}
@@ -1065,6 +1117,15 @@ export const InfiniteGallery: React.FC = () => {
 					})()}
 				/>
 			)}
+
+			{/* Внутренний футер галереи */}
+			<div
+				ref={internalFooterRef}
+				className={styles.internalGalleryFooter}
+				style={{ opacity: 0, visibility: 'hidden', pointerEvents: 'none' }} // Начальные стили для GSAP
+			>
+				placeholder footer: link link link
+			</div>
 
 		</section>
 	);

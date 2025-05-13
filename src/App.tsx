@@ -69,7 +69,6 @@ function App() {
     <div className={styles.app}>
       <AboutMe />
       <InfiniteGallery />
-      <div id="placeholder3" className={styles.footer} >placeholder footer: link link link </div>
     </div>
   )
 }

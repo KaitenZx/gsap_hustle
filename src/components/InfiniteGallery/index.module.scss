@@ -104,3 +104,28 @@ $column-gap: 2vw;
 	opacity: 0.6; // Make it subtle
 	background-color: #111; // Match container background
 }
+
+// --- Internal Gallery Footer Styles ---
+.internalGalleryFooter {
+	position: absolute;
+	bottom: 0;
+	left: 0;
+	width: 100%;
+	padding: 20px;
+	background-color: rgba(0, 0, 0, 0.85); // Darker, slightly more opaque background
+	color: #f0f0f0; // Light grey text
+	text-align: center;
+	z-index: 20; // Ensure it's above background canvas and gallery items, but potentially below modal
+
+	// opacity, visibility, and pointerEvents are controlled by GSAP via inline styles initially
+	a {
+		color: #aaa; // Style for links in the footer
+		text-decoration: none;
+		margin: 0 10px;
+
+		&:hover {
+			color: #fff;
+			text-decoration: underline;
+		}
+	}
+}
