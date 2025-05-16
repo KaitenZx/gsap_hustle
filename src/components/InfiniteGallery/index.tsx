@@ -155,13 +155,10 @@ export const InfiniteGallery: React.FC = () => {
 	// --- Функция для проверки видимости внутреннего футера ---
 	const checkFooterVisibility = useCallback(() => {
 		const yScrolled = incrY.current;
-		console.log(`[IFG Footer Check] yScrolled: ${yScrolled}, current visibility: ${showInternalFooterRef.current}`);
 
 		if (!showInternalFooterRef.current && yScrolled < INTERNAL_FOOTER_THRESHOLD) {
-			console.log('[IFG Footer Check] Showing footer');
 			setShowInternalFooter(true);
 		} else if (showInternalFooterRef.current && yScrolled > INTERNAL_FOOTER_THRESHOLD + INTERNAL_FOOTER_HYSTERESIS) {
-			console.log('[IFG Footer Check] Hiding footer');
 			setShowInternalFooter(false);
 		}
 	}, []); // INTERNAL_FOOTER_THRESHOLD and HYSTERESIS are constants, so no deps needed

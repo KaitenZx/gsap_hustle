@@ -39,20 +39,17 @@ function App() {
     // Отключаем сглаживание задержек в GSAP, если Lenis этим управляет
     gsap.ticker.lagSmoothing(0);
 
-    console.log('[App] Lenis initialized for smooth page scrolling.');
 
     // Очистка при размонтировании компонента
     return () => {
       lenis.off('scroll', scrollTriggerUpdateCallback); // Удаляем слушатель scroll
       gsap.ticker.remove(tickerCallback); // Удаляем конкретный обработчик тикера
       lenis.destroy();
-      console.log('[App] Lenis destroyed.');
     };
   }, []); // Пустой массив зависимостей для однократной инициализации
 
   // Add useEffect for preloading
   useEffect(() => {
-    console.log('[App Preload] Starting initial preview image preload...');
     let count = 0;
     ITEMS.forEach((item: GalleryItem) => {
       if (!_appPreloadedUrls.has(item.previewSrc)) {
@@ -62,7 +59,6 @@ function App() {
         count++;
       }
     });
-    console.log(`[App Preload] Initiated preload for ${count} preview images.`);
   }, []); // Empty dependency array ensures this runs only once on mount
 
   return (

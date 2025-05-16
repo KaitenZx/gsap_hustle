@@ -320,7 +320,6 @@ export const AboutMe = () => {
 				masterTimeline.to({}, { duration: 0.01 });
 			}
 
-			console.log(`[AboutMe GSAP] Master timeline initialized. Text anim implicit duration: ${maxTextAnimationImplicitDuration.toFixed(2)}s, Pause timeline duration: ${pauseTimelineDuration.toFixed(2)}s. Total timeline duration: ${masterTimeline.duration().toFixed(2)}s`);
 		};
 
 		const timerId = setTimeout(initTextAnimation, 100);
@@ -357,7 +356,6 @@ export const AboutMe = () => {
 			// For instance, if wordAnimationTweens were not added to masterTimeline and had their own STs.
 			// But here, they are part of masterTimeline or just tweens.
 
-			console.log('[AboutMe GSAP] Master timeline and associated ScrollTriggers cleaned up.');
 		};
 	}, []);
 
@@ -390,12 +388,10 @@ export const AboutMe = () => {
 
 		// --- Resize Handler --- 
 		const handleResize = debounce(() => {
-			console.log('[AboutMe] Window resized, recalculating...');
 			// Recalculate canvas dimensions, char metrics, cols, rows
 			calculateCharMetrics(ctx);
 			// Refresh GSAP ScrollTrigger calculations
 			ScrollTrigger.refresh();
-			console.log(`[AboutMe] Recalculated metrics: ${colsRef.current}x${rowsRef.current} cols/rows. ScrollTrigger refreshed.`);
 		}, 250); // Debounce timeout
 
 		window.addEventListener('resize', handleResize);
@@ -527,7 +523,6 @@ export const AboutMe = () => {
 
 		// --- Cleanup Function --- 
 		return () => {
-			console.log('[AboutMe] Cleaning up canvas animation and listeners...');
 			cancelAnimationFrame(animationFrameId.current);
 			canvas.removeEventListener('mousemove', handleMouseMove);
 			window.removeEventListener('resize', handleResize);
