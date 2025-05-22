@@ -136,6 +136,7 @@ export const AboutMe = () => {
 		let canvasPinScrollTrigger: ScrollTrigger | null = null;
 		let ditherScrollTrigger: ScrollTrigger | null = null; // Added: ScrollTrigger for dither
 		let textPinScrollTrigger: ScrollTrigger | null = null; // Added: Separate trigger for pinning text
+		let outroDitherScrollTrigger: ScrollTrigger | null = null; // Added: ScrollTrigger for outro dither/opacity
 
 		// --- Dither Fade Animation ---
 		ditherScrollTrigger = ScrollTrigger.create({
@@ -320,6 +321,38 @@ export const AboutMe = () => {
 				masterTimeline.to({}, { duration: 0.01 });
 			}
 
+			console.log(`[AboutMe GSAP] Master timeline initialized. Text anim implicit duration: ${maxTextAnimationImplicitDuration.toFixed(2)}s, Pause timeline duration: ${pauseTimelineDuration.toFixed(2)}s. Total timeline duration: ${masterTimeline.duration().toFixed(2)}s`);
+
+			// --- Outro Dither/Opacity Animation --- 
+			if (currentCanvasElement && pinHeightEl) {
+				outroDitherScrollTrigger = ScrollTrigger.create({
+					trigger: pinHeightEl,
+					start: "bottom bottom", // When bottom of pinHeightEl hits bottom of viewport
+					end: "bottom top", // When bottom of pinHeightEl hits top of viewport (100vh scroll)
+					scrub: true,
+					onEnter: () => {
+						if (currentCanvasElement) {
+							currentCanvasElement.style.zIndex = '5'; // Bring canvas to front
+						}
+					},
+					onLeaveBack: () => {
+						if (currentCanvasElement) {
+							currentCanvasElement.style.zIndex = '1'; // Reset canvas z-index when scrolling back up
+						}
+					},
+					onUpdate: self => {
+						// Animate ditherStrength from 0 back to 1
+						ditherStrength.current = self.progress;
+
+						// Animate canvas opacity from 0.4 (or current) back to 1
+						if (currentCanvasElement) {
+							// Assuming it starts from 0.4 (after initial dither fade)
+							const initialOpacity = 0.4;
+							currentCanvasElement.style.opacity = (initialOpacity + (1 - initialOpacity) * self.progress).toFixed(2);
+						}
+					}
+				});
+			}
 		};
 
 		const timerId = setTimeout(initTextAnimation, 100);
@@ -349,6 +382,11 @@ export const AboutMe = () => {
 			// *** Added: Kill the text pin ScrollTrigger ***
 			if (textPinScrollTrigger) {
 				textPinScrollTrigger.kill();
+			}
+
+			// Kill the outro dither ScrollTrigger
+			if (outroDitherScrollTrigger) {
+				outroDitherScrollTrigger.kill();
 			}
 
 			// Kill any other dynamically created tweens or ScrollTriggers if necessary
