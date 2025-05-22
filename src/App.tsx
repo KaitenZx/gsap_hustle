@@ -50,13 +50,11 @@ function App() {
 
   // Add useEffect for preloading
   useEffect(() => {
-    let count = 0;
     ITEMS.forEach((item: GalleryItem) => {
       if (!_appPreloadedUrls.has(item.previewSrc)) {
         _appPreloadedUrls.add(item.previewSrc);
         const img = new Image();
         img.src = item.previewSrc;
-        count++;
       }
     });
   }, []); // Empty dependency array ensures this runs only once on mount

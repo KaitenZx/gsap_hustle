@@ -8,12 +8,18 @@ importers:
 
   .:
     dependencies:
+      '@types/html2canvas':
+        specifier: ^1.0.0
+        version: 1.0.0
       gsap:
         specifier: ^3.13.0
         version: 3.13.0
       html2canvas:
         specifier: ^1.4.1
         version: 1.4.1
+      imagesloaded:
+        specifier: ^5.0.0
+        version: 5.0.0
       lenis:
         specifier: ^1.3.1
         version: 1.3.1(react@19.1.0)
@@ -33,6 +39,9 @@ importers:
       '@types/gsap':
         specifier: ^3.0.0
         version: 3.0.0
+      '@types/imagesloaded':
+        specifier: ^4.1.7
+        version: 4.1.7
       '@types/lodash':
         specifier: ^4.17.16
         version: 4.17.16
@@ -676,6 +685,16 @@ packages:
     resolution: {integrity: sha512-BbWLi4WRHGze4C8NV7U7yRevuBFiPkPZZyGa0rryanvh/9HPUFXTNBXsGQxJZJq7Ix7j4RXMYodP3s+OsqCErg==}
     deprecated: This is a stub types definition. gsap provides its own type definitions, so you do not need this installed.
 
+  '@types/html2canvas@1.0.0':
+    resolution: {integrity: sha512-BJpVf+FIN9UERmzhbtUgpXj6XBZpG67FMgBLLoj9HZKd9XifcCpSV+UnFcwTZfEyun4U/KmCrrVOG7829L589w==}
+    deprecated: This is a stub types definition. html2canvas provides its own type definitions, so you do not need this installed.
+
+  '@types/imagesloaded@4.1.7':
+    resolution: {integrity: sha512-N380qYSNvYsrF+TtQ7SvxP5rs/XVI/6+l/aUKJjXiVc2y3YHzhmeP283sX16ZimW89DAGguZEGc19esP1cJeLg==}
+
+  '@types/jquery@3.5.32':
+    resolution: {integrity: sha512-b9Xbf4CkMqS02YH8zACqN1xzdxc3cO735Qe5AbSUFmyOiaWAbcpqh9Wna+Uk0vgACvoQHpWDg2rGdHkYPLmCiQ==}
+
   '@types/json-schema@7.0.15':
     resolution: {integrity: sha512-5+fP8P8MFNC+AyZCDxrB2pkZFPGzqQWUzpSeuuVLvm8VMcorNYavBqoFcxK8bQz4Qsbn4oUEEem4wDLfcysGHA==}
 
@@ -692,6 +711,9 @@ packages:
 
   '@types/react@19.1.2':
     resolution: {integrity: sha512-oxLPMytKchWGbnQM9O7D67uPa9paTNxO7jVoNMXgkkErULBPhPARCfkKL9ytcIJJRGjbsVwW4ugJzyFFvm/Tiw==}
+
+  '@types/sizzle@2.3.9':
+    resolution: {integrity: sha512-xzLEyKB50yqCUPUJkIsrVvoWNfFUbIZI+RspLWt8u+tIW/BetMBZtgV2LY/2o+tYH8dRvQ+eoPf3NdhQCcLE2w==}
 
   '@typescript-eslint/eslint-plugin@8.31.0':
     resolution: {integrity: sha512-evaQJZ/J/S4wisevDvC1KFZkPzRetH8kYZbkgcTRyql3mcKsf+ZFDV1BVWUGTCAW5pQHoqn5gK5b8kn7ou9aFQ==}
@@ -1323,6 +1345,9 @@ packages:
     resolution: {integrity: sha512-kVscqXk4OCp68SZ0dkgEKVi6/8ij300KBWTJq32P/dYeWTSwK41WyTxalN1eRmA5Z9UU/LX9D7FWSmV9SAYx6g==}
     engines: {node: '>=0.10.0'}
 
+  ev-emitter@2.1.2:
+    resolution: {integrity: sha512-jQ5Ql18hdCQ4qS+RCrbLfz1n+Pags27q5TwMKvZyhp5hh2UULUYZUy1keqj6k6SYsdqIYjnmz7xyyEY0V67B8Q==}
+
   fast-deep-equal@3.1.3:
     resolution: {integrity: sha512-f3qQ9oQy9j2AhBe/H9VC91wLmKBCCU/gDOnKNAYG5hswO7BLKj09Hc5HYNz9cGI++xlpDCIgDaitVs03ATR84Q==}
 
@@ -1483,6 +1508,9 @@ packages:
   ignore@5.3.2:
     resolution: {integrity: sha512-hsBTNUqQTDwkWtcdYI2i06Y/nUBEsNEDJKjWdigLvegy8kDuJAS8uRlpkkcQpyEXL0Z/pjDy5HBmMjRCJ2gq+g==}
     engines: {node: '>= 4'}
+
+  imagesloaded@5.0.0:
+    resolution: {integrity: sha512-/0JGSubc1MTCoDKVmonLHgbifBWHdyLkun+R/151E1c5n79hiSxcd7cB7mPXFgojYu8xnRZv7GYxzKoxW8BetQ==}
 
   immutable@5.1.1:
     resolution: {integrity: sha512-3jatXi9ObIsPGr3N5hGw/vWWcTkq6hUYhpQz4k0wLC+owqWi/LiugIw9x0EdNZ2yGedKN/HzePiBvaJRXa0Ujg==}
@@ -2778,6 +2806,18 @@ snapshots:
     dependencies:
       gsap: 3.13.0
 
+  '@types/html2canvas@1.0.0':
+    dependencies:
+      html2canvas: 1.4.1
+
+  '@types/imagesloaded@4.1.7':
+    dependencies:
+      '@types/jquery': 3.5.32
+
+  '@types/jquery@3.5.32':
+    dependencies:
+      '@types/sizzle': 2.3.9
+
   '@types/json-schema@7.0.15': {}
 
   '@types/json5@0.0.29': {}
@@ -2791,6 +2831,8 @@ snapshots:
   '@types/react@19.1.2':
     dependencies:
       csstype: 3.1.3
+
+  '@types/sizzle@2.3.9': {}
 
   '@typescript-eslint/eslint-plugin@8.31.0(@typescript-eslint/parser@8.31.0(eslint@9.25.1)(typescript@5.7.3))(eslint@9.25.1)(typescript@5.7.3)':
     dependencies:
@@ -3621,6 +3663,8 @@ snapshots:
 
   esutils@2.0.3: {}
 
+  ev-emitter@2.1.2: {}
+
   fast-deep-equal@3.1.3: {}
 
   fast-glob@3.3.3:
@@ -3779,6 +3823,10 @@ snapshots:
       text-segmentation: 1.0.3
 
   ignore@5.3.2: {}
+
+  imagesloaded@5.0.0:
+    dependencies:
+      ev-emitter: 2.1.2
 
   immutable@5.1.1: {}
 
