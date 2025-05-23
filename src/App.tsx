@@ -1,3 +1,4 @@
+
 import { useEffect } from 'react';
 
 import { gsap } from 'gsap';
@@ -8,13 +9,14 @@ import styles from './App.module.scss'
 import { AboutMe } from './components/AboutMe';
 import { InfiniteGallery } from './components/InfiniteGallery'
 import { ITEMS, GalleryItem } from './components/InfiniteGallery/galleryData';
-
 import 'lenis/dist/lenis.css'; // Раскомментируйте, если используете npm-пакет
+import './styles/theme.css'; // Import theme styles
+import { ThemeProvider } from './context/ThemeContext'; // Import ThemeProvider
 
 // Set to track preloaded URLs
 const _appPreloadedUrls = new Set<string>();
 
-function App() {
+function AppContent() {
   // --- useEffect для инициализации Lenis ---
   useEffect(() => {
     const lenis = new Lenis({
@@ -65,6 +67,15 @@ function App() {
       <InfiniteGallery />
     </div>
   )
+}
+
+// Wrap AppContent with ThemeProvider
+function App() {
+  return (
+    <ThemeProvider>
+      <AppContent />
+    </ThemeProvider>
+  );
 }
 
 export default App

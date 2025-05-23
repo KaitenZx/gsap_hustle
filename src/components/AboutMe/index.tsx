@@ -9,6 +9,7 @@ import instagramIcon from '../../assets/icons/instagramm_icon.webp';
 import redditIcon from '../../assets/icons/reddit_icon.webp';
 import thehugIcon from '../../assets/icons/thehug_icon.webp';
 import twitterIcon from '../../assets/icons/twitter_icon.webp';
+import { ThemeToggleButton } from '../ThemeToggleButton/ThemeToggleButton';
 
 import styles from './index.module.scss';
 import { sdCircle, opSmoothUnion } from './utils/sdf';
@@ -136,7 +137,6 @@ export const AboutMe = () => {
 		let canvasPinScrollTrigger: ScrollTrigger | null = null;
 		let ditherScrollTrigger: ScrollTrigger | null = null; // Added: ScrollTrigger for dither
 		let textPinScrollTrigger: ScrollTrigger | null = null; // Added: Separate trigger for pinning text
-		let outroDitherScrollTrigger: ScrollTrigger | null = null; // Added: ScrollTrigger for outro dither/opacity
 
 		// --- Dither Fade Animation ---
 		ditherScrollTrigger = ScrollTrigger.create({
@@ -321,38 +321,6 @@ export const AboutMe = () => {
 				masterTimeline.to({}, { duration: 0.01 });
 			}
 
-			console.log(`[AboutMe GSAP] Master timeline initialized. Text anim implicit duration: ${maxTextAnimationImplicitDuration.toFixed(2)}s, Pause timeline duration: ${pauseTimelineDuration.toFixed(2)}s. Total timeline duration: ${masterTimeline.duration().toFixed(2)}s`);
-
-			// --- Outro Dither/Opacity Animation --- 
-			if (currentCanvasElement && pinHeightEl) {
-				outroDitherScrollTrigger = ScrollTrigger.create({
-					trigger: pinHeightEl,
-					start: "bottom bottom", // When bottom of pinHeightEl hits bottom of viewport
-					end: "bottom top", // When bottom of pinHeightEl hits top of viewport (100vh scroll)
-					scrub: true,
-					onEnter: () => {
-						if (currentCanvasElement) {
-							currentCanvasElement.style.zIndex = '5'; // Bring canvas to front
-						}
-					},
-					onLeaveBack: () => {
-						if (currentCanvasElement) {
-							currentCanvasElement.style.zIndex = '1'; // Reset canvas z-index when scrolling back up
-						}
-					},
-					onUpdate: self => {
-						// Animate ditherStrength from 0 back to 1
-						ditherStrength.current = self.progress;
-
-						// Animate canvas opacity from 0.4 (or current) back to 1
-						if (currentCanvasElement) {
-							// Assuming it starts from 0.4 (after initial dither fade)
-							const initialOpacity = 0.4;
-							currentCanvasElement.style.opacity = (initialOpacity + (1 - initialOpacity) * self.progress).toFixed(2);
-						}
-					}
-				});
-			}
 		};
 
 		const timerId = setTimeout(initTextAnimation, 100);
@@ -382,11 +350,6 @@ export const AboutMe = () => {
 			// *** Added: Kill the text pin ScrollTrigger ***
 			if (textPinScrollTrigger) {
 				textPinScrollTrigger.kill();
-			}
-
-			// Kill the outro dither ScrollTrigger
-			if (outroDitherScrollTrigger) {
-				outroDitherScrollTrigger.kill();
 			}
 
 			// Kill any other dynamically created tweens or ScrollTriggers if necessary
@@ -444,13 +407,18 @@ export const AboutMe = () => {
 			if (elapsed > animationFrameInterval_aboutme) {
 				lastAnimationRunTime_aboutme = currentTime - (elapsed % animationFrameInterval_aboutme);
 
+				// Get theme colors from CSS variables
+				const computedStyles = getComputedStyle(document.documentElement);
+				const canvasBackgroundColor = computedStyles.getPropertyValue('--background-color').trim();
+				const canvasTextColor = computedStyles.getPropertyValue('--text-color').trim();
+
 				const t = (currentTime - startTime.current) / 1000;
 
-				ctx.fillStyle = '#121212';
+				ctx.fillStyle = canvasBackgroundColor;
 				ctx.fillRect(0, 0, canvas.width / dprRef.current, canvas.height / dprRef.current);
 
 				ctx.font = `${charHeightRef.current * 0.8}px "Alpha Lyrae", monospace`;
-				ctx.fillStyle = '#E0E0E0';
+				ctx.fillStyle = canvasTextColor;
 				ctx.textAlign = 'center';
 				ctx.textBaseline = 'middle';
 
@@ -520,8 +488,6 @@ export const AboutMe = () => {
 
 						// --- Drawing Logic ---
 						if (char && char !== ' ') {
-							ctx.fillStyle = '#E0E0E0'; // Keep original color
-
 							ctx.fillText(
 								char, // Use potentially glitched character
 								(i + 0.5) * charWidthRef.current + offsetX, // Add X offset
@@ -582,6 +548,9 @@ export const AboutMe = () => {
 
 	return (
 		<div ref={aboutMeContainerRef} className={styles.aboutMeContainer}>
+			<div className={styles.themeToggleWrapper}>
+				<ThemeToggleButton />
+			</div>
 			<canvas
 				ref={canvasRef}
 				className={styles.asciiCanvas}

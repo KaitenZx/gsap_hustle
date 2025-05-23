@@ -3,11 +3,18 @@
 	width: 100%;
 	z-index: 2;
 
+	.themeToggleWrapper {
+		position: absolute;
+		top: 1rem;
+		right: 1rem;
+		z-index: 100;
+	}
+
 	.asciiCanvas {
 		display: block;
 		width: 100%;
 		height: 100vh;
-		background-color: #121212;
+		background-color: transparent;
 		color: #fff;
 		opacity: 1;
 		overflow: hidden;
@@ -92,7 +99,7 @@
 					h2 {
 						font-size: 20px;
 						font-weight: 600;
-						color: white;
+						color: var(--text-color);
 						pointer-events: none;
 						width: 100%;
 						text-align: left;
@@ -119,7 +126,7 @@
 							font-size: 20px;
 							line-height: 24px;
 							letter-spacing: -0.02em;
-							color: white;
+							color: var(--text-color);
 							text-align: left;
 							pointer-events: none;
 							margin-bottom: 1em;
@@ -158,7 +165,7 @@
 						li {
 							font-size: 16px;
 							line-height: 1.3;
-							color: white;
+							color: var(--text-color);
 							pointer-events: none;
 							padding: 0.5em 0;
 
@@ -183,8 +190,8 @@
 							// Specific children of li in exposColumn
 							.yearTag {
 								display: inline-block;
-								background-color: #007bff;
-								color: white;
+								background-color: var(--primary-color);
+								color: var(--background-color);
 								padding: 0.1em 0.4em;
 								font-size: 0.8em;
 								border-radius: 3px;
@@ -199,7 +206,7 @@
 							.subText {
 								display: block;
 								font-size: 0.8em;
-								color: #ccc;
+								color: var(--text-color);
 								margin-top: 0.2em;
 
 								@media (max-width: 767px) {
@@ -211,7 +218,7 @@
 
 					&.linksColumn {
 						a {
-							color: white;
+							color: var(--text-color);
 							text-decoration: none;
 							pointer-events: auto;
 							display: flex;

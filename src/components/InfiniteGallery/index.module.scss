@@ -9,7 +9,8 @@ $column-gap: 2vw;
 	width: 100vw;
 	overflow: hidden;
 	position: relative;
-	background-color: #111;
+	// background-color: #111;
+	background-color: var(--background-color);
 	box-sizing: border-box;
 	cursor: grab;
 	perspective: 400vh;
@@ -102,7 +103,8 @@ $column-gap: 2vw;
 	z-index: 0; // Place behind contentWrapper
 	pointer-events: none; // Ignore mouse events
 	opacity: 0.6; // Make it subtle
-	background-color: #111; // Match container background
+	// background-color: #111; // Match container background
+	background-color: transparent; // Canvas will draw its own background
 }
 
 // --- Internal Gallery Footer Styles ---
@@ -112,19 +114,29 @@ $column-gap: 2vw;
 	left: 0;
 	width: 100%;
 	padding: 20px;
-	background-color: rgba(0, 0, 0, 0.85); // Darker, slightly more opaque background
-	color: #f0f0f0; // Light grey text
+	// background-color: rgba(0, 0, 0, 0.85); // Darker, slightly more opaque background
+	// To make this theme-aware without JS for RGBA, we might need separate vars or accept a compromise.
+	// For now, let's use a semi-transparent version of the *opposite* of the background for contrast.
+	// This is tricky. A simpler SCSS approach:
+	background-color: var(--background-color);
+	box-shadow: 0 0 20px 20px var(--background-color); // Simulate opaque bg with shadow spread
+	// color: #f0f0f0; // Light grey text
+	color: var(--text-color);
 	text-align: center;
 	z-index: 20; // Ensure it's above background canvas and gallery items, but potentially below modal
 
 	// opacity, visibility, and pointerEvents are controlled by GSAP via inline styles initially
 	a {
-		color: #aaa; // Style for links in the footer
+		// color: #aaa; // Style for links in the footer
+		color: var(--text-color); // Make links same color as text, perhaps with underline
+		opacity: 0.7; // Make them slightly less prominent than main text
 		text-decoration: none;
 		margin: 0 10px;
 
 		&:hover {
-			color: #fff;
+			// color: #fff;
+			color: var(--text-color); // Keep same color on hover
+			opacity: 1; // Full opacity on hover
 			text-decoration: underline;
 		}
 	}

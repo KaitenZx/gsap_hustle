@@ -1,0 +1,86 @@
+@keyframes digital-glitch-icon {
+
+	0%,
+	15.1%,
+	50.1%,
+	80.1%,
+	100% {
+		transform: translate(0, 0) skewX(0);
+		clip-path: inset(0% 0% 0% 0%);
+		opacity: 1;
+	}
+
+	5% {
+		/* Quick horizontal tear & shift */
+		transform: translate(3px, 0) skewX(-5deg);
+		clip-path: inset(0% 0% 60% 0%);
+		/* Bottom part disappears */
+	}
+
+	10% {
+		/* Opposite tear & shift */
+		transform: translate(-3px, 0) skewX(5deg);
+		clip-path: inset(60% 0% 0% 0%);
+		/* Top part disappears */
+	}
+
+	15% {
+		/* Back to normal briefly */
+		transform: translate(0, 0) skewX(0);
+		clip-path: inset(0% 0% 0% 0%);
+	}
+
+	52% {
+		/* Jitter */
+		transform: translate(1px, -1px);
+	}
+
+	54% {
+		/* Jitter back */
+		transform: translate(-1px, 1px);
+	}
+
+	83% {
+		/* Flicker + slight displacement */
+		transform: translate(0, 2px);
+		opacity: 0.7;
+	}
+
+	86% {
+		/* Recover from flicker */
+		transform: translate(0, 0);
+		opacity: 1;
+	}
+}
+
+.themeToggleButton {
+	background: none;
+	border: none;
+	cursor: pointer;
+	padding: 0.5rem;
+	border-radius: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	transition: background-color 0.2s ease-in-out;
+}
+
+.themeToggleButton:hover {
+	background-color: rgba(128, 128, 128, 0.2);
+	/* Semi-transparent gray for hover */
+}
+
+.icon {
+	width: 24px;
+	height: 24px;
+	stroke: var(--text-color);
+	/* Use theme variable for icon color for proper contrast */
+	animation: digital-glitch-icon 2.5s infinite linear;
+}
+
+/* Ensure icon color transitions smoothly */
+.icon path,
+.icon circle,
+.icon line {
+	transition: stroke 0.3s ease;
+}

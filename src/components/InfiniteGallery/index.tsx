@@ -927,8 +927,9 @@ export const InfiniteGallery: React.FC = () => {
 	// --- useEffect for Background Canvas Animation ---
 	useEffect(() => {
 		const canvas = canvasRef.current;
-		const container = containerRef.current; // Use the main container for size
-		if (!canvas || !container) return;
+		const container = containerRef.current; // Added for resizeObserver
+
+		if (!canvas || !container) return; // Check for container as well
 
 		const ctx = canvas.getContext('2d');
 		if (!ctx) return;
@@ -938,7 +939,7 @@ export const InfiniteGallery: React.FC = () => {
 			' _&+glitchy+&_ ',
 			'*.+pixels+#!      '
 		];
-		const fontColor = '#444'; // Single subtle color
+		// const fontColor = '#444'; // Will be replaced by theme color
 		const weights = ['normal', 'bold']; // Use string values for ctx.font // Должно быть как минимум 2 значения для логики ниже
 		const fontSize = 14; // Adjust as needed
 		const lineHeight = 16; // Adjust as needed
@@ -979,6 +980,10 @@ export const InfiniteGallery: React.FC = () => {
 		const drawBackground = (time: number) => {
 			if (!ctx || cols <= 0 || rows <= 0) return;
 
+			// Get theme text color
+			const computedStyles = getComputedStyle(document.documentElement);
+			const themeTextColor = computedStyles.getPropertyValue('--text-color').trim();
+
 			const t = time * timeFactor;
 			const cellWidth = (canvas.width / window.devicePixelRatio) / cols;
 			const cellHeight = (canvas.height / window.devicePixelRatio) / rows;
@@ -986,7 +991,8 @@ export const InfiniteGallery: React.FC = () => {
 			const centerRow = rows / 2;
 
 			ctx.clearRect(0, 0, canvas.width, canvas.height); // Очищаем весь канвас
-			ctx.fillStyle = fontColor;
+			// ctx.fillStyle = fontColor;
+			ctx.fillStyle = themeTextColor; // Use theme text color
 
 			// ОПТИМИЗАЦИЯ: Устанавливаем ctx.font только два раза
 
