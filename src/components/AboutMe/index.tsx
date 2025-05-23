@@ -137,6 +137,7 @@ export const AboutMe = () => {
 		let canvasPinScrollTrigger: ScrollTrigger | null = null;
 		let ditherScrollTrigger: ScrollTrigger | null = null; // Added: ScrollTrigger for dither
 		let textPinScrollTrigger: ScrollTrigger | null = null; // Added: Separate trigger for pinning text
+		let unpinFadeInScrollTrigger: ScrollTrigger | null = null;
 
 		// --- Dither Fade Animation ---
 		ditherScrollTrigger = ScrollTrigger.create({
@@ -325,38 +326,40 @@ export const AboutMe = () => {
 
 		const timerId = setTimeout(initTextAnimation, 100);
 
+		// --- Animation for canvas fade-in on unpin ---
+		unpinFadeInScrollTrigger = ScrollTrigger.create({
+			trigger: pinHeightEl,
+			start: "bottom bottom",
+			end: "bottom top",
+			scrub: true,
+			// markers: {startColor: "cyan", endColor: "cyan", indent: 200}, // For debugging
+			onUpdate: self => {
+				// ditherStrength was ~0, opacity was ~0.4 before this trigger became active.
+				// We want ditherStrength to go to 1, opacity to 1.
+
+				ditherStrength.current = self.progress; // progress is 0 (start) to 1 (end)
+
+				const initialOpacity = 0.4; // The opacity state when this trigger begins
+				const targetOpacity = 1.0;
+				const newOpacity = initialOpacity + (self.progress * (targetOpacity - initialOpacity));
+				if (currentCanvasElement) {
+					currentCanvasElement.style.opacity = newOpacity.toFixed(2);
+				}
+			},
+		});
+
 		return () => {
 			clearTimeout(timerId);
-
-			// Kill the master timeline and its associated ScrollTrigger
 			if (masterTimeline) {
 				const st = masterTimeline.scrollTrigger;
-				if (st) {
-					st.kill();
-				}
+				if (st) { st.kill(); }
 				masterTimeline.kill();
 			}
-
-			// Kill the separate ScrollTrigger for canvas pinning
-			if (canvasPinScrollTrigger) {
-				canvasPinScrollTrigger.kill();
-			}
-
-			// *** Added: Kill the dither ScrollTrigger ***
-			if (ditherScrollTrigger) {
-				ditherScrollTrigger.kill();
-			}
-
-			// *** Added: Kill the text pin ScrollTrigger ***
-			if (textPinScrollTrigger) {
-				textPinScrollTrigger.kill();
-			}
-
-			// Kill any other dynamically created tweens or ScrollTriggers if necessary
-			// (though the above should cover the main ones for this strategy)
-			// For instance, if wordAnimationTweens were not added to masterTimeline and had their own STs.
-			// But here, they are part of masterTimeline or just tweens.
-
+			if (canvasPinScrollTrigger) { canvasPinScrollTrigger.kill(); }
+			if (ditherScrollTrigger) { ditherScrollTrigger.kill(); }
+			if (textPinScrollTrigger) { textPinScrollTrigger.kill(); }
+			if (unpinFadeInScrollTrigger) { unpinFadeInScrollTrigger.kill(); } // Cleanup new trigger
+			console.log('[AboutMe GSAP] Timelines and ScrollTriggers cleaned up.');
 		};
 	}, []);
 
