@@ -116,6 +116,13 @@ export const AboutMe = () => {
 			// Update grid dimensions
 			colsRef.current = charWidthRef.current > 0 ? Math.floor(newWidthFromContainer / charWidthRef.current) : 0;
 			rowsRef.current = charHeightRef.current > 0 ? Math.floor(newHeightFromViewport / charHeightRef.current) : 0;
+
+			// --- Performance Cap for Large Screens ---
+			const MAX_COLS = 250; // Adjust as needed
+			const MAX_ROWS = 120; // Adjust as needed
+			colsRef.current = Math.min(colsRef.current, MAX_COLS);
+			rowsRef.current = Math.min(rowsRef.current, MAX_ROWS);
+			// --- End Performance Cap ---
 		}
 	};
 

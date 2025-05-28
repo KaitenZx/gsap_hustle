@@ -53,6 +53,7 @@
 				position: relative;
 				z-index: 4;
 				pointer-events: none;
+				gap: 2rem;
 
 				@media (max-width: 767px) {
 					flex-direction: column;
@@ -119,7 +120,7 @@
 
 
 					&.aboutColumn {
-						flex-basis: 35%;
+						flex-basis: 55%;
 
 						@media (min-width: 768px) and (max-width: 1023px) {
 							width: 100%;
@@ -163,8 +164,14 @@
 						}
 					}
 
+					.linksColumn {
+						flex-basis: 30%;
+					}
+
 					&.exposColumn {
 						padding-left: 4em;
+						flex-basis: 45%;
+
 
 						@media (max-width: 767px) {
 							padding-left: 0;
@@ -206,7 +213,6 @@
 					&.exposColumn {
 						li {
 
-							// Specific children of li in exposColumn
 							.yearTag {
 								display: inline-block;
 								background-color: var(--primary-color);
@@ -265,12 +271,11 @@
 				// Styles for the new wrapper for expos and links columns
 				.exposLinksWrapper {
 					display: flex;
-					flex-direction: column;
+					flex-direction: row;
 					width: 100%;
-					gap: 1em;
+					gap: 2em;
 
 					@media (max-width: 767px) {
-						flex-direction: row;
 						align-items: flex-start;
 						gap: 1rem;
 
