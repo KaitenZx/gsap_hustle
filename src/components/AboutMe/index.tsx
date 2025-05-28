@@ -388,7 +388,25 @@ export const AboutMe = () => {
 			};
 		};
 
+		// New handler for touch events
+		const handleTouchEvent = (event: TouchEvent) => {
+			if (event.touches.length > 0) {
+				const touch = event.touches[0];
+				const rect = canvas.getBoundingClientRect(); // Ensure canvas is defined here
+				mousePositionRef.current = {
+					x: touch.clientX - rect.left,
+					y: touch.clientY - rect.top,
+				};
+				// Optional: Prevent default touch action like scrolling if interaction is desired
+				// However, be cautious as this canvas might be fullscreen
+				// event.preventDefault(); 
+			}
+		};
+
 		canvas.addEventListener('mousemove', handleMouseMove);
+		// Add touch event listeners
+		canvas.addEventListener('touchstart', handleTouchEvent, { passive: true });
+		canvas.addEventListener('touchmove', handleTouchEvent, { passive: true });
 
 		// --- Resize Handler --- 
 		const handleResize = debounce(() => {
@@ -532,6 +550,9 @@ export const AboutMe = () => {
 		return () => {
 			cancelAnimationFrame(animationFrameId.current);
 			canvas.removeEventListener('mousemove', handleMouseMove);
+			// Remove touch event listeners
+			canvas.removeEventListener('touchstart', handleTouchEvent);
+			canvas.removeEventListener('touchmove', handleTouchEvent);
 			window.removeEventListener('resize', handleResize);
 			handleResize.cancel(); // Cancel any pending debounced calls
 			GsapAnimationScrollTrigger?.kill();
@@ -563,53 +584,58 @@ export const AboutMe = () => {
 					<div ref={pinnedTextContainerRef} className={`${styles.textAnimationContainer} ${styles.textContainerHiddenByOpacity}`}>
 						<div ref={paragraphsContainerRef} className={`${styles.textColumn} ${styles.aboutColumn}`}>
 							<h2>ABOUT ME</h2>
-							<p className={styles.paragraph}>
-								As a glitch artist and multidisciplinary designer from Russia,
-								currently based in Cyprus, I explore the intersection of digital aesthetics and human experience. My journey into glitch art began in 2022,
-								when I discovered how digital distortions could express
-								deeper truths about memory and perception.
-							</p>
-							<p className={styles.paragraph}>
-								Growing up during the dawn of the internet era, I developed
-								a deep appreciation for early web aesthetics, which now influences
-								my artistic approach. Through my work, I combine traditional design principles with digital manipulation techniques to create pieces
-								that examine themes of nostalgia, impermanence,
-								and technological evolution.
-							</p>
-							<p className={styles.paragraph}>
-								My glitch art invites viewers to reflect on their own relationships
-								with memory, technology, and time, while challenging conventional notions of digital perfection. Each piece serves as a meditation
-								on how our memories of places and people transform over time,
-								much like the distorted digital images in my work.
-							</p>
+							<div className={styles.aboutParagraphsRow}>
+								<p className={styles.paragraph}>
+									As a glitch artist and multidisciplinary designer from Russia,
+									currently based in Cyprus, I explore the intersection of digital aesthetics and human experience. My journey into glitch art began in 2022,
+									when I discovered how digital distortions could express
+									deeper truths about memory and perception.
+								</p>
+								<p className={styles.paragraph}>
+									Growing up during the dawn of the internet era, I developed
+									a deep appreciation for early web aesthetics, which now influences
+									my artistic approach. Through my work, I combine traditional design principles with digital manipulation techniques to create pieces
+									that examine themes of nostalgia, impermanence,
+									and technological evolution.
+								</p>
+								<p className={styles.paragraph}>
+									My glitch art invites viewers to reflect on their own relationships
+									with memory, technology, and time, while challenging conventional notions of digital perfection. Each piece serves as a meditation
+									on how our memories of places and people transform over time,
+									much like the distorted digital images in my work.
+								</p>
+							</div>
 						</div>
 
-						<div className={`${styles.textColumn} ${styles.exposColumn}`}>
-							<h2>EXPOS</h2>
-							<ul>
-								<li><span className={styles.animatableText}>FUBAR 2k23 Exhibition</span> <span className={styles.yearTag}>2023</span><br /><span className={`${styles.subText} ${styles.animatableText}`}>Inner emigration</span></li>
-								<li><span className={styles.animatableText}>FUBAR 2k23 Exhibition</span> <span className={styles.yearTag}>2023</span><br /><span className={`${styles.subText} ${styles.animatableText}`}>Inner emigration</span></li>
-								<li><span className={styles.animatableText}>FUBAR 2k23 Exhibition</span> <span className={styles.yearTag}>2023</span><br /><span className={`${styles.subText} ${styles.animatableText}`}>Inner emigration</span></li>
-								<li><span className={styles.animatableText}>FUBAR 2k23 Exhibition</span> <span className={styles.yearTag}>2023</span><br /><span className={`${styles.subText} ${styles.animatableText}`}>Inner emigration</span></li>
-								<li><span className={styles.animatableText}>FUBAR 2k23 Exhibition</span> <span className={styles.yearTag}>2023</span><br /><span className={`${styles.subText} ${styles.animatableText}`}>Inner emigration</span></li>
-								<li><span className={styles.animatableText}>FUBAR 2k23 Exhibition</span> <span className={styles.yearTag}>2023</span><br /><span className={`${styles.subText} ${styles.animatableText}`}>Inner emigration</span></li>
-							</ul>
-						</div>
+						{/* New wrapper for expos and links */}
+						<div className={styles.exposLinksWrapper}>
+							<div className={`${styles.textColumn} ${styles.exposColumn}`}>
+								<h2>EXPOS</h2>
+								<ul>
+									<li><span className={styles.animatableText}>FUBAR 2k23 Exhibition</span> <span className={styles.yearTag}>2023</span><br /><span className={`${styles.subText} ${styles.animatableText}`}>Inner emigration</span></li>
+									<li><span className={styles.animatableText}>FUBAR 2k23 Exhibition</span> <span className={styles.yearTag}>2023</span><br /><span className={`${styles.subText} ${styles.animatableText}`}>Inner emigration</span></li>
+									<li><span className={styles.animatableText}>FUBAR 2k23 Exhibition</span> <span className={styles.yearTag}>2023</span><br /><span className={`${styles.subText} ${styles.animatableText}`}>Inner emigration</span></li>
+									<li><span className={styles.animatableText}>FUBAR 2k23 Exhibition</span> <span className={styles.yearTag}>2023</span><br /><span className={`${styles.subText} ${styles.animatableText}`}>Inner emigration</span></li>
+									<li><span className={styles.animatableText}>FUBAR 2k23 Exhibition</span> <span className={styles.yearTag}>2023</span><br /><span className={`${styles.subText} ${styles.animatableText}`}>Inner emigration</span></li>
+									<li><span className={styles.animatableText}>FUBAR 2k23 Exhibition</span> <span className={styles.yearTag}>2023</span><br /><span className={`${styles.subText} ${styles.animatableText}`}>Inner emigration</span></li>
+								</ul>
+							</div>
 
-						<div className={`${styles.textColumn} ${styles.linksColumn}`}>
-							<h2>LINKS</h2>
-							<ul>
-								{/* Map over linksData to generate list items */}
-								{linksData.map((link) => (
-									<li key={link.text}>
-										<a href={link.href} target="_blank" rel="noopener noreferrer"> {/* Added target and rel for external links */}
-											<img src={link.iconSrc} alt={link.alt} className={styles.linkIcon} />
-											<span className={styles.animatableText}>{link.text}</span> {/* Ensure text is animatable */}
-										</a>
-									</li>
-								))}
-							</ul>
-						</div>
+							<div className={`${styles.textColumn} ${styles.linksColumn}`}>
+								<h2>LINKS</h2>
+								<ul>
+									{/* Map over linksData to generate list items */}
+									{linksData.map((link) => (
+										<li key={link.text}>
+											<a href={link.href} target="_blank" rel="noopener noreferrer"> {/* Added target and rel for external links */}
+												<img src={link.iconSrc} alt={link.alt} className={styles.linkIcon} />
+												<span className={styles.animatableText}>{link.text}</span> {/* Ensure text is animatable */}
+											</a>
+										</li>
+									))}
+								</ul>
+							</div>
+						</div> {/* End of new wrapper */}
 					</div>
 				</div>
 			</section>

@@ -76,6 +76,12 @@
 	stroke: var(--text-color);
 	/* Use theme variable for icon color for proper contrast */
 	animation: digital-glitch-icon 2.5s infinite linear;
+
+	@media (max-width: 767px) {
+		width: 16px;
+		height: 16px;
+	}
+
 }
 
 /* Ensure icon color transitions smoothly */
