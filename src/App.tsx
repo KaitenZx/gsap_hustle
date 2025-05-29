@@ -1,9 +1,9 @@
-
 import { useEffect } from 'react';
 
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import Lenis from 'lenis';
+import debounce from 'lodash/debounce';
 
 import styles from './App.module.scss'
 import { AboutMe } from './components/AboutMe';
@@ -60,6 +60,51 @@ function AppContent() {
       }
     });
   }, []); // Empty dependency array ensures this runs only once on mount
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return; // Guard for SSR or other environments
+
+    gsap.registerPlugin(ScrollTrigger);
+
+    const setVisualViewportHeight = () => {
+      if (window.visualViewport) {
+        const visualVh = window.visualViewport.height * 0.01;
+        document.documentElement.style.setProperty('--visual-vh', `${visualVh}px`);
+      } else {
+        // Fallback для браузеров без поддержки visualViewport
+        const fallbackVh = window.innerHeight * 0.01;
+        document.documentElement.style.setProperty('--visual-vh', `${fallbackVh}px`);
+      }
+    };
+
+    const debouncedRefresh = debounce(() => {
+      setVisualViewportHeight(); // Установим --visual-vh перед refresh
+      ScrollTrigger.refresh();
+    }, 150);
+
+    setVisualViewportHeight(); // Первоначальная установка
+
+    // Событие resize на visualViewport для более точного отслеживания изменений
+    // связанных с клавиатурой, зумом и т.д.
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', debouncedRefresh);
+    }
+
+    // window.addEventListener('resize') все еще полезен для отлавливания
+    // изменений размера окна, которые не всегда триггерят visualViewport.resize (например, поворот экрана)
+    window.addEventListener('resize', debouncedRefresh);
+    window.addEventListener('orientationchange', debouncedRefresh);
+
+
+    return () => {
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener('resize', debouncedRefresh);
+      }
+      window.removeEventListener('resize', debouncedRefresh);
+      window.removeEventListener('orientationchange', debouncedRefresh);
+      debouncedRefresh.cancel();
+    };
+  }, []);
 
   return (
     <div className={styles.app}>
