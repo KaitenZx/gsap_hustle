@@ -213,15 +213,6 @@ export const AboutMe = () => {
 				start: `top top-=${DITHER_FADE_VH}vh`, // Start when text animation should start
 				end: 'bottom bottom', // End when canvas unpins
 				pinSpacing: false, // Keep false unless proven necessary
-				// Add onUpdate to force top: 0 during pin:
-				onUpdate: (self) => {
-					if (self.isActive && pinnedTextContainerEl) {
-						// Force top to 0px while pinned to allow align-items: center to work
-						pinnedTextContainerEl.style.top = '0px';
-						// GSAP might also set left, ensure it's 0 too if needed, or let GSAP handle it.
-						// pinnedTextContainerEl.style.left = '0px';
-					}
-				},
 			});
 
 			// Create the master timeline that will be scrubbed
