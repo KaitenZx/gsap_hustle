@@ -92,7 +92,7 @@ export const AboutMe = () => {
 			dprRef.current = dpr;
 			const rect = container.getBoundingClientRect();
 			const newWidthFromContainer = rect.width;
-			const newHeightFromViewport = window.innerHeight;
+			const newHeightFromViewport = window.visualViewport ? window.visualViewport.height : window.innerHeight;
 
 			// Update canvas size based on container width and viewport height
 			const canvas = canvasRef.current;
@@ -406,17 +406,20 @@ export const AboutMe = () => {
 		canvas.addEventListener('touchstart', handleTouchEvent, { passive: true });
 		canvas.addEventListener('touchmove', handleTouchEvent, { passive: true });
 
-		// --- Resize Handler --- 
-		const handleResize = debounce(() => {
+		// --- Resize Handler ---
+		const debouncedResizeHandler = debounce(() => {
 			// Recalculate canvas dimensions, char metrics, cols, rows
 			calculateCharMetrics(ctx);
 			// Refresh GSAP ScrollTrigger calculations
 			ScrollTrigger.refresh();
 		}, 250); // Debounce timeout
 
-		window.addEventListener('resize', handleResize);
+		window.addEventListener('resize', debouncedResizeHandler);
+		if (window.visualViewport) {
+			window.visualViewport.addEventListener('resize', debouncedResizeHandler);
+		}
 
-		// --- Render Loop --- 
+		// --- Render Loop ---
 		const renderAnimation = () => {
 			animationFrameId.current = requestAnimationFrame(renderAnimation);
 
@@ -544,15 +547,18 @@ export const AboutMe = () => {
 		// lastAnimationRunTime_aboutme = Date.now();
 		// animationFrameId.current = requestAnimationFrame(renderAnimation);
 
-		// --- Cleanup Function --- 
+		// --- Cleanup Function ---
 		return () => {
 			cancelAnimationFrame(animationFrameId.current);
 			canvas.removeEventListener('mousemove', handleMouseMove);
 			// Remove touch event listeners
 			canvas.removeEventListener('touchstart', handleTouchEvent);
 			canvas.removeEventListener('touchmove', handleTouchEvent);
-			window.removeEventListener('resize', handleResize);
-			handleResize.cancel(); // Cancel any pending debounced calls
+			window.removeEventListener('resize', debouncedResizeHandler);
+			if (window.visualViewport) {
+				window.visualViewport.removeEventListener('resize', debouncedResizeHandler);
+			}
+			debouncedResizeHandler.cancel();
 			GsapAnimationScrollTrigger?.kill();
 			// Note: GSAP timelines/triggers from the other useEffect are cleaned up there
 		};
