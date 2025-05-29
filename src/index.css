@@ -11,6 +11,7 @@
 	text-rendering: optimizeLegibility;
 	-webkit-font-smoothing: antialiased;
 	-moz-osx-font-smoothing: grayscale;
+	overflow-x: hidden;
 }
 
 *,
@@ -29,6 +30,7 @@ a:hover {
 }
 
 body {
+	width: 100vw;
 	margin: 0;
 	display: flex;
 	place-items: center;
@@ -37,6 +39,7 @@ body {
 	font-family: 'Alpha Lyrae', sans-serif;
 	font-weight: 500;
 	font-feature-settings: 'ss01' on;
+	overflow-x: hidden;
 }
 
 h1 {
