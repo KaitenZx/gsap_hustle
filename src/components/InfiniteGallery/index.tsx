@@ -90,6 +90,12 @@ type MediaAnimData = {
 	rotY: ReturnType<typeof gsap.quickTo> | null;
 };
 
+// <<< ADDED: Helper to detect touch devices >>>
+const getIsTouchDevice = () => {
+	if (typeof window === 'undefined') return false;
+	return 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+};
+
 // --- Компонент ---
 export const InfiniteGallery: React.FC = () => {
 	// --- Refs для DOM элементов ---
@@ -113,8 +119,12 @@ export const InfiniteGallery: React.FC = () => {
 	// Ref для throttled-функции предзагрузки
 	const throttledPreloadRef = useRef<ReturnType<typeof throttle> | null>(null);
 
+	// <<< ADDED: Ref for throttled footer visibility check >>>
+	const throttledCheckFooterVisibilityRef = useRef<ReturnType<typeof throttle> | null>(null);
+
 	const dimensionsRef = useRef<GridDimensions | null>(null); // Хранение рассчитанных размеров
 	const isInitialized = useRef(false); // Флаг для однократной инициализации
+	const didDragSincePressRef = useRef(false); // <<< ADDED: Ref to track drag state for click handling
 
 	// --- Refs для Lerping ---
 	const currentActualXRef = useRef(0);
@@ -132,6 +142,9 @@ export const InfiniteGallery: React.FC = () => {
 
 	// <<< Ref для ID анимации >>>
 	const animationFrameIdRef = useRef<number | null>(null);
+
+	// <<< ADDED: Memoized touch device detection >>>
+	const isTouchDevice = useMemo(() => getIsTouchDevice(), []);
 
 	// --- Состояние для блокировки скролла ---
 	const isScrollLockedRef = useRef(false); // Ref для мгновенного доступа из GSAP
@@ -206,8 +219,10 @@ export const InfiniteGallery: React.FC = () => {
 
 	// --- НОВАЯ Функция обработчика клика по изображению  ---
 	const handleImageClick = useCallback((item: GalleryItem) => { // <<< Принимаем весь объект
-		setSelectedItem(item); // <<< Сохраняем весь объект
-	}, []);
+		if (!didDragSincePressRef.current) { // <<< ADDED: Check if dragging occurred
+			setSelectedItem(item); // <<< Сохраняем весь объект
+		}
+	}, []); // Dependencies are stable (setSelectedItem, didDragSincePressRef)
 
 	// --- НОВАЯ Функция закрытия модального окна  ---
 	const handleCloseModal = useCallback(() => {
@@ -469,19 +484,15 @@ export const InfiniteGallery: React.FC = () => {
 				updateRotationsRequest = null; // Сбрасываем ID запроса
 				const currentMap = mediaAnimRefs.current;
 				const mapSize = currentMap.size;
-				if (mapSize === 0) return; // Exit if empty
+				if (mapSize === 0 || isTouchDevice) return; // <<< MODIFIED: Exit if touch device or empty map
 
-				// <<< Определяем целевую точку (центр контейнера или курсор) >>>
-				let targetX: number;
-				let targetY: number;
-
-				if (isScrollingRef.current) {
-					targetX = containerCenterRef.current.x;
-					targetY = containerCenterRef.current.y;
-				} else {
-					targetX = mousePos.current.x;
-					targetY = mousePos.current.y;
+				// <<< MODIFIED: Always use mouse position for rotation target. Do not rotate if scrolling. >>>
+				if (isScrollingRef.current) { // If actively scrolling/dragging, don't update rotations
+					return;
 				}
+
+				const targetX = mousePos.current.x;
+				const targetY = mousePos.current.y;
 				// <<< Конец определения цели >>>
 
 				currentMap.forEach((refData, _key) => {
@@ -519,6 +530,8 @@ export const InfiniteGallery: React.FC = () => {
 			};
 
 			const handleMouseMove = (event: MouseEvent) => {
+				// <<< MODIFIED: Do nothing if touch device >>>
+				if (isTouchDevice) return;
 				mousePos.current = { x: event.clientX, y: event.clientY };
 				// <<< Используем вспомогательную функцию >>>
 				requestRotationUpdate();
@@ -527,7 +540,8 @@ export const InfiniteGallery: React.FC = () => {
 			// <<< Выносим хелпер за пределы create >>>
 			const handleScrollActivity = () => {
 				if (!containerElement) return;
-				if (!isScrollingRef.current) {
+				// <<< MODIFIED: Center calculation only needed if not touch device and rotation is active >>>
+				if (!isTouchDevice && !isScrollingRef.current) {
 					const bounds = containerElement.getBoundingClientRect();
 					containerCenterRef.current = {
 						x: bounds.left + bounds.width / 2,
@@ -535,12 +549,22 @@ export const InfiniteGallery: React.FC = () => {
 					};
 				}
 				isScrollingRef.current = true;
+
+				// <<< MODIFIED: Only request rotation update if not touch device >>>
+				if (!isTouchDevice) {
+					requestRotationUpdate();
+				}
+
 				if (scrollStopTimeoutRef.current) {
 					clearTimeout(scrollStopTimeoutRef.current);
 				}
-				requestRotationUpdate();
 				scrollStopTimeoutRef.current = window.setTimeout(() => {
 					isScrollingRef.current = false;
+					// <<< MODIFIED: When scrolling stops, if not a touch device, request one final rotation update.
+					// This helps settle the items based on the last mouse position if it changedhiddenly.
+					if (!isTouchDevice) {
+						requestRotationUpdate();
+					}
 				}, 150);
 			};
 
@@ -567,6 +591,7 @@ export const InfiniteGallery: React.FC = () => {
 						if (!lerpLoopIdRef.current) {
 							lerpLoopIdRef.current = requestAnimationFrame(lerpStep);
 						}
+						didDragSincePressRef.current = false; // <<< ADDED: Reset drag flag on new press
 					},
 					onChangeX: (self) => {
 						handleScrollActivity();
@@ -584,6 +609,10 @@ export const InfiniteGallery: React.FC = () => {
 							if (self.event.cancelable) { // <<< ADDED cancelable check
 								self.event.preventDefault();
 							}
+						}
+
+						if (self.isDragging) { // <<< ADDED: Set drag flag if Observer detects dragging
+							didDragSincePressRef.current = true;
 						}
 
 						const baseMultiplier = (self.event.type === "wheel" || !self.isDragging) ? 1 : 1.5;
@@ -624,7 +653,7 @@ export const InfiniteGallery: React.FC = () => {
 						}
 
 						// Check for footer visibility
-						checkFooterVisibility();
+						throttledCheckFooterVisibilityRef.current?.();
 					},
 					onChangeY: (self) => {
 						handleScrollActivity();
@@ -639,6 +668,10 @@ export const InfiniteGallery: React.FC = () => {
 							if (self.event.cancelable) { // <<< ADDED cancelable check
 								self.event.preventDefault();
 							}
+						}
+
+						if (self.isDragging) { // <<< ADDED: Set drag flag if Observer detects dragging
+							didDragSincePressRef.current = true;
 						}
 
 						const baseMultiplier = (self.event.type === "wheel" || !self.isDragging) ? 1 : 1.5;
@@ -658,7 +691,7 @@ export const InfiniteGallery: React.FC = () => {
 						// No vertical preloading implemented in performPreload, so skipping here.
 
 						// Check for footer visibility
-						checkFooterVisibility();
+						throttledCheckFooterVisibilityRef.current?.();
 					},
 					// <<< ADDED: onDragEnd for Inertia >>>
 					onDragEnd: (self) => {
@@ -729,7 +762,7 @@ export const InfiniteGallery: React.FC = () => {
 								currentActualYRef.current = inertiaProxy.y;
 								gsap.set(contentWrapperElement, { y: dims.wrapY(currentActualYRef.current) });
 								// Check for footer visibility during vertical inertia update
-								checkFooterVisibility();
+								throttledCheckFooterVisibilityRef.current?.();
 							},
 							onComplete: () => {
 								if (dims) { // Ensure dims is still valid
@@ -737,7 +770,7 @@ export const InfiniteGallery: React.FC = () => {
 									currentActualYRef.current = inertiaProxy.y;
 								}
 								// Check for footer visibility on vertical inertia complete
-								checkFooterVisibility();
+								throttledCheckFooterVisibilityRef.current?.();
 							}
 						});
 					}
@@ -747,6 +780,11 @@ export const InfiniteGallery: React.FC = () => {
 
 			// --- Создание throttled-функции для ПРЕДЗАГРУЗКИ ---
 			throttledPreloadRef.current = throttle(performPreload, PRELOAD_THROTTLE_MS, { leading: false, trailing: true });
+
+			// <<< ADDED: Create throttled function for footer visibility check >>>
+			// Use a slightly longer throttle time than preload, e.g., 250ms, as it's less critical
+			const FOOTER_VISIBILITY_THROTTLE_MS = 250;
+			throttledCheckFooterVisibilityRef.current = throttle(checkFooterVisibility, FOOTER_VISIBILITY_THROTTLE_MS, { leading: false, trailing: true });
 
 			// --- Добавляем слушатель движения мыши ---
 			window.addEventListener('mousemove', handleMouseMove);
@@ -879,6 +917,8 @@ export const InfiniteGallery: React.FC = () => {
 		return () => {
 			resizeObserverRef.current?.disconnect();
 			throttledPreloadRef.current?.cancel();
+			// <<< ADDED: Cancel throttled footer check on unmount >>>
+			throttledCheckFooterVisibilityRef.current?.cancel();
 
 			// Убиваем ScrollTrigger явно перед ревертом контекста
 			scrollTriggerInstance.current?.kill();
@@ -897,6 +937,9 @@ export const InfiniteGallery: React.FC = () => {
 			// xToRef.current = null; // <<< REMOVED
 			// yToRef.current = null; // <<< REMOVED
 			throttledPreloadRef.current = null;
+			// <<< ADDED: Clear throttled footer check ref on unmount >>>
+			throttledCheckFooterVisibilityRef.current = null;
+
 			dimensionsRef.current = null;
 			isInitialized.current = false;
 			isScrollLockedRef.current = false;
@@ -913,7 +956,7 @@ export const InfiniteGallery: React.FC = () => {
 			inertiaYTweenRef.current?.kill();
 		};
 		// <<< Обновлены зависимости (убраны minY/maxY/scrollableDistanceY если они где-то были косвенно) >>>
-	}, [setScrollLocked, renderColsCount, performPreload, lerpStep, checkFooterVisibility]); // ADDED checkFooterVisibility back
+	}, [setScrollLocked, renderColsCount, performPreload, lerpStep, checkFooterVisibility, isTouchDevice]); // ADDED isTouchDevice and checkFooterVisibility
 
 	// --- Мемоизация массива колонок  ---
 	const columnsToRender = useMemo(() => {
@@ -956,6 +999,8 @@ export const InfiniteGallery: React.FC = () => {
 		const TARGET_CANVAS_FPS = 15; // Целевой FPS для фона (например, 20-30)
 		const frameInterval = 1000 / TARGET_CANVAS_FPS;
 		let lastFrameTime = 0;
+		// <<< ADDED: Ref to track the actual animation time for the canvas pattern >>>
+		const canvasInternalTimeRef = { current: 0 };
 		// --- Конец настроек троттлинга ---
 
 		const resizeCanvas = () => {
@@ -1054,11 +1099,18 @@ export const InfiniteGallery: React.FC = () => {
 			if (!lastFrameTime) { // Инициализация для первого кадра
 				lastFrameTime = currentTime;
 			}
-			const elapsed = currentTime - lastFrameTime;
+			const elapsedSinceLastRAF = currentTime - lastFrameTime;
 
-			if (elapsed > frameInterval) {
-				lastFrameTime = currentTime - (elapsed % frameInterval); // Корректируем lastFrameTime
-				drawBackground(currentTime); // Отрисовываем фон, только если прошло достаточно времени
+			if (elapsedSinceLastRAF > frameInterval) {
+				lastFrameTime = currentTime - (elapsedSinceLastRAF % frameInterval); // Корректируем lastFrameTime
+
+				// <<< MODIFIED: Only draw and advance canvas animation time if not scrolling >>>
+				if (!isScrollingRef.current) {
+					// Increment internal animation time by the actual interval used for drawing this frame
+					// This keeps the animation speed consistent with TARGET_CANVAS_FPS
+					canvasInternalTimeRef.current += frameInterval;
+					drawBackground(canvasInternalTimeRef.current); // Отрисовываем фон, используя внутреннее время
+				}
 			}
 		};
 

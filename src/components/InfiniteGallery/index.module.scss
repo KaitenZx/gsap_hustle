@@ -68,14 +68,12 @@ $column-gap: 2vw;
 	}
 }
 
-
-
 @media (max-width: 768px) {
 	// Новые значения для мобильных
-	$mobile-item-height: 70vw;
-	$mobile-column-width: 50vw; // Делаем колонки шире, возможно, одна колонка будет видна за раз
-	$mobile-row-gap: 10vw;
-	$mobile-column-gap: 10vw;
+	$mobile-item-height: 45vw;
+	$mobile-column-width: 30vw; // Делаем колонки шире, возможно, одна колонка будет видна за раз
+	$mobile-row-gap: 4vw;
+	$mobile-column-gap: 4vw;
 
 	.contentWrapper {
 		gap: $mobile-column-gap;
@@ -90,6 +88,29 @@ $column-gap: 2vw;
 
 	.media {
 		height: $mobile-item-height;
+	}
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+	// Новые значения для планшетов
+	$tablet-item-height: 30vw;
+	$tablet-column-width: 25vw;
+	$tablet-row-gap: 3vw;
+	$tablet-column-gap: 3vw;
+
+	.contentWrapper {
+		gap: $tablet-column-gap;
+		padding: $tablet-row-gap 0;
+	}
+
+	.column {
+		width: $tablet-column-width;
+		grid-auto-rows: $tablet-item-height;
+		gap: $tablet-row-gap;
+	}
+
+	.media {
+		height: $tablet-item-height;
 	}
 }
 
