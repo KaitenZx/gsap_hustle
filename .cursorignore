@@ -1,0 +1,5 @@
+# Ignore build output directory
+dist/
+
+# Ignore Node.js modules directory
+node_modules/ 
