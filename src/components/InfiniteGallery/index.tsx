@@ -992,15 +992,6 @@ export const InfiniteGallery: React.FC = () => {
 		const xyCoordFactor = 0.0008;
 		const sinMultiplier = 20; // Adjust pattern intensity
 
-		// <<< ADDED: Limits for canvas character grid >>>
-		const MAX_CANVAS_COLS = 200;
-		const MAX_CANVAS_ROWS = 100;
-
-		// <<< ADDED: Fetch theme color once on mount >>>
-		const computedStyles = getComputedStyle(document.documentElement);
-		const initialThemeTextColor = computedStyles.getPropertyValue('--text-color').trim();
-
-
 		let cols = 0;
 		let rows = 0;
 
@@ -1024,10 +1015,6 @@ export const InfiniteGallery: React.FC = () => {
 			cols = Math.floor(rect.width / (fontSize * 0.6)); // Estimate character cols
 			rows = Math.floor(rect.height / lineHeight);     // Estimate character rows
 
-			// <<< ADDED: Cap cols and rows >>>
-			cols = Math.min(cols, MAX_CANVAS_COLS);
-			rows = Math.min(rows, MAX_CANVAS_ROWS);
-
 			// Устанавливаем базовые стили текста один раз при ресайзе,
 			// так как fontSize, textAlign, textBaseline не меняются в drawBackground
 			// ctx.font = `${fontSize}px monospace`; // Убрано, т.к. вес меняется
@@ -1039,8 +1026,8 @@ export const InfiniteGallery: React.FC = () => {
 			if (!ctx || cols <= 0 || rows <= 0) return;
 
 			// Get theme text color
-			// const computedStyles = getComputedStyle(document.documentElement); // <<< REMOVED: Fetched once
-			// const themeTextColor = computedStyles.getPropertyValue('--text-color').trim(); // <<< REMOVED
+			const computedStyles = getComputedStyle(document.documentElement);
+			const themeTextColor = computedStyles.getPropertyValue('--text-color').trim();
 
 			const t = time * timeFactor;
 			const cellWidth = (canvas.width / window.devicePixelRatio) / cols;
@@ -1050,7 +1037,7 @@ export const InfiniteGallery: React.FC = () => {
 
 			ctx.clearRect(0, 0, canvas.width, canvas.height); // Очищаем весь канвас
 			// ctx.fillStyle = fontColor;
-			ctx.fillStyle = initialThemeTextColor; // <<< MODIFIED: Use initialThemeTextColor
+			ctx.fillStyle = themeTextColor; // Use theme text color
 
 			// ОПТИМИЗАЦИЯ: Устанавливаем ctx.font только два раза
 
