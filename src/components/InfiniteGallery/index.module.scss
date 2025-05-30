@@ -14,6 +14,7 @@ $column-gap: 2vw;
 	box-sizing: border-box;
 	cursor: grab;
 	perspective: 400vh;
+	contain: layout paint;
 
 	&.isLocked {
 		cursor: grabbing;
@@ -126,6 +127,7 @@ $column-gap: 2vw;
 	opacity: 0.6; // Make it subtle
 	// background-color: #111; // Match container background
 	background-color: transparent; // Canvas will draw its own background
+	contain: strict;
 }
 
 // --- Internal Gallery Footer Styles ---

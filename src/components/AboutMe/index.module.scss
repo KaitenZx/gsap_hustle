@@ -24,6 +24,7 @@
 		left: 0;
 		z-index: 1;
 		pointer-events: auto;
+		contain: strict;
 	}
 
 	.mwgEffect004 {
@@ -55,6 +56,7 @@
 				z-index: 4;
 				pointer-events: none;
 				gap: 2rem;
+				contain: layout paint;
 
 				@media (max-width: 767px) {
 					flex-direction: column;
