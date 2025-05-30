@@ -12,13 +12,9 @@ $column-gap: 2vw;
 	// background-color: #111;
 	background-color: var(--background-color);
 	box-sizing: border-box;
-	cursor: grab;
 	perspective: 400vh;
 	contain: layout paint;
 
-	&.isLocked {
-		cursor: grabbing;
-	}
 }
 
 .contentWrapper {
