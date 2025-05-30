@@ -81,6 +81,8 @@ type GridDimensions = {
 	repeatingHeight: number;          // Высота для вертикального wrap
 	wrapX: (value: number) => number; // Функция Wrap для горизонтали
 	wrapY: (value: number) => number; // Функция Wrap для вертикали
+	wrapperPaddingTop: number;        // <<< ADDED: Top padding of the content wrapper
+	wrapperPaddingLeft: number;       // <<< ADDED: Left padding of the content wrapper
 }
 
 // --- Тип для хранения данных анимации элемента ---
@@ -88,6 +90,10 @@ type MediaAnimData = {
 	element: HTMLDivElement | null;
 	rotX: ReturnType<typeof gsap.quickTo> | null;
 	rotY: ReturnType<typeof gsap.quickTo> | null;
+	visualColumnIndex: number;        // <<< ADDED: Visual index of the column
+	visualRowIndexInColumn: number;   // <<< ADDED: Visual index of the item within its column
+	lastRotX?: number;                // <<< ADDED: Last applied rotationX
+	lastRotY?: number;                // <<< ADDED: Last applied rotationY
 };
 
 // <<< ADDED: Helper to detect touch devices >>>
@@ -104,6 +110,7 @@ export const InfiniteGallery: React.FC = () => {
 	const columnRef = useRef<HTMLDivElement>(null);         // Реф для измерения ОДНОЙ колонки
 	const itemRef = useRef<HTMLDivElement>(null);           // Реф для измерения ОДНОГО элемента (.media)
 	const canvasRef = useRef<HTMLCanvasElement>(null);        // Реф для холста анимации
+	const canvasWorkerRef = useRef<Worker | null>(null); // <<< ADDED: Ref for Canvas Web Worker
 
 	// --- Refs для GSAP и других инстансов ---
 	const gsapCtx = useRef<gsap.Context | null>(null);             // Контекст GSAP для очистки
@@ -140,8 +147,8 @@ export const InfiniteGallery: React.FC = () => {
 	// <<< Используем number для ID таймаута >>>
 	const scrollStopTimeoutRef = useRef<number | null>(null);
 
-	// <<< Ref для ID анимации >>>
-	const animationFrameIdRef = useRef<number | null>(null);
+	// <<< Ref для ID анимации (больше не используется в этом компоненте) >>>
+	// const animationFrameIdRef = useRef<number | null>(null);
 
 	// <<< ADDED: Memoized touch device detection >>>
 	const isTouchDevice = useMemo(() => getIsTouchDevice(), []);
@@ -339,11 +346,11 @@ export const InfiniteGallery: React.FC = () => {
 								if (!existingEntry || existingEntry.element !== el) {
 									const rotX = gsap.quickTo(el, 'rotationX', { duration: 0.5, ease: "power3.out" });
 									const rotY = gsap.quickTo(el, 'rotationY', { duration: 0.5, ease: "power3.out" });
-									currentMap.set(itemKey, { element: el, rotX, rotY });
+									currentMap.set(itemKey, { element: el, rotX, rotY, visualColumnIndex: columnIndex, visualRowIndexInColumn: renderRowIndex });
 								} else if (existingEntry && !existingEntry.rotX) {
 									const rotX = gsap.quickTo(el, 'rotationX', { duration: 0.5, ease: "power3.out" });
 									const rotY = gsap.quickTo(el, 'rotationY', { duration: 0.5, ease: "power3.out" });
-									currentMap.set(itemKey, { ...existingEntry, rotX, rotY });
+									currentMap.set(itemKey, { ...existingEntry, rotX, rotY, visualColumnIndex: columnIndex, visualRowIndexInColumn: renderRowIndex });
 								}
 							} else {
 								if (existingEntry) {
@@ -420,6 +427,7 @@ export const InfiniteGallery: React.FC = () => {
 			const rowGap = parseFloat(computedStyleColumn.rowGap) || 0;
 			const wrapperPaddingTop = parseFloat(computedStyleWrapper.paddingTop) || 0;
 			const wrapperPaddingBottom = parseFloat(computedStyleWrapper.paddingBottom) || 0;
+			const wrapperPaddingLeft = parseFloat(computedStyleWrapper.paddingLeft) || 0;
 
 			// Добавляем проверку на валидность размеров перед расчетами
 			if (!viewportWidth || !viewportHeight || !columnWidth || !itemHeight || !Number.isFinite(columnWidth) || !Number.isFinite(itemHeight) || itemHeight <= 0) {
@@ -455,7 +463,9 @@ export const InfiniteGallery: React.FC = () => {
 				repeatingWidth, // <<< Добавили
 				repeatingHeight, // <<< Добавили
 				wrapX,
-				wrapY // <<< Добавили
+				wrapY, // <<< Добавили
+				wrapperPaddingTop, // <<< ADDED
+				wrapperPaddingLeft // <<< ADDED
 			};
 			dimensionsRef.current = newDimensions; // Сохраняем в ref
 			return newDimensions;
@@ -484,39 +494,67 @@ export const InfiniteGallery: React.FC = () => {
 				updateRotationsRequest = null; // Сбрасываем ID запроса
 				const currentMap = mediaAnimRefs.current;
 				const mapSize = currentMap.size;
-				if (mapSize === 0 || isTouchDevice) return; // <<< MODIFIED: Exit if touch device or empty map
+				const dims = dimensionsRef.current;
+				const containerElement = containerRef.current;
+				const wrapperElement = contentWrapperRef.current;
 
-				// <<< MODIFIED: Always use mouse position for rotation target. Do not rotate if scrolling. >>>
-				if (isScrollingRef.current) { // If actively scrolling/dragging, don't update rotations
+				if (mapSize === 0 || isTouchDevice || !dims || !containerElement || !wrapperElement) return;
+
+				if (isScrollingRef.current) {
 					return;
 				}
 
-				const targetX = mousePos.current.x;
-				const targetY = mousePos.current.y;
-				// <<< Конец определения цели >>>
+				const targetMouseX = mousePos.current.x;
+				const targetMouseY = mousePos.current.y;
+
+				// --- Get container and wrapper info ONCE ---
+				const containerRect = containerElement.getBoundingClientRect();
+				// Get current transform of the wrapper from GSAP (already wrapped)
+				const wrapperCurrentX = gsap.getProperty(wrapperElement, "x") as number;
+				const wrapperCurrentY = gsap.getProperty(wrapperElement, "y") as number;
 
 				currentMap.forEach((refData, _key) => {
 					if (refData.element && refData.rotX && refData.rotY) {
-						const el = refData.element;
+						// const el = refData.element; // Removed as it's no longer directly used here
 						const rotXQuickTo = refData.rotX;
 						const rotYQuickTo = refData.rotY;
 
-						const bounds = el.getBoundingClientRect();
-						if (bounds.top < window.innerHeight && bounds.bottom > 0 &&
-							bounds.left < window.innerWidth && bounds.right > 0) {
-							const midpointX = bounds.left + bounds.width / 2;
-							const midpointY = bounds.top + bounds.height / 2;
+						// --- Calculate item's approximate screen position --- 
+						const itemBaseOffsetX = (refData.visualColumnIndex * dims.columnTotalWidth) + dims.wrapperPaddingLeft;
+						const itemBaseOffsetY = (refData.visualRowIndexInColumn * (dims.itemHeight + dims.rowGap)) + dims.wrapperPaddingTop;
 
-							// <<< Используем targetX, targetY >>>
-							const rotX = (targetY - midpointY) / ROTATION_SENSITIVITY;
-							const rotY = (targetX - midpointX) / ROTATION_SENSITIVITY;
-							const clampedRotX = gsap.utils.clamp(-ROTATION_CLAMP, ROTATION_CLAMP, rotX);
-							const clampedRotY = gsap.utils.clamp(-ROTATION_CLAMP, ROTATION_CLAMP, rotY);
+						const itemScreenX = containerRect.left + itemBaseOffsetX + wrapperCurrentX;
+						const itemScreenY = containerRect.top + itemBaseOffsetY + wrapperCurrentY;
 
-							rotXQuickTo(clampedRotX * -1);
-							rotYQuickTo(clampedRotY);
-						} else {
-							// Optional reset logic here
+						// Simple visibility check (can be refined)
+						if (itemScreenY + dims.itemHeight < 0 || itemScreenY > window.innerHeight ||
+							itemScreenX + dims.columnWidth < 0 || itemScreenX > window.innerWidth) {
+							// Optional: Reset rotation if item is off-screen
+							// rotXQuickTo(0);
+							// rotYQuickTo(0);
+							return; // Skip if not visible
+						}
+
+						const midpointX = itemScreenX + dims.columnWidth / 2;
+						const midpointY = itemScreenY + dims.itemHeight / 2;
+
+						const rotX = (targetMouseY - midpointY) / ROTATION_SENSITIVITY;
+						const rotY = (targetMouseX - midpointX) / ROTATION_SENSITIVITY;
+						const clampedRotX = gsap.utils.clamp(-ROTATION_CLAMP, ROTATION_CLAMP, rotX);
+						const clampedRotY = gsap.utils.clamp(-ROTATION_CLAMP, ROTATION_CLAMP, rotY);
+
+						const finalRotX = clampedRotX * -1;
+						const finalRotY = clampedRotY;
+
+						const previousRotX = refData.lastRotX || 0;
+						const previousRotY = refData.lastRotY || 0;
+						const threshold = 0.01; // Minimal change to trigger update
+
+						if (Math.abs(finalRotX - previousRotX) > threshold || Math.abs(finalRotY - previousRotY) > threshold) {
+							rotXQuickTo(finalRotX);
+							rotYQuickTo(finalRotY);
+							refData.lastRotX = finalRotX;
+							refData.lastRotY = finalRotY;
 						}
 					}
 				});
@@ -548,7 +586,13 @@ export const InfiniteGallery: React.FC = () => {
 						y: bounds.top + bounds.height / 2,
 					};
 				}
-				isScrollingRef.current = true;
+				if (!isScrollingRef.current) { // If it wasn't scrolling, but now it is
+					isScrollingRef.current = true;
+					if (canvasWorkerRef.current) {
+						canvasWorkerRef.current.postMessage({ isScrolling: true });
+					}
+				}
+
 
 				// <<< MODIFIED: Only request rotation update if not touch device >>>
 				if (!isTouchDevice) {
@@ -559,7 +603,12 @@ export const InfiniteGallery: React.FC = () => {
 					clearTimeout(scrollStopTimeoutRef.current);
 				}
 				scrollStopTimeoutRef.current = window.setTimeout(() => {
-					isScrollingRef.current = false;
+					if (isScrollingRef.current) { // If it was scrolling, but now it stops
+						isScrollingRef.current = false;
+						if (canvasWorkerRef.current) {
+							canvasWorkerRef.current.postMessage({ isScrolling: false });
+						}
+					}
 					// <<< MODIFIED: When scrolling stops, if not a touch device, request one final rotation update.
 					// This helps settle the items based on the last mouse position if it changedhiddenly.
 					if (!isTouchDevice) {
@@ -967,171 +1016,90 @@ export const InfiniteGallery: React.FC = () => {
 		);
 	}, [renderColsCount, renderColumn]);
 
-	// --- useEffect for Background Canvas Animation ---
+	// --- useEffect for Background Canvas Animation (REPLACED with Web Worker setup) ---
 	useEffect(() => {
-		const canvas = canvasRef.current;
-		const container = containerRef.current; // Added for resizeObserver
+		const canvasElement = canvasRef.current;
+		const containerElement = containerRef.current; // Used for initial dimensions
 
-		if (!canvas || !container) return; // Check for container as well
+		if (!canvasElement || !containerElement || !window.Worker) {
+			console.warn("InfiniteGallery: Canvas, container, or Worker not available.");
+			return;
+		}
 
-		const ctx = canvas.getContext('2d');
-		if (!ctx) return;
+		// Ensure worker is only created once or handled if HMR causes re-runs
+		if (canvasWorkerRef.current) {
+			canvasWorkerRef.current.terminate();
+		}
 
-		// --- Animation Settings (Adapt from provided code) ---
-		const pattern = [
-			' _&+glitchy+&_ ',
-			'*.+pixels+#!      '
-		];
-		// const fontColor = '#444'; // Will be replaced by theme color
-		const weights = ['normal', 'bold']; // Use string values for ctx.font // Должно быть как минимум 2 значения для логики ниже
-		const fontSize = 14; // Adjust as needed
-		const lineHeight = 16; // Adjust as needed
-		const timeFactor = 0.0005; // Slower time progression
-		const xCoordFactor = 0.01; // Adjust pattern scaling
-		const yCoordFactor = 0.01;
-		const xyCoordFactor = 0.0008;
-		const sinMultiplier = 20; // Adjust pattern intensity
+		// Create the worker
+		// Note: Vite requires specific handling for worker imports.
+		// Using `new URL('./canvas.worker.ts', import.meta.url)` is the standard way.
+		const worker = new Worker(new URL('./canvas.worker.ts', import.meta.url), { type: 'module' });
+		canvasWorkerRef.current = worker;
 
-		let cols = 0;
-		let rows = 0;
+		// Transfer OffscreenCanvas to the worker
+		const offscreenCanvas = canvasElement.transferControlToOffscreen();
+		worker.postMessage({ canvas: offscreenCanvas }, [offscreenCanvas]);
 
-		// --- Настройки для троттлинга анимации Canvas ---
-		const TARGET_CANVAS_FPS = 15; // Целевой FPS для фона (например, 20-30)
-		const frameInterval = 1000 / TARGET_CANVAS_FPS;
-		let lastFrameTime = 0;
-		// <<< ADDED: Ref to track the actual animation time for the canvas pattern >>>
-		const canvasInternalTimeRef = { current: 0 };
-		// --- Конец настроек троттлинга ---
+		// Function to send updates to the worker
+		const updateWorker = () => {
+			if (!canvasWorkerRef.current || !containerElement) return;
 
-		const resizeCanvas = () => {
+			const rect = containerElement.getBoundingClientRect();
 			const dpr = window.devicePixelRatio || 1;
-			const rect = container.getBoundingClientRect(); // Use container size
-			canvas.width = rect.width * dpr;
-			canvas.height = rect.height * dpr;
-			canvas.style.width = `${rect.width}px`;
-			canvas.style.height = `${rect.height}px`;
-			ctx.scale(dpr, dpr);
-
-			cols = Math.floor(rect.width / (fontSize * 0.6)); // Estimate character cols
-			rows = Math.floor(rect.height / lineHeight);     // Estimate character rows
-
-			// Устанавливаем базовые стили текста один раз при ресайзе,
-			// так как fontSize, textAlign, textBaseline не меняются в drawBackground
-			// ctx.font = `${fontSize}px monospace`; // Убрано, т.к. вес меняется
-			ctx.textAlign = 'center';
-			ctx.textBaseline = 'middle';
-		};
-
-		const drawBackground = (time: number) => {
-			if (!ctx || cols <= 0 || rows <= 0) return;
-
-			// Get theme text color
-			const computedStyles = getComputedStyle(document.documentElement);
-			const themeTextColor = computedStyles.getPropertyValue('--text-color').trim();
-
-			const t = time * timeFactor;
-			const cellWidth = (canvas.width / window.devicePixelRatio) / cols;
-			const cellHeight = (canvas.height / window.devicePixelRatio) / rows;
-			const centerCol = cols / 2;
-			const centerRow = rows / 2;
-
-			ctx.clearRect(0, 0, canvas.width, canvas.height); // Очищаем весь канвас
-			// ctx.fillStyle = fontColor;
-			ctx.fillStyle = themeTextColor; // Use theme text color
-
-			// ОПТИМИЗАЦИЯ: Устанавливаем ctx.font только два раза
-
-			// Проход для первого стиля (weights[0])
-			if (weights.length > 0) {
-				ctx.font = `${weights[0]} ${fontSize}px 'Alpha Lyrae', monospace`;
-				for (let y = 0; y < rows; y++) {
-					for (let x = 0; x < cols; x++) {
-						const c_index_for_style = (Math.floor(x * 0.5) + Math.floor(y * 0.5)) % 2;
-						if (c_index_for_style === 0) { // Рендерим только символы этого стиля
-							const relX = x - centerCol;
-							const relY = y - centerRow;
-
-							const o = Math.sin(relX * relY * xyCoordFactor + relY * yCoordFactor + t) * sinMultiplier;
-							const i = Math.floor(Math.abs(relX * xCoordFactor + relY * yCoordFactor + o));
-
-							// Используем pattern[0] если c_index_for_style также 0, или pattern[c_index_for_style]
-							const currentPattern = pattern[c_index_for_style] || pattern[0] || '';
-							const char = currentPattern[i % currentPattern.length] ?? ' ';
-
-							const drawX = x * cellWidth + cellWidth / 2;
-							const drawY = y * cellHeight + cellHeight / 2;
-							ctx.fillText(char, drawX, drawY);
-						}
-					}
-				}
+			let themeTextColor = '#808080'; // Default fallback
+			if (typeof window !== 'undefined') {
+				themeTextColor = getComputedStyle(document.documentElement).getPropertyValue('--text-color').trim();
 			}
 
-			// Проход для второго стиля (weights[1])
-			if (weights.length > 1) {
-				ctx.font = `${weights[1]} ${fontSize}px 'Alpha Lyrae', monospace`;
-				for (let y = 0; y < rows; y++) {
-					for (let x = 0; x < cols; x++) {
-						const c_index_for_style = (Math.floor(x * 0.5) + Math.floor(y * 0.5)) % 2;
-						if (c_index_for_style === 1) { // Рендерим только символы этого стиля
-							const relX = x - centerCol;
-							const relY = y - centerRow;
+			canvasWorkerRef.current.postMessage({
+				width: rect.width,
+				height: rect.height,
+				dpr: dpr,
+				themeTextColor: themeTextColor,
+				isScrolling: isScrollingRef.current // Send current scroll state
+			});
+		};
 
-							const o = Math.sin(relX * relY * xyCoordFactor + relY * yCoordFactor + t) * sinMultiplier;
-							const i = Math.floor(Math.abs(relX * xCoordFactor + relY * yCoordFactor + o));
+		// Initial update
+		updateWorker();
 
-							// Используем pattern[1] если c_index_for_style также 1, или pattern[c_index_for_style]
-							const currentPattern = pattern[c_index_for_style] || pattern[1] || '';
-							const char = currentPattern[i % currentPattern.length] ?? ' ';
+		// Observe container resize to update worker
+		const resizeObserver = new ResizeObserver(updateWorker);
+		resizeObserver.observe(containerElement);
 
-							const drawX = x * cellWidth + cellWidth / 2;
-							const drawY = y * cellHeight + cellHeight / 2;
-							ctx.fillText(char, drawX, drawY);
-						}
-					}
-				}
+		// Optional: Listen for theme changes if you have a dynamic theme system
+		// For simplicity, we'll send theme color on resize and initial setup.
+		// A MutationObserver on `document.documentElement` for `style` attribute changes
+		// could be used for more dynamic theme updates.
+
+		// Update worker on scroll state change (e.g., to potentially pause/throttle if desired in worker)
+		// For now, worker is designed to run continuously, but we send the state for future use.
+		const sendScrollState = () => {
+			if (canvasWorkerRef.current) {
+				canvasWorkerRef.current.postMessage({ isScrolling: isScrollingRef.current });
 			}
 		};
 
-		const animate = (currentTime: number) => {
-			animationFrameIdRef.current = requestAnimationFrame(animate); // Всегда запрашиваем следующий кадр rAF
+		// We can throttle or debounce this if scroll events are too frequent for this message
+		const throttledSendScrollState = throttle(sendScrollState, 100);
 
-			// ОПТИМИЗАЦИЯ: Троттлинг вызова drawBackground
-			if (!lastFrameTime) { // Инициализация для первого кадра
-				lastFrameTime = currentTime;
-			}
-			const elapsedSinceLastRAF = currentTime - lastFrameTime;
+		// Example: If `isScrollingRef` is updated frequently elsewhere, you might need a way
+		// to trigger `sendScrollState` or `throttledSendScrollState`.
+		// For now, `isScrollingRef` changes during GSAP Observer's scroll activity handlers.
+		// The `scrollStopTimeoutRef` in GSAP context could be a place to also call `throttledSendScrollState`
+		// when scrolling stops and starts.
 
-			if (elapsedSinceLastRAF > frameInterval) {
-				lastFrameTime = currentTime - (elapsedSinceLastRAF % frameInterval); // Корректируем lastFrameTime
-
-				// <<< MODIFIED: Only draw and advance canvas animation time if not scrolling >>>
-				if (!isScrollingRef.current) {
-					// Increment internal animation time by the actual interval used for drawing this frame
-					// This keeps the animation speed consistent with TARGET_CANVAS_FPS
-					canvasInternalTimeRef.current += frameInterval;
-					drawBackground(canvasInternalTimeRef.current); // Отрисовываем фон, используя внутреннее время
-				}
-			}
-		};
-
-		// Initial setup
-		resizeCanvas();
-		animationFrameIdRef.current = requestAnimationFrame(animate); // Запускаем цикл анимации
-
-		// Handle resize
-		const resizeObserver = new ResizeObserver(() => { // resizeCanvas уже содержит ctx.scale
-			resizeCanvas();
-		});
-		resizeObserver.observe(container);
-
-		// Cleanup
+		// Cleanup function
 		return () => {
 			resizeObserver.disconnect();
-			if (animationFrameIdRef.current) {
-				cancelAnimationFrame(animationFrameIdRef.current);
+			if (canvasWorkerRef.current) {
+				canvasWorkerRef.current.terminate();
+				canvasWorkerRef.current = null;
 			}
+			throttledSendScrollState.cancel();
 		};
-	}, []); // Empty dependency array: run only once on mount
+	}, []); // Run once on mount. Dependencies like isScrollingRef.current are handled via direct calls.
 
 	// --- useEffect for Footer Animation ---
 	useEffect(() => {
