@@ -9,6 +9,7 @@ import instagramIcon from '../../assets/icons/instagramm_icon.webp';
 import redditIcon from '../../assets/icons/reddit_icon.webp';
 import thehugIcon from '../../assets/icons/thehug_icon.webp';
 import twitterIcon from '../../assets/icons/twitter_icon.webp';
+import { ScrollDownIndicator } from '../ScrollDownIndicator';
 import { ThemeToggleButton } from '../ThemeToggleButton/ThemeToggleButton';
 
 import styles from './index.module.scss';
@@ -583,6 +584,7 @@ export const AboutMe = () => {
 				ref={canvasRef}
 				className={styles.asciiCanvas}
 			/>
+			<ScrollDownIndicator />
 			<section className={styles.mwgEffect004}>
 				<div ref={pinHeightRef} className={styles.pinHeight}>
 					<div ref={pinnedTextContainerRef} className={`${styles.textAnimationContainer} ${styles.textContainerHiddenByOpacity}`}>
