@@ -7,6 +7,7 @@ import debounce from 'lodash/debounce';
 
 import styles from './App.module.scss'
 import { AboutMe } from './components/AboutMe';
+import { GlitchCursor } from './components/GlitchCursor';
 import { InfiniteGallery } from './components/InfiniteGallery'
 import { ITEMS, GalleryItem } from './components/InfiniteGallery/galleryData';
 import 'lenis/dist/lenis.css'; // Раскомментируйте, если используете npm-пакет
@@ -108,6 +109,7 @@ function AppContent() {
 
   return (
     <div className={styles.app}>
+      <GlitchCursor />
       <AboutMe />
       <InfiniteGallery />
     </div>
