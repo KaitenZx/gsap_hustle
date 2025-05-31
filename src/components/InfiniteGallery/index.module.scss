@@ -129,6 +129,14 @@ $column-gap: 2vw;
 		width: 100%;
 		height: 100%;
 		padding: 10px 0;
+
+		// <<< ADDED: Styles for icon within the link >>>
+		.footerLinkIcon {
+			width: 16px; // Adjust size as needed
+			height: 16px; // Adjust size as needed
+			margin-right: 8px; // Space between icon and text
+			fill: currentColor; // Icon color inherits from text color
+		}
 	}
 }
 
@@ -160,6 +168,13 @@ $column-gap: 2vw;
 
 		a {
 			padding: 0 4px;
+		}
+
+		// <<< ADDED: Mobile styles for icon >>>
+		.footerLinkIcon {
+			width: 14px;
+			height: 14px;
+			margin-right: 6px;
 		}
 	}
 }

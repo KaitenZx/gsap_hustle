@@ -7,7 +7,6 @@
 	background-repeat: no-repeat;
 	pointer-events: none; // Ensures the cursor doesn't block interactions with elements underneath
 	z-index: 9999; // Keeps the cursor on top of other elements
-	// transform: translate(-2px, -2px); // Optional: small offset if hotspot isn't exactly 0,0
 }
 
 /* Hide default system cursor globally */

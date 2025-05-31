@@ -7,6 +7,14 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { debounce, throttle } from 'lodash';
 
 
+
+
+// <<< Import SVG Icons as React Components >>>
+import EmailIcon from '../../assets/icons/email_icon.svg?react';
+import InstagramIcon from '../../assets/icons/instagramm_icon.svg?react'; // Note: "instagramm" in filename
+import RedditIcon from '../../assets/icons/reddit_icon.svg?react';
+import TheHugIcon from '../../assets/icons/thehug_icon.svg?react';
+import TwitterIcon from '../../assets/icons/twitter_icon.svg?react';
 import lqipMapData from '../../lqip-map.json';
 import { ImageModal } from '../ImageModal';
 
@@ -1115,6 +1123,15 @@ export const InfiniteGallery: React.FC = () => {
 		}
 	}, [showInternalFooter]);
 
+	// --- Data for Footer Links ---
+	const footerLinks = useMemo(() => [
+		{ href: "https://www.instagram.com/glitchypixels/", text: "INSTAGRAM", iconComponent: InstagramIcon, ariaLabel: "Instagram" },
+		{ href: "https://x.com/iamglitchypixel", text: "TWITTER", iconComponent: TwitterIcon, ariaLabel: "Twitter" },
+		{ href: "https://www.reddit.com/user/iamglitchypixels/", text: "REDDIT", iconComponent: RedditIcon, ariaLabel: "Reddit" },
+		{ href: "https://thehug.xyz/artists/glitchypixels", text: "THEHUG", iconComponent: TheHugIcon, ariaLabel: "TheHug" },
+		{ href: "mailto:iamglitchypixel@gmail.com", text: "MAIL", iconComponent: EmailIcon, ariaLabel: "Mail" }
+	], []);
+
 	return (
 		<section
 			className={`${styles.mwg_effect} ${isLockedState ? styles.isLocked : ''}`}
@@ -1149,21 +1166,14 @@ export const InfiniteGallery: React.FC = () => {
 				style={{ opacity: 0, visibility: 'hidden', pointerEvents: 'none' }} // Начальные стили для GSAP
 			>
 				{/* Updated Footer Content */}
-				<div className={styles.footerLinkContainer}>
-					<a data-interactive-cursor="true" href="https://www.instagram.com/glitchypixels/" aria-label="Instagram">INSTAGRAM</a>
-				</div>
-				<div className={styles.footerLinkContainer}>
-					<a data-interactive-cursor="true" href="https://x.com/iamglitchypixel" aria-label="Twitter">TWITTER</a>
-				</div>
-				<div className={styles.footerLinkContainer}>
-					<a data-interactive-cursor="true" href="https://www.reddit.com/user/iamglitchypixels/" aria-label="Reddit">REDDIT</a>
-				</div>
-				<div className={styles.footerLinkContainer}>
-					<a data-interactive-cursor="true" href="https://thehug.xyz/artists/glitchypixels" aria-label="TheHug">THEHUG</a>
-				</div>
-				<div className={styles.footerLinkContainer}>
-					<a data-interactive-cursor="true" href="mailto:iamglitchypixel@gmail.com" aria-label="Mail">MAIL</a>
-				</div>
+				{footerLinks.map(link => (
+					<div key={link.text} className={styles.footerLinkContainer}>
+						<a data-interactive-cursor="true" href={link.href} target="_blank" rel="noopener noreferrer" aria-label={link.ariaLabel}>
+							<link.iconComponent className={styles.footerLinkIcon} />
+							<span>{link.text}</span>
+						</a>
+					</div>
+				))}
 			</div>
 
 		</section>

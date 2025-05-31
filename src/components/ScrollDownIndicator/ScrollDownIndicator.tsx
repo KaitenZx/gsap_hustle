@@ -1,11 +1,16 @@
 import React, { useState, useEffect } from 'react';
 
+import { gsap } from 'gsap';
+import { ScrollToPlugin } from 'gsap/ScrollToPlugin';
+
 import styles from './ScrollDownIndicator.module.scss';
 
 const ScrollDownIndicator: React.FC = () => {
 	const [isVisible, setIsVisible] = useState(false);
 
 	useEffect(() => {
+		gsap.registerPlugin(ScrollToPlugin); // Register the plugin
+
 		const appearTimer = setTimeout(() => {
 			setIsVisible(true);
 		}, 5000);
@@ -26,12 +31,43 @@ const ScrollDownIndicator: React.FC = () => {
 		};
 	}, []);
 
+	const handleIndicatorClick = () => {
+		if (!isVisible) return;
+
+		const vh = window.innerHeight / 100;
+		const scrollAmount = 100 * vh;
+		const currentScrollY = window.scrollY || window.pageYOffset;
+		const targetScrollY = currentScrollY + scrollAmount;
+
+		gsap.to(window, {
+			scrollTo: targetScrollY,
+			duration: 4, // "very slow"
+			ease: 'expo.inOut',
+		});
+
+		setIsVisible(false); // Hide indicator after click
+	};
+
+	const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+		if (event.key === 'Enter' || event.key === ' ') {
+			handleIndicatorClick();
+		}
+	};
+
 	if (!isVisible) {
 		return null;
 	}
 
 	return (
-		<div data-interactive-cursor="true" className={`${styles.scrollIndicatorContainer} ${isVisible ? styles.visible : ''}`}>
+		<div
+			data-interactive-cursor="true"
+			className={`${styles.scrollIndicatorContainer} ${isVisible ? styles.visible : ''}`}
+			onClick={handleIndicatorClick}
+			style={{ cursor: 'pointer' }}
+			role="button"
+			tabIndex={0}
+			onKeyDown={handleKeyDown}
+		>
 			{/* First arrow (top one, starts more transparent or syncs with animation state) */}
 			<span className={styles.arrowOne}>
 				<svg width="800px" height="800px" viewBox="0 0 16 16" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlnsXlink="http://www.w3.org/1999/xlink">

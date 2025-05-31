@@ -17,6 +17,11 @@ const CURSOR_TYPES = {
 	POINTER: 'pointer',
 };
 
+const CURSOR_OFFSET = {
+	X: -9, // px, negative to move left, positive to move right
+	Y: -5,   // px, negative to move up, positive to move down
+};
+
 const SPRITES = {
 	[CURSOR_TYPES.DEFAULT]: {
 		url: '/GlitchCursor.png',
@@ -165,7 +170,7 @@ const GlitchCursor: React.FC = () => {
 		<div
 			className={styles.glitchCursor}
 			style={{
-				transform: `translate3d(${position.x}px, ${position.y}px, 0)`,
+				transform: `translate3d(${position.x + CURSOR_OFFSET.X}px, ${position.y + CURSOR_OFFSET.Y}px, 0)`,
 				backgroundImage: `url(${currentSprite.url})`,
 				backgroundPosition: `${backgroundPositionX}px 0px`,
 				width: `${currentSprite.frameWidth}px`,
