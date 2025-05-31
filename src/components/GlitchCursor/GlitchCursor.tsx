@@ -2,6 +2,16 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 
 import styles from './GlitchCursor.module.scss';
 
+// Helper to check for touch devices
+const isTouchDevice = () => {
+	if (typeof window === 'undefined') return false;
+	return (
+		'ontouchstart' in window ||
+		navigator.maxTouchPoints > 0 ||
+		(window.matchMedia && window.matchMedia('(pointer: coarse)').matches)
+	);
+};
+
 const CURSOR_TYPES = {
 	DEFAULT: 'default',
 	POINTER: 'pointer',
@@ -27,6 +37,25 @@ const SPRITES = {
 };
 
 const GlitchCursor: React.FC = () => {
+	const [isClientTouchDevice, setIsClientTouchDevice] = useState(false);
+
+	// --- Determine if it's a touch device on client-side --- 
+	useEffect(() => {
+		const touchCheck = isTouchDevice();
+		setIsClientTouchDevice(touchCheck);
+
+		if (!touchCheck) {
+			document.body.classList.add('no-system-cursor');
+		}
+
+		return () => {
+			// Cleanup: remove class if component unmounts, though typically it won't for an app-wide cursor
+			if (!touchCheck) {
+				document.body.classList.remove('no-system-cursor');
+			}
+		};
+	}, []); // Empty dependency array means this runs once on mount and cleanup on unmount
+
 	const [position, setPosition] = useState({ x: -100, y: -100 }); // Start off-screen
 	const [currentFrame, setCurrentFrame] = useState(0);
 	const [cursorType, setCursorType] = useState(CURSOR_TYPES.DEFAULT);
@@ -112,6 +141,11 @@ const GlitchCursor: React.FC = () => {
 			// Animation cleanup is handled by the other useEffect
 		};
 	}, [handleMouseMove, handleMouseEnter, handleMouseLeave]);
+
+	// --- Conditional Rendering for Touch Devices ---
+	if (isClientTouchDevice) {
+		return null; // Don't render anything for touch devices
+	}
 
 	if (!isVisible) {
 		return null;

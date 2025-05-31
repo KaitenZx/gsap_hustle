@@ -11,8 +11,8 @@
 }
 
 /* Hide default system cursor globally */
-:global(body),
-:global(body *) {
-	// Apply to all elements to ensure complete override
+:global(body.no-system-cursor),
+:global(body.no-system-cursor *) {
+	// Apply to all elements to ensure complete override only when no-system-cursor class is present
 	cursor: none !important;
 }
