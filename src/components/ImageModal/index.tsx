@@ -72,6 +72,7 @@ export const ImageModal: React.FC<ImageModalProps> = ({ src, placeholderSrc, alt
 			aria-label="Close modal"
 			tabIndex={0}
 			style={{ cursor: 'pointer' }}
+			data-interactive-cursor="true"
 		>
 			<div
 				className={styles.modalContent}

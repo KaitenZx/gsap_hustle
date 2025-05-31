@@ -579,7 +579,7 @@ export const AboutMe = () => {
 
 	return (
 		<div ref={aboutMeContainerRef} className={styles.aboutMeContainer}>
-			<div className={styles.themeToggleWrapper}>
+			<div data-interactive-cursor="true" className={styles.themeToggleWrapper}>
 				<ThemeToggleButton />
 			</div>
 			<canvas
@@ -620,12 +620,12 @@ export const AboutMe = () => {
 							<div className={`${styles.textColumn} ${styles.exposColumn}`}>
 								<h2>EXPOS</h2>
 								<ul>
-									<li><span className={styles.animatableText}>FUBAR 2k23 Exhibition</span> <span className={styles.yearTag}>2023</span><br /><span className={`${styles.subText} ${styles.animatableText}`}>Inner emigration</span></li>
-									<li><span className={styles.animatableText}>FUBAR 2k23 Exhibition</span> <span className={styles.yearTag}>2023</span><br /><span className={`${styles.subText} ${styles.animatableText}`}>Inner emigration</span></li>
-									<li><span className={styles.animatableText}>FUBAR 2k23 Exhibition</span> <span className={styles.yearTag}>2023</span><br /><span className={`${styles.subText} ${styles.animatableText}`}>Inner emigration</span></li>
-									<li><span className={styles.animatableText}>FUBAR 2k23 Exhibition</span> <span className={styles.yearTag}>2023</span><br /><span className={`${styles.subText} ${styles.animatableText}`}>Inner emigration</span></li>
-									<li><span className={styles.animatableText}>FUBAR 2k23 Exhibition</span> <span className={styles.yearTag}>2023</span><br /><span className={`${styles.subText} ${styles.animatableText}`}>Inner emigration</span></li>
-									<li><span className={styles.animatableText}>FUBAR 2k23 Exhibition</span> <span className={styles.yearTag}>2023</span><br /><span className={`${styles.subText} ${styles.animatableText}`}>Inner emigration</span></li>
+									<li><span data-interactive-cursor="true" className={styles.animatableText}>FUBAR 2k23 Exhibition</span> <span className={styles.yearTag}>2023</span><br /><span className={`${styles.subText} ${styles.animatableText}`}>Inner emigration</span></li>
+									<li><span data-interactive-cursor="true" className={styles.animatableText}>FUBAR 2k23 Exhibition</span> <span className={styles.yearTag}>2023</span><br /><span className={`${styles.subText} ${styles.animatableText}`}>Inner emigration</span></li>
+									<li><span data-interactive-cursor="true" className={styles.animatableText}>FUBAR 2k23 Exhibition</span> <span className={styles.yearTag}>2023</span><br /><span className={`${styles.subText} ${styles.animatableText}`}>Inner emigration</span></li>
+									<li><span data-interactive-cursor="true" className={styles.animatableText}>FUBAR 2k23 Exhibition</span> <span className={styles.yearTag}>2023</span><br /><span className={`${styles.subText} ${styles.animatableText}`}>Inner emigration</span></li>
+									<li><span data-interactive-cursor="true" className={styles.animatableText}>FUBAR 2k23 Exhibition</span> <span className={styles.yearTag}>2023</span><br /><span className={`${styles.subText} ${styles.animatableText}`}>Inner emigration</span></li>
+									<li><span data-interactive-cursor="true" className={styles.animatableText}>FUBAR 2k23 Exhibition</span> <span className={styles.yearTag}>2023</span><br /><span className={`${styles.subText} ${styles.animatableText}`}>Inner emigration</span></li>
 								</ul>
 							</div>
 
@@ -635,7 +635,7 @@ export const AboutMe = () => {
 									{/* Map over linksData to generate list items */}
 									{linksData.map((link) => (
 										<li key={link.text}>
-											<a href={link.href} target="_blank" rel="noopener noreferrer" className={styles.word}> {/* Ensure text is animatable */}
+											<a data-interactive-cursor="true" href={link.href} target="_blank" rel="noopener noreferrer" className={styles.word}> {/* Ensure text is animatable */}
 												<link.iconComponent className={styles.linkIcon} />
 												<span>{link.text}</span>
 											</a>

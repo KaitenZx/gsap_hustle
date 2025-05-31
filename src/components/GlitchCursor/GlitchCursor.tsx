@@ -36,6 +36,9 @@ const SPRITES = {
 	},
 };
 
+// Set to track preloaded sprite URLs
+const _glitchCursorPreloadedUrls = new Set<string>();
+
 const GlitchCursor: React.FC = () => {
 	const [isClientTouchDevice, setIsClientTouchDevice] = useState(false);
 
@@ -56,6 +59,17 @@ const GlitchCursor: React.FC = () => {
 		};
 	}, []); // Empty dependency array means this runs once on mount and cleanup on unmount
 
+	// --- Preload cursor sprites ---
+	useEffect(() => {
+		Object.values(SPRITES).forEach(sprite => {
+			if (!_glitchCursorPreloadedUrls.has(sprite.url)) {
+				_glitchCursorPreloadedUrls.add(sprite.url);
+				const img = new Image();
+				img.src = sprite.url;
+			}
+		});
+	}, []); // Run once on mount
+
 	const [position, setPosition] = useState({ x: -100, y: -100 }); // Start off-screen
 	const [currentFrame, setCurrentFrame] = useState(0);
 	const [cursorType, setCursorType] = useState(CURSOR_TYPES.DEFAULT);
@@ -71,14 +85,8 @@ const GlitchCursor: React.FC = () => {
 		setPosition({ x: event.clientX, y: event.clientY });
 
 		const target = event.target as HTMLElement;
-		// Check not only tag name but also computed cursor style for elements like styled divs acting as buttons
-		const computedStyle = window.getComputedStyle(target);
-		const isInteractive =
-			target.tagName === 'A' ||
-			target.tagName === 'BUTTON' ||
-			target.hasAttribute('role') && (target.getAttribute('role') === 'button' || target.getAttribute('role') === 'link') ||
-			(target.closest('a[href], button') !== null) || // Check if inside a link or button
-			computedStyle.cursor === 'pointer';
+		// Check for the data-attribute on the target or its ancestors
+		const isInteractive = target.closest('[data-interactive-cursor="true"]') !== null;
 
 		setCursorType(isInteractive ? CURSOR_TYPES.POINTER : CURSOR_TYPES.DEFAULT);
 	}, [isVisible]);

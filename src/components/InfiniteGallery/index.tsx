@@ -330,6 +330,7 @@ export const InfiniteGallery: React.FC = () => {
 
 				itemsInColumn.push(
 					<div
+						data-interactive-cursor="true"
 						className={styles.media}
 						key={itemKey}
 						ref={(el: HTMLDivElement | null) => {
@@ -1149,19 +1150,19 @@ export const InfiniteGallery: React.FC = () => {
 			>
 				{/* Updated Footer Content */}
 				<div className={styles.footerLinkContainer}>
-					<a href="https://www.instagram.com/glitchypixels/" aria-label="Instagram">INSTAGRAM</a>
+					<a data-interactive-cursor="true" href="https://www.instagram.com/glitchypixels/" aria-label="Instagram">INSTAGRAM</a>
 				</div>
 				<div className={styles.footerLinkContainer}>
-					<a href="https://x.com/iamglitchypixel" aria-label="Twitter">TWITTER</a>
+					<a data-interactive-cursor="true" href="https://x.com/iamglitchypixel" aria-label="Twitter">TWITTER</a>
 				</div>
 				<div className={styles.footerLinkContainer}>
-					<a href="https://www.reddit.com/user/iamglitchypixels/" aria-label="Reddit">REDDIT</a>
+					<a data-interactive-cursor="true" href="https://www.reddit.com/user/iamglitchypixels/" aria-label="Reddit">REDDIT</a>
 				</div>
 				<div className={styles.footerLinkContainer}>
-					<a href="https://thehug.xyz/artists/glitchypixels" aria-label="TheHug">THEHUG</a>
+					<a data-interactive-cursor="true" href="https://thehug.xyz/artists/glitchypixels" aria-label="TheHug">THEHUG</a>
 				</div>
 				<div className={styles.footerLinkContainer}>
-					<a href="mailto:iamglitchypixel@gmail.com" aria-label="Mail">MAIL</a>
+					<a data-interactive-cursor="true" href="mailto:iamglitchypixel@gmail.com" aria-label="Mail">MAIL</a>
 				</div>
 			</div>
 
