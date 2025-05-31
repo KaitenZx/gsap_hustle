@@ -1147,7 +1147,22 @@ export const InfiniteGallery: React.FC = () => {
 				className={styles.internalGalleryFooter}
 				style={{ opacity: 0, visibility: 'hidden', pointerEvents: 'none' }} // Начальные стили для GSAP
 			>
-				placeholder footer: link link link
+				{/* Updated Footer Content */}
+				<div className={styles.footerLinkContainer}>
+					<a href="https://www.instagram.com/glitchypixels/" aria-label="Instagram">INSTAGRAM</a>
+				</div>
+				<div className={styles.footerLinkContainer}>
+					<a href="https://x.com/iamglitchypixel" aria-label="Twitter">TWITTER</a>
+				</div>
+				<div className={styles.footerLinkContainer}>
+					<a href="https://www.reddit.com/user/iamglitchypixels/" aria-label="Reddit">REDDIT</a>
+				</div>
+				<div className={styles.footerLinkContainer}>
+					<a href="https://thehug.xyz/artists/glitchypixels" aria-label="TheHug">THEHUG</a>
+				</div>
+				<div className={styles.footerLinkContainer}>
+					<a href="mailto:iamglitchypixel@gmail.com" aria-label="Mail">MAIL</a>
+				</div>
 			</div>
 
 		</section>
