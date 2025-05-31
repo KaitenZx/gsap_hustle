@@ -4,11 +4,11 @@ import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import debounce from 'lodash/debounce'; // Import debounce
 
-import emailIcon from '../../assets/icons/email_icon.webp';
-import instagramIcon from '../../assets/icons/instagramm_icon.webp';
-import redditIcon from '../../assets/icons/reddit_icon.webp';
-import thehugIcon from '../../assets/icons/thehug_icon.webp';
-import twitterIcon from '../../assets/icons/twitter_icon.webp';
+import EmailIcon from '../../assets/icons/email_icon.svg?react';
+import InstagramIcon from '../../assets/icons/instagramm_icon.svg?react';
+import RedditIcon from '../../assets/icons/reddit_icon.svg?react';
+import TheHugIcon from '../../assets/icons/thehug_icon.svg?react';
+import TwitterIcon from '../../assets/icons/twitter_icon.svg?react';
 import { ScrollDownIndicator } from '../ScrollDownIndicator';
 import { ThemeToggleButton } from '../ThemeToggleButton/ThemeToggleButton';
 
@@ -181,10 +181,12 @@ export const AboutMe = () => {
 			wrapWordsInSpans(elementsToAnimate);
 
 			// --- Add .word class to icons in the links column --- 
+			/*
 			const linkIcons: HTMLElement[] = Array.from(
 				pinnedTextContainerEl.querySelectorAll(`.${styles.linksColumn} .${styles.linkIcon}`)
 			).filter(el => el instanceof HTMLElement);
 			linkIcons.forEach(icon => icon.classList.add(styles.word));
+			*/
 			// --- End icon class addition ---
 
 			const yearTagElements: HTMLElement[] = Array.from(pinnedTextContainerEl.querySelectorAll(`.${styles.yearTag}`))
@@ -568,11 +570,11 @@ export const AboutMe = () => {
 
 	// Data for links column
 	const linksData = [
-		{ href: "https://www.instagram.com/glitchypixels/", text: "INSTAGRAM", iconSrc: instagramIcon, alt: "Instagram Icon" },
-		{ href: "https://x.com/iamglitchypixel", text: "TWITTER", iconSrc: twitterIcon, alt: "Twitter Icon" },
-		{ href: "https://www.reddit.com/user/iamglitchypixels/", text: "REDDIT", iconSrc: redditIcon, alt: "Reddit Icon" },
-		{ href: "https://thehug.xyz/artists/glitchypixels", text: "THEHUG", iconSrc: thehugIcon, alt: "TheHug Icon" },
-		{ href: "mailto:iamglitchypixel@gmail.com", text: "MAIL", iconSrc: emailIcon, alt: "Email Icon" } // Corrected mailto link
+		{ href: "https://www.instagram.com/glitchypixels/", text: "INSTAGRAM", iconComponent: InstagramIcon, alt: "Instagram Icon" },
+		{ href: "https://x.com/iamglitchypixel", text: "TWITTER", iconComponent: TwitterIcon, alt: "Twitter Icon" },
+		{ href: "https://www.reddit.com/user/iamglitchypixels/", text: "REDDIT", iconComponent: RedditIcon, alt: "Reddit Icon" },
+		{ href: "https://thehug.xyz/artists/glitchypixels", text: "THEHUG", iconComponent: TheHugIcon, alt: "TheHug Icon" },
+		{ href: "mailto:iamglitchypixel@gmail.com", text: "MAIL", iconComponent: EmailIcon, alt: "Email Icon" } // Corrected mailto link
 	];
 
 	return (
@@ -633,9 +635,9 @@ export const AboutMe = () => {
 									{/* Map over linksData to generate list items */}
 									{linksData.map((link) => (
 										<li key={link.text}>
-											<a href={link.href} target="_blank" rel="noopener noreferrer"> {/* Added target and rel for external links */}
-												<img src={link.iconSrc} alt={link.alt} className={styles.linkIcon} />
-												<span className={styles.animatableText}>{link.text}</span> {/* Ensure text is animatable */}
+											<a href={link.href} target="_blank" rel="noopener noreferrer" className={styles.word}> {/* Ensure text is animatable */}
+												<link.iconComponent className={styles.linkIcon} />
+												<span>{link.text}</span>
 											</a>
 										</li>
 									))}
