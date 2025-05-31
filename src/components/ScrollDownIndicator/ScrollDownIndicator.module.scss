@@ -3,15 +3,17 @@
 	bottom: 30px;
 	left: 50%;
 	width: 60px;
+	height: 60px;
 	transform: translateX(-50%);
 	z-index: 1000;
 	/* High enough to be on top of most content */
-	pointer-events: none;
+	pointer-events: auto;
 	/* Allow clicks to pass through */
 	opacity: 0;
 	/* Start fully transparent */
 	transition: opacity 0.5s ease-in-out;
 	/* Smooth fade transition */
+	z-index: 500;
 }
 
 .scrollIndicatorContainer.visible {
