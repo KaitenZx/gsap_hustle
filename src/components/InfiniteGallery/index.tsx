@@ -33,7 +33,7 @@ const RENDER_ROWS_BUFFER = 4; // Сколько доп. строк рендер�
 const PRELOAD_THROTTLE_MS = 100; // Задержка throttle для предзагрузки
 const ROTATION_CLAMP = 18; // <<< Уменьшили максимальный угол поворота
 const ROTATION_SENSITIVITY = 18; // <<< Чувствительность поворота (делитель)
-const LERP_FACTOR = 0.4; // <<< Коэффициент для лерпинга (0.0 - 1.0)
+const LERP_FACTOR = 0.7; // <<< Увеличено для более отзывчивого скролла
 
 // --- Footer Visibility Constants ---
 const INTERNAL_FOOTER_THRESHOLD = -4000; // Pixels scrolled down internally
@@ -677,7 +677,7 @@ export const InfiniteGallery: React.FC = () => {
 							didDragSincePressRef.current = true;
 						}
 
-						const baseMultiplier = (self.event.type === "wheel" || !self.isDragging) ? 1 : 1.5;
+						const baseMultiplier = (self.event.type === "wheel" || !self.isDragging) ? 1 : 1.1;
 						const increment = self.deltaX * baseMultiplier;
 
 						// Применяем инкремент с правильным знаком
@@ -736,7 +736,7 @@ export const InfiniteGallery: React.FC = () => {
 							didDragSincePressRef.current = true;
 						}
 
-						const baseMultiplier = (self.event.type === "wheel" || !self.isDragging) ? 1 : 1.5;
+						const baseMultiplier = (self.event.type === "wheel" || !self.isDragging) ? 1 : 1.1;
 						const increment = self.deltaY * baseMultiplier;
 
 						if (self.event.type === "wheel") {
