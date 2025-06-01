@@ -730,7 +730,9 @@ export const InfiniteGallery: React.FC = () => {
 						if (self.isDragging && Math.abs(self.deltaY) < Math.abs(self.deltaX)) return;
 
 						// Предотвращаем стандартное вертикальное поведение (скролл страницы)
-						if (isScrollLockedRef.current) { // Applicable for both wheel and touch
+						// MODIFIED: Only explicitly prevent default for wheel events.
+						// Rely on Observer's default behavior for touch/pointer drags.
+						if (self.event.type === 'wheel' && isScrollLockedRef.current) {
 							if (self.event.cancelable) { // <<< ADDED cancelable check
 								self.event.preventDefault();
 							}
