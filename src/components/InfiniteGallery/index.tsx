@@ -1120,12 +1120,14 @@ export const InfiniteGallery: React.FC = () => {
 	// --- useEffect for Footer Animation ---
 	useEffect(() => {
 		if (internalFooterRef.current) {
+			// Set pointer-events immediately based on the target state.
+			// GSAP doesn't animate 'pointerEvents' in the same way as transform or opacity.
+			internalFooterRef.current.style.pointerEvents = showInternalFooter ? 'auto' : 'none';
+
 			gsap.to(internalFooterRef.current, {
-				opacity: showInternalFooter ? 1 : 0,
-				visibility: showInternalFooter ? 'visible' : 'hidden',
-				pointerEvents: showInternalFooter ? 'auto' : 'none',
-				duration: 0.5,
-				ease: 'power2.inOut'
+				autoAlpha: showInternalFooter ? 1 : 0, // autoAlpha handles opacity and visibility
+				duration: 0.15, // Drastically reduced duration (was 0.5)
+				ease: 'none' // Simplest ease for speed (was 'power2.inOut')
 			});
 		}
 	}, [showInternalFooter]);
