@@ -13,6 +13,7 @@ $column-gap: 2vw;
 	box-sizing: border-box;
 	perspective: 400vh;
 	contain: layout paint;
+	touch-action: pan-y;
 
 }
 
