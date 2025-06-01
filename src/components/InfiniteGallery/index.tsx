@@ -1144,8 +1144,8 @@ export const InfiniteGallery: React.FC = () => {
 			className={`${styles.mwg_effect} ${isLockedState ? styles.isLocked : ''}`}
 			ref={containerRef}
 		>
-			{/* Canvas for background animation */}
-			<canvas ref={canvasRef} className={styles.backgroundCanvas} />
+			{/* <canvas ref={canvasRef} className={styles.backgroundCanvas} /> */}
+
 
 			<div className={styles.contentWrapper} ref={contentWrapperRef}>
 				{columnsToRender}
