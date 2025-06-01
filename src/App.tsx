@@ -8,10 +8,12 @@ import debounce from 'lodash/debounce';
 import styles from './App.module.scss'
 import { AboutMe } from './components/AboutMe';
 import { GlitchCursor } from './components/GlitchCursor';
+import { GlitchOverlay } from './components/GlitchOverlay';
 import { InfiniteGallery } from './components/InfiniteGallery'
 import { ITEMS, GalleryItem } from './components/InfiniteGallery/galleryData';
 import 'lenis/dist/lenis.css'; // Раскомментируйте, если используете npm-пакет
 import './styles/theme.css'; // Import theme styles
+import { PinStateProvider } from './context/PinStateContext';
 import { ThemeProvider } from './context/ThemeContext'; // Import ThemeProvider
 
 // Set to track preloaded URLs
@@ -110,17 +112,20 @@ function AppContent() {
   return (
     <div className={styles.app}>
       <GlitchCursor />
+      <GlitchOverlay />
       <AboutMe />
       <InfiniteGallery />
     </div>
   )
 }
 
-// Wrap AppContent with ThemeProvider
+// Wrap AppContent with ThemeProvider and PinStateProvider
 function App() {
   return (
     <ThemeProvider>
-      <AppContent />
+      <PinStateProvider>
+        <AppContent />
+      </PinStateProvider>
     </ThemeProvider>
   );
 }

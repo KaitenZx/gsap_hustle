@@ -15,6 +15,7 @@ import InstagramIcon from '../../assets/icons/instagramm_icon.svg?react'; // Not
 import RedditIcon from '../../assets/icons/reddit_icon.svg?react';
 import TheHugIcon from '../../assets/icons/thehug_icon.svg?react';
 import TwitterIcon from '../../assets/icons/twitter_icon.svg?react';
+import { usePinState } from '../../context/PinStateContext'; // <<< ADDED
 import lqipMapData from '../../lqip-map.json';
 import { ImageModal } from '../ImageModal';
 
@@ -161,7 +162,7 @@ export const InfiniteGallery: React.FC = () => {
 	// <<< ADDED: Memoized touch device detection >>>
 	const isTouchDevice = useMemo(() => getIsTouchDevice(), []);
 
-	// --- Состояние для блокировки скролла ---
+	// --- Состояние для блокировки скролла --- 
 	const isScrollLockedRef = useRef(false); // Ref для мгновенного доступа из GSAP
 	const [isLockedState, setIsLockedState] = useState(false); // State для ререндера/CSS
 
@@ -174,6 +175,8 @@ export const InfiniteGallery: React.FC = () => {
 	const [showInternalFooter, setShowInternalFooter] = useState(false);
 	const internalFooterRef = useRef<HTMLDivElement>(null);
 	const showInternalFooterRef = useRef(showInternalFooter); // Ref to mirror state for stable callback
+
+	const { setIsGalleryPinned } = usePinState(); // <<< ADDED
 
 	// Update ref whenever state changes
 	useEffect(() => {
@@ -222,6 +225,7 @@ export const InfiniteGallery: React.FC = () => {
 		if (isScrollLockedRef.current !== locked) {
 			isScrollLockedRef.current = locked;
 			setIsLockedState(locked); // Обновляем state для CSS
+			setIsGalleryPinned(locked); // <<< ADDED: Update context state
 
 			if (locked) {
 				observerInstance.current?.enable();
@@ -230,7 +234,7 @@ export const InfiniteGallery: React.FC = () => {
 			}
 			document.body.classList.toggle('ifg-locked', locked);
 		}
-	}, []); // Пустой массив зависимостей
+	}, [setIsGalleryPinned]); // <<< ADDED setIsGalleryPinned dependency
 
 	// --- НОВАЯ Функция обработчика клика по изображению  ---
 	const handleImageClick = useCallback((item: GalleryItem) => { // <<< Принимаем весь объект
@@ -981,6 +985,7 @@ export const InfiniteGallery: React.FC = () => {
 			// Убиваем ScrollTrigger явно перед ревертом контекста
 			scrollTriggerInstance.current?.kill();
 			scrollTriggerInstance.current = null;
+			setIsGalleryPinned(false); // <<< ADDED: Ensure state is false on cleanup
 
 
 			gsapCtx.current?.revert(); // Это должно убить Observer и quickTo, созданные внутри контекста
@@ -1014,7 +1019,7 @@ export const InfiniteGallery: React.FC = () => {
 			inertiaYTweenRef.current?.kill();
 		};
 		// <<< Обновлены зависимости (убраны minY/maxY/scrollableDistanceY если они где-то были косвенно) >>>
-	}, [setScrollLocked, renderColsCount, performPreload, lerpStep, checkFooterVisibility, isTouchDevice]); // ADDED isTouchDevice and checkFooterVisibility
+	}, [setScrollLocked, renderColsCount, performPreload, lerpStep, checkFooterVisibility, isTouchDevice, setIsGalleryPinned]); // <<< ADDED setIsGalleryPinned dependency
 
 	// --- Мемоизация массива колонок  ---
 	const columnsToRender = useMemo(() => {

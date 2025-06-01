@@ -9,6 +9,7 @@ import InstagramIcon from '../../assets/icons/instagramm_icon.svg?react';
 import RedditIcon from '../../assets/icons/reddit_icon.svg?react';
 import TheHugIcon from '../../assets/icons/thehug_icon.svg?react';
 import TwitterIcon from '../../assets/icons/twitter_icon.svg?react';
+import { usePinState } from '../../context/PinStateContext';
 import { ScrollDownIndicator } from '../ScrollDownIndicator';
 import { ThemeToggleButton } from '../ThemeToggleButton/ThemeToggleButton';
 
@@ -73,6 +74,8 @@ export const AboutMe = () => {
 	const charHeightRef = useRef(20);
 	const aspectRef = useRef(0.5);
 	const dprRef = useRef(window.devicePixelRatio || 1);
+
+	const { setIsAboutMePinned } = usePinState();
 
 	// Moved calculateCharMetrics outside useEffect to be reusable
 	const calculateCharMetrics = (ctx: CanvasRenderingContext2D | null) => {
@@ -218,6 +221,7 @@ export const AboutMe = () => {
 				start: `top top-=${DITHER_FADE_VH}vh`,
 				end: 'bottom bottom',
 				pinSpacing: false,
+				onToggle: (self) => setIsAboutMePinned(self.isActive),
 			});
 
 			masterTimeline = gsap.timeline({
@@ -236,6 +240,7 @@ export const AboutMe = () => {
 					start: 'top top',
 					end: 'bottom bottom',
 					pinSpacing: false,
+					onToggle: (self) => setIsAboutMePinned(self.isActive),
 				});
 			}
 
@@ -363,9 +368,10 @@ export const AboutMe = () => {
 			if (ditherScrollTrigger) { ditherScrollTrigger.kill(); }
 			if (textPinScrollTrigger) { textPinScrollTrigger.kill(); }
 			if (unpinFadeInScrollTrigger) { unpinFadeInScrollTrigger.kill(); } // Cleanup new trigger
+			setIsAboutMePinned(false);
 			console.log('[AboutMe GSAP] Timelines and ScrollTriggers cleaned up.');
 		};
-	}, []);
+	}, [setIsAboutMePinned]);
 
 	// --- Canvas Animation & Resize Handling useEffect ---
 	useEffect(() => {
