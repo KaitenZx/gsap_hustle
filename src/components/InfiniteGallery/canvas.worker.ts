@@ -176,12 +176,14 @@ function animate(currentTime: number) {
 	}
 
 	// Schedule the next frame ONLY if not paused (i.e., not on a touch device AND scrolling)
-	if (!(isTouchDeviceWorker && isScrolling)) {
-		animationFrameId = requestAnimationFrame(animate)
-	} else {
-		// If paused, ensure animationFrameId is null so it can be restarted.
-		animationFrameId = null
-	}
+	// MODIFIED FOR TESTING: Always request animation frame to see if pausing causes jerkiness
+	animationFrameId = requestAnimationFrame(animate)
+	// if (!(isTouchDeviceWorker && isScrolling)) {
+	// 	animationFrameId = requestAnimationFrame(animate)
+	// } else {
+	// 	// If paused, ensure animationFrameId is null so it can be restarted.
+	// 	animationFrameId = null
+	// }
 }
 
 self.onmessage = (e: MessageEvent<CanvasWorkerData>) => {
@@ -269,10 +271,13 @@ self.onmessage = (e: MessageEvent<CanvasWorkerData>) => {
 
 			// If scrolling starts on a touch device and animation is running, cancel it.
 			// The animate() function will then not schedule new frames.
+			// COMMENTED OUT FOR TESTING
+			/*
 			if (isTouchDeviceWorker && animationFrameId !== null) {
 				cancelAnimationFrame(animationFrameId)
 				animationFrameId = null
 			}
+			*/
 		} else {
 			// Not scrolling
 			// Targets for smooth restoration to full quality
@@ -281,11 +286,14 @@ self.onmessage = (e: MessageEvent<CanvasWorkerData>) => {
 			// Lerping will handle the smooth transition back for sparsity/sinMultiplier.
 
 			// If scrolling stopped on a touch device, and animation was paused (animationFrameId is null), restart it.
+			// COMMENTED OUT FOR TESTING
+			/*
 			if (isTouchDeviceWorker && oldIsScrolling && animationFrameId === null) {
 				lastFrameTime = 0 // Reset lastFrameTime to resync timing smoothly
 				// canvasInternalTime continues, to not reset the pattern completely.
 				animate(performance.now())
 			}
+			*/
 		}
 	}
 }
