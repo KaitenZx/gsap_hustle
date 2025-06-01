@@ -5,11 +5,10 @@ $row-gap: 2vw;
 $column-gap: 2vw;
 
 .mwg_effect {
-	height: 100dvh;
+	height: 100vh;
 	width: 100%;
 	overflow: hidden;
 	position: relative;
-	// background-color: #111;
 	background-color: var(--background-color);
 	box-sizing: border-box;
 	perspective: 400vh;
@@ -164,17 +163,20 @@ $column-gap: 2vw;
 
 	.internalGalleryFooter {
 		font-size: 10px;
-		padding: 10px 0;
+		padding: 8px 0;
 
 		a {
 			padding: 0 4px;
 		}
 
-		// <<< ADDED: Mobile styles for icon >>>
-		.footerLinkIcon {
-			width: 14px;
-			height: 14px;
-			margin-right: 6px;
+		.footerLinkContainer {
+			a {
+				.footerLinkIcon {
+					width: 12px;
+					height: 12px;
+					margin-right: 4px;
+				}
+			}
 		}
 	}
 }
