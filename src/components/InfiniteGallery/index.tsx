@@ -187,12 +187,11 @@ export const InfiniteGallery: React.FC = () => {
 	const checkFooterVisibility = useCallback(() => {
 		const yScrolled = incrY.current;
 
-		// <<< TEMPORARY TEST: Disable state updates to check performance impact >>>
-		// if (!showInternalFooterRef.current && yScrolled < INTERNAL_FOOTER_THRESHOLD) {
-		// 	setShowInternalFooter(true);
-		// } else if (showInternalFooterRef.current && yScrolled > INTERNAL_FOOTER_THRESHOLD + INTERNAL_FOOTER_HYSTERESIS) {
-		// 	setShowInternalFooter(false);
-		// }
+		if (!showInternalFooterRef.current && yScrolled < INTERNAL_FOOTER_THRESHOLD) {
+			setShowInternalFooter(true);
+		} else if (showInternalFooterRef.current && yScrolled > INTERNAL_FOOTER_THRESHOLD + INTERNAL_FOOTER_HYSTERESIS) {
+			setShowInternalFooter(false);
+		}
 	}, []); // INTERNAL_FOOTER_THRESHOLD and HYSTERESIS are constants, so no deps needed
 
 	// --- Функция для предзагрузки ПРЕВЬЮ  ---
@@ -726,8 +725,8 @@ export const InfiniteGallery: React.FC = () => {
 						// Для DRAG: Пропускаем, если горизонтальный скролл преобладает
 						if (self.isDragging && Math.abs(self.deltaY) < Math.abs(self.deltaX)) return;
 
-						// Предотвращаем стандартное вертикальное поведение (скролл страницы)
-						if (isScrollLockedRef.current) { // Applicable for both wheel and touch
+						// Предотвращаем стандартное вертикальное поведение (скролл страницы) только для колеса
+						if (self.event.type === 'wheel' && isScrollLockedRef.current) {
 							if (self.event.cancelable) { // <<< ADDED cancelable check
 								self.event.preventDefault();
 							}
