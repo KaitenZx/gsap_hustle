@@ -218,6 +218,17 @@
 
 					&.exposColumn {
 						li {
+							position: relative;
+
+							a {
+								display: block;
+								padding: 0.5em 0;
+								color: inherit;
+								text-decoration: none;
+								pointer-events: auto;
+
+
+							}
 
 							.yearTag {
 								display: inline-block;

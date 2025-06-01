@@ -620,12 +620,41 @@ export const AboutMe = () => {
 							<div className={`${styles.textColumn} ${styles.exposColumn}`}>
 								<h2>EXPOS</h2>
 								<ul>
-									<li><span data-interactive-cursor="true" className={styles.animatableText}>FUBAR 2k23 Exhibition</span> <span className={styles.yearTag}>2023</span><br /><span className={`${styles.subText} ${styles.animatableText}`}>Inner emigration</span></li>
-									<li><span data-interactive-cursor="true" className={styles.animatableText}>FUBAR 2k23 Exhibition</span> <span className={styles.yearTag}>2023</span><br /><span className={`${styles.subText} ${styles.animatableText}`}>Inner emigration</span></li>
-									<li><span data-interactive-cursor="true" className={styles.animatableText}>FUBAR 2k23 Exhibition</span> <span className={styles.yearTag}>2023</span><br /><span className={`${styles.subText} ${styles.animatableText}`}>Inner emigration</span></li>
-									<li><span data-interactive-cursor="true" className={styles.animatableText}>FUBAR 2k23 Exhibition</span> <span className={styles.yearTag}>2023</span><br /><span className={`${styles.subText} ${styles.animatableText}`}>Inner emigration</span></li>
-									<li><span data-interactive-cursor="true" className={styles.animatableText}>FUBAR 2k23 Exhibition</span> <span className={styles.yearTag}>2023</span><br /><span className={`${styles.subText} ${styles.animatableText}`}>Inner emigration</span></li>
-									<li><span data-interactive-cursor="true" className={styles.animatableText}>FUBAR 2k23 Exhibition</span> <span className={styles.yearTag}>2023</span><br /><span className={`${styles.subText} ${styles.animatableText}`}>Inner emigration</span></li>
+									<li>
+										<a href="https://www.instagram.com/p/Cmci5PXvmWa/?igsh=MTRtNWQ2d2FteDg4Zw==" data-interactive-cursor="true">
+											<span className={styles.animatableText}>Fubar 2k23 exhibition</span> <span className={styles.yearTag}>2023</span><br /><span className={`${styles.subText} ${styles.animatableText}`}>INNER EMIGRATION</span>
+										</a>
+									</li>
+									<li>
+										<a href="https://www.instagram.com/p/Cmci5PXvmWa/" data-interactive-cursor="true">
+											<span className={styles.animatableText}>Fubar 2k23 exhibition</span> <span className={styles.yearTag}>2023</span><br /><span className={`${styles.subText} ${styles.animatableText}`}>THEALIENARMS</span>
+										</a>
+									</li>
+									<li>
+										<a href="https://www.instagram.com/p/Cmci5PXvmWa/?igsh=MTRtNWQ2d2FteDg4Zw==" data-interactive-cursor="true">
+											<span className={styles.animatableText}>GLITCH.ART.BR</span> <span className={styles.yearTag}>2023</span><br /><span className={`${styles.subText} ${styles.animatableText}`}>IV EDITION</span>
+										</a>
+									</li>
+									<li>
+										<a href="https://www.instagram.com/p/CrltMfmIPIw/?igsh=MThjcG9hZThlejgxYQ==" data-interactive-cursor="true">
+											<span className={styles.animatableText}>NIANGI</span> <span className={styles.yearTag}>2024</span><br /><span className={`${styles.subText} ${styles.animatableText}`}>ERROR IN CONTROL</span>
+										</a>
+									</li>
+									<li>
+										<a href="https://www.instagram.com/p/CqF0xxNosMk/?igsh=djNqc2gxZ245eWE0" data-interactive-cursor="true">
+											<span className={styles.animatableText}>FUBAR 2k24 Exhibition</span> <span className={styles.yearTag}>2024</span><br /><span className={`${styles.subText} ${styles.animatableText}`}>PROCRASTINATION</span>
+										</a>
+									</li>
+									<li>
+										<a href="https://www.instagram.com/p/C_gPIjloB8r/" data-interactive-cursor="true">
+											<span className={styles.animatableText}>GLITCH.ART.BR </span> <span className={styles.yearTag}>2024</span><br /><span className={`${styles.subText} ${styles.animatableText}`}>V EDITION</span>
+										</a>
+									</li>
+									<li>
+										<a href="https://www.instagram.com/p/DA_yChPOIks/" data-interactive-cursor="true">
+											<span className={styles.animatableText}>Awita New York Studio</span> <span className={styles.yearTag}>2025</span><br /><span className={`${styles.subText} ${styles.animatableText}`}>2ND YEAR ANNIVERSARY</span>
+										</a>
+									</li>
 								</ul>
 							</div>
 
