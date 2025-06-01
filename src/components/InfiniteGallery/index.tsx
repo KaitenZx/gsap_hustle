@@ -598,7 +598,7 @@ export const InfiniteGallery: React.FC = () => {
 				if (!isScrollingRef.current) { // If it wasn't scrolling, but now it is
 					isScrollingRef.current = true;
 					if (canvasWorkerRef.current) {
-						canvasWorkerRef.current.postMessage({ isScrolling: true });
+						canvasWorkerRef.current.postMessage({ isScrolling: true, isTouchDevice: isTouchDevice });
 					}
 				}
 
@@ -615,7 +615,7 @@ export const InfiniteGallery: React.FC = () => {
 					if (isScrollingRef.current) { // If it was scrolling, but now it stops
 						isScrollingRef.current = false;
 						if (canvasWorkerRef.current) {
-							canvasWorkerRef.current.postMessage({ isScrolling: false });
+							canvasWorkerRef.current.postMessage({ isScrolling: false, isTouchDevice: isTouchDevice });
 						}
 					}
 					// <<< MODIFIED: When scrolling stops, if not a touch device, request one final rotation update.
@@ -1066,7 +1066,8 @@ export const InfiniteGallery: React.FC = () => {
 				height: rect.height,
 				dpr: dpr,
 				themeTextColor: themeTextColor,
-				isScrolling: isScrollingRef.current // Send current scroll state
+				isScrolling: isScrollingRef.current, // Send current scroll state
+				isTouchDevice: isTouchDevice // <<< ADDED: Send touch device status
 			});
 		};
 
@@ -1086,7 +1087,7 @@ export const InfiniteGallery: React.FC = () => {
 		// For now, worker is designed to run continuously, but we send the state for future use.
 		const sendScrollState = () => {
 			if (canvasWorkerRef.current) {
-				canvasWorkerRef.current.postMessage({ isScrolling: isScrollingRef.current });
+				canvasWorkerRef.current.postMessage({ isScrolling: isScrollingRef.current, isTouchDevice: isTouchDevice });
 			}
 		};
 
@@ -1108,6 +1109,7 @@ export const InfiniteGallery: React.FC = () => {
 			}
 			throttledSendScrollState.cancel();
 		};
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []); // Run once on mount. Dependencies like isScrollingRef.current are handled via direct calls.
 
 	// --- useEffect for Footer Animation ---

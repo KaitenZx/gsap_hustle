@@ -7,6 +7,7 @@ type CanvasWorkerData = {
 	themeTextColor?: string
 	isScrolling?: boolean
 	dpr?: number
+	isTouchDevice?: boolean
 }
 
 let canvas: OffscreenCanvas | null = null
@@ -14,6 +15,7 @@ let ctx: OffscreenCanvasRenderingContext2D | null = null
 let themeTextColor = 'rgba(128, 128, 128, 0.6)' // Default
 let isScrolling = false
 let devicePixelRatio = 1
+let isTouchDeviceWorker = false // Default to false
 
 // --- Animation Settings (Copied from InfiniteGallery/index.tsx) ---
 const pattern = [' _&+glitchy+&_ ', '*.+pixels+#!      ']
@@ -142,8 +144,6 @@ function drawBackground(
 }
 
 function animate(currentTime: number) {
-	animationFrameId = requestAnimationFrame(animate)
-
 	// Lerp optimization parameters
 	currentSparsity += (targetSparsity - currentSparsity) * sparsityLerpFactor
 	currentSinMultiplier +=
@@ -159,22 +159,37 @@ function animate(currentTime: number) {
 	}
 
 	if (!lastFrameTime) {
+		// Initial call or after a pause due to scrolling on touch
 		lastFrameTime = currentTime
 	}
 	const elapsedSinceLastRAF = currentTime - lastFrameTime
 
-	if (elapsedSinceLastRAF > frameInterval) {
+	if (elapsedSinceLastRAF >= frameInterval) {
+		// Ensure frameInterval is respected
 		lastFrameTime = currentTime - (elapsedSinceLastRAF % frameInterval)
 		// Always animate if an animationFrame is requested by the browser,
 		// but apply optimizations (sparsity, sinMultiplier) based on scroll state.
 		// The isScrolling check for pausing animation is removed as per earlier discussion.
+		// Use frameInterval for stable time progression, not elapsedSinceLastRAF
 		canvasInternalTime += frameInterval
 		drawBackground(canvasInternalTime, currentSparsity, currentSinMultiplier)
+	}
+
+	// Schedule the next frame ONLY if not paused (i.e., not on a touch device AND scrolling)
+	if (!(isTouchDeviceWorker && isScrolling)) {
+		animationFrameId = requestAnimationFrame(animate)
+	} else {
+		// If paused, ensure animationFrameId is null so it can be restarted.
+		animationFrameId = null
 	}
 }
 
 self.onmessage = (e: MessageEvent<CanvasWorkerData>) => {
 	const { data } = e
+
+	if (typeof data.isTouchDevice === 'boolean') {
+		isTouchDeviceWorker = data.isTouchDevice
+	}
 
 	if (data.canvas) {
 		canvas = data.canvas
@@ -198,11 +213,16 @@ self.onmessage = (e: MessageEvent<CanvasWorkerData>) => {
 			if (!animationFrameId && data.width > 0 && data.height > 0) {
 				canvasInternalTime = 0 // Reset time on new init/resize
 				lastFrameTime = 0
+				// The animate function itself will check isTouchDeviceWorker && isScrolling
+				// and might not schedule the *next* frame if those conditions are met.
+				// But the first frame will be attempted.
 				animate(performance.now())
 			} else if (animationFrameId && (data.width === 0 || data.height === 0)) {
 				// If canvas becomes 0 size, stop animation
-				cancelAnimationFrame(animationFrameId)
-				animationFrameId = null
+				if (animationFrameId) {
+					cancelAnimationFrame(animationFrameId)
+					animationFrameId = null
+				}
 			}
 		}
 	}
@@ -237,17 +257,35 @@ self.onmessage = (e: MessageEvent<CanvasWorkerData>) => {
 	}
 
 	if (typeof data.isScrolling === 'boolean') {
+		const oldIsScrolling = isScrolling // Store previous state
 		isScrolling = data.isScrolling
+
 		if (isScrolling) {
 			targetSparsity = 0.7 // Skip 70% of characters
 			targetSinMultiplier = scrollingSinMultiplier
 			// Apply scroll optimizations immediately
 			currentSparsity = targetSparsity
 			currentSinMultiplier = targetSinMultiplier
+
+			// If scrolling starts on a touch device and animation is running, cancel it.
+			// The animate() function will then not schedule new frames.
+			if (isTouchDeviceWorker && animationFrameId !== null) {
+				cancelAnimationFrame(animationFrameId)
+				animationFrameId = null
+			}
 		} else {
+			// Not scrolling
 			// Targets for smooth restoration to full quality
 			targetSparsity = 0
 			targetSinMultiplier = sinMultiplier // Restore original full value
+			// Lerping will handle the smooth transition back for sparsity/sinMultiplier.
+
+			// If scrolling stopped on a touch device, and animation was paused (animationFrameId is null), restart it.
+			if (isTouchDeviceWorker && oldIsScrolling && animationFrameId === null) {
+				lastFrameTime = 0 // Reset lastFrameTime to resync timing smoothly
+				// canvasInternalTime continues, to not reset the pattern completely.
+				animate(performance.now())
+			}
 		}
 	}
 }

@@ -53,6 +53,7 @@ export const AboutMe = () => {
 	const animationFrameId = useRef<number>(0);
 	const startTime = useRef<number>(Date.now());
 	const ditherStrength = useRef<number>(1.0); // Added: Controls dither effect (1 = max, 0 = none)
+	const isTouchDeviceRef = useRef<boolean>(false); // Added: To detect touch devices
 
 	// Refs for GSAP text animation
 	const aboutMeContainerRef = useRef<HTMLDivElement>(null);
@@ -115,8 +116,8 @@ export const AboutMe = () => {
 			}
 
 			// Update grid dimensions
-			colsRef.current = charWidthRef.current > 0 ? Math.floor(newWidthFromContainer / charWidthRef.current) : 0;
-			rowsRef.current = charHeightRef.current > 0 ? Math.floor(newHeightFromViewport / charHeightRef.current) : 0;
+			colsRef.current = charWidthRef.current > 0 ? Math.ceil(newWidthFromContainer / charWidthRef.current) : 0;
+			rowsRef.current = charHeightRef.current > 0 ? Math.ceil(newHeightFromViewport / charHeightRef.current) : 0;
 
 			// --- Performance Cap for Large Screens ---
 			const MAX_COLS = 250; // Adjust as needed
@@ -166,7 +167,7 @@ export const AboutMe = () => {
 		});
 
 		const initTextAnimation = () => {
-			const elementsToAnimate: HTMLElement[] = Array.from(
+			const elementsToWrap: HTMLElement[] = Array.from(
 				pinnedTextContainerEl.querySelectorAll(
 					`.${styles.aboutColumn} h2, .${styles.aboutColumn} p,` +
 					`.${styles.exposColumn} h2, .${styles.exposColumn} .${styles.animatableText},` +
@@ -174,11 +175,9 @@ export const AboutMe = () => {
 				)
 			).filter(el => el instanceof HTMLElement);
 
-			if (elementsToAnimate.length === 0) {
-				console.warn('[AboutMe GSAP] No elements designated for animation found.');
-				return;
+			if (elementsToWrap.length > 0) {
+				wrapWordsInSpans(elementsToWrap);
 			}
-			wrapWordsInSpans(elementsToAnimate);
 
 			// --- Add .word class to icons in the links column --- 
 			/*
@@ -189,54 +188,53 @@ export const AboutMe = () => {
 			*/
 			// --- End icon class addition ---
 
+			/* // Commented out as yearTag is now part of the animated <a> tag
 			const yearTagElements: HTMLElement[] = Array.from(pinnedTextContainerEl.querySelectorAll(`.${styles.yearTag}`))
 				.filter(el => el instanceof HTMLElement);
 			yearTagElements.forEach(tagEl => tagEl.classList.add(styles.word));
+			*/
 
-			const words: HTMLElement[] = Array.from(pinnedTextContainerEl.querySelectorAll(`.${styles.word}`)) // This selector now includes icons and yearTags
-				.filter(el => el instanceof HTMLElement);
+			// Select all elements that should be animated as individual "words" by GSAP
+			// This includes <a> tags with .expoLinkBlock and .word, 
+			// and all <span> tags with .word (created by wrapWordsInSpans or directly assigned like link icons)
+			const words: HTMLElement[] = Array.from(pinnedTextContainerEl.querySelectorAll(
+				`.${styles.word}` // Selects all elements that now have styles.word
+			)).filter(el => el instanceof HTMLElement);
 
 			if (words.length === 0) {
 				console.warn('[AboutMe GSAP] No words found to animate.');
 				return;
 			}
 
-			// *** Set initial state of words to be off-screen and invisible ***
 			gsap.set(words, { autoAlpha: 0, xPercent: -100 });
 
-			// *** Make the container visible after words are set up ***
 			if (pinnedTextContainerEl) {
 				gsap.set(pinnedTextContainerEl, { opacity: 1 });
 			}
 
-			// *** Added: Separate ScrollTrigger for pinning text ***
 			textPinScrollTrigger = ScrollTrigger.create({
 				trigger: pinHeightEl,
-				pin: pinnedTextContainerEl, // Let GSAP handle pinning again
-				start: `top top-=${DITHER_FADE_VH}vh`, // Start when text animation should start
-				end: 'bottom bottom', // End when canvas unpins
-				pinSpacing: false, // Keep false unless proven necessary
+				pin: pinnedTextContainerEl,
+				start: `top top-=${DITHER_FADE_VH}vh`,
+				end: 'bottom bottom',
+				pinSpacing: false,
 			});
 
-			// Create the master timeline that will be scrubbed
 			masterTimeline = gsap.timeline({
 				scrollTrigger: {
 					trigger: pinHeightEl,
-					// pin: pinnedTextContainerEl, // *** REMOVED: Pinning is handled separately ***
 					scrub: true,
-					start: `top top-=${DITHER_FADE_VH}vh`, // Start scrubbing after dither fade
-					end: `bottom bottom-=${DITHER_FADE_VH}vh`, // End scrubbing after text anim + pause distance
-					// markers: {startColor: "magenta", endColor: "magenta", indent: 160, fontSize: "10px",}, // For debugging master timeline
+					start: `top top-=${DITHER_FADE_VH}vh`,
+					end: `bottom bottom-=${DITHER_FADE_VH}vh`,
 				}
 			});
 
-			// Pin the canvas as well, using a separate ScrollTrigger for the full duration
 			if (currentCanvasElement && pinHeightEl) {
 				canvasPinScrollTrigger = ScrollTrigger.create({
 					trigger: pinHeightEl,
 					pin: currentCanvasElement,
 					start: 'top top',
-					end: 'bottom bottom', // Pin for the full duration
+					end: 'bottom bottom',
 					pinSpacing: false,
 				});
 			}
@@ -254,19 +252,24 @@ export const AboutMe = () => {
 				lines[lineIndex].push(word);
 			});
 
-			// Create word animation tweens (time-based, not scroll-triggered individually)
 			const wordAnimationTweens: gsap.core.Tween[] = [];
 			let maxTextAnimationImplicitDuration = 0;
 
 			lines.forEach(lineWords => {
 				if (lineWords.length > 0) {
 					const tween = gsap.to(lineWords, {
-						autoAlpha: 1, // Animate to visible
-						xPercent: 0,  // Animate to final X position (was x:0, xPercent is better with initial xPercent: -100)
-						x: 0, // Ensure x is explicitly set to 0 if xPercent is not enough (sometimes needed)
-						stagger: 0.1, // Existing stagger
-						ease: 'power1.inOut', // Existing ease
-						// paused: true, // Not needed if added to master timeline correctly
+						autoAlpha: 1,
+						xPercent: 0,
+						x: 0,
+						stagger: 0.1,
+						ease: 'power1.inOut',
+						onComplete: () => {
+							lineWords.forEach(wordEl => {
+								if (wordEl.classList.contains(styles.expoLinkBlock)) {
+									wordEl.style.pointerEvents = 'auto';
+								}
+							});
+						}
 					});
 					wordAnimationTweens.push(tween);
 					if (tween.duration() > maxTextAnimationImplicitDuration) {
@@ -371,6 +374,9 @@ export const AboutMe = () => {
 
 		if (!canvas || !container) return;
 
+		// Determine if it's a touch device
+		isTouchDeviceRef.current = typeof window !== 'undefined' && (('ontouchstart' in window) || navigator.maxTouchPoints > 0);
+
 		const ctx = canvas.getContext('2d');
 		if (!ctx) return;
 
@@ -449,11 +455,18 @@ export const AboutMe = () => {
 
 				const m = Math.min(colsRef.current, rowsRef.current);
 
-				vec2(
-					(mousePositionRef.current.x / charWidthRef.current),
-					(mousePositionRef.current.y / charHeightRef.current),
-					reusablePointerInGridCoords
-				);
+				if (isTouchDeviceRef.current) {
+					// For touch devices, fix the pointer to 3/4 towards bottom-right of the grid
+					reusablePointerInGridCoords.x = colsRef.current * 0.75;
+					reusablePointerInGridCoords.y = rowsRef.current * 0.85;
+				} else {
+					// For non-touch devices, use the actual mouse/pointer position in grid coordinates
+					vec2(
+						(mousePositionRef.current.x / charWidthRef.current),
+						(mousePositionRef.current.y / charHeightRef.current),
+						reusablePointerInGridCoords
+					);
+				}
 
 				vec2(
 					2.0 * (reusablePointerInGridCoords.x - colsRef.current / 2) / m * aspectRef.current,
@@ -621,38 +634,38 @@ export const AboutMe = () => {
 								<h2>EXPOS</h2>
 								<ul>
 									<li>
-										<a href="https://www.instagram.com/p/Cmci5PXvmWa/?igsh=MTRtNWQ2d2FteDg4Zw==" data-interactive-cursor="true">
-											<span className={styles.animatableText}>Fubar 2k23 exhibition</span> <span className={styles.yearTag}>2023</span><br /><span className={`${styles.subText} ${styles.animatableText}`}>INNER EMIGRATION</span>
+										<a href="https://www.instagram.com/p/Cmci5PXvmWa/?igsh=MTRtNWQ2d2FteDg4Zw==" data-interactive-cursor="true" className={`${styles.word} ${styles.expoLinkBlock}`}>
+											<span className={styles.animatableText}>Fubar 2k23 exhibition</span> <span className={`${styles.yearTag} ${styles.animatableText}`}>2023</span><br /><span className={`${styles.subText} ${styles.animatableText}`}>INNER EMIGRATION</span>
 										</a>
 									</li>
 									<li>
-										<a href="https://www.instagram.com/p/Cmci5PXvmWa/" data-interactive-cursor="true">
-											<span className={styles.animatableText}>Fubar 2k23 exhibition</span> <span className={styles.yearTag}>2023</span><br /><span className={`${styles.subText} ${styles.animatableText}`}>THEALIENARMS</span>
+										<a href="https://www.instagram.com/p/Cmci5PXvmWa/" data-interactive-cursor="true" className={`${styles.word} ${styles.expoLinkBlock}`}>
+											<span className={styles.animatableText}>Fubar 2k23 exhibition</span> <span className={`${styles.yearTag} ${styles.animatableText}`}>2023</span><br /><span className={`${styles.subText} ${styles.animatableText}`}>THEALIENARMS</span>
 										</a>
 									</li>
 									<li>
-										<a href="https://www.instagram.com/p/Cmci5PXvmWa/?igsh=MTRtNWQ2d2FteDg4Zw==" data-interactive-cursor="true">
-											<span className={styles.animatableText}>GLITCH.ART.BR</span> <span className={styles.yearTag}>2023</span><br /><span className={`${styles.subText} ${styles.animatableText}`}>IV EDITION</span>
+										<a href="https://www.instagram.com/p/Cmci5PXvmWa/?igsh=MTRtNWQ2d2FteDg4Zw==" data-interactive-cursor="true" className={`${styles.word} ${styles.expoLinkBlock}`}>
+											<span className={styles.animatableText}>GLITCH.ART.BR</span> <span className={`${styles.yearTag} ${styles.animatableText}`}>2023</span><br /><span className={`${styles.subText} ${styles.animatableText}`}>IV EDITION</span>
 										</a>
 									</li>
 									<li>
-										<a href="https://www.instagram.com/p/CrltMfmIPIw/?igsh=MThjcG9hZThlejgxYQ==" data-interactive-cursor="true">
-											<span className={styles.animatableText}>NIANGI</span> <span className={styles.yearTag}>2024</span><br /><span className={`${styles.subText} ${styles.animatableText}`}>ERROR IN CONTROL</span>
+										<a href="https://www.instagram.com/p/CrltMfmIPIw/?igsh=MThjcG9hZThlejgxYQ==" data-interactive-cursor="true" className={`${styles.word} ${styles.expoLinkBlock}`}>
+											<span className={styles.animatableText}>NIANGI</span> <span className={`${styles.yearTag} ${styles.animatableText}`}>2024</span><br /><span className={`${styles.subText} ${styles.animatableText}`}>ERROR IN CONTROL</span>
 										</a>
 									</li>
 									<li>
-										<a href="https://www.instagram.com/p/CqF0xxNosMk/?igsh=djNqc2gxZ245eWE0" data-interactive-cursor="true">
-											<span className={styles.animatableText}>FUBAR 2k24 Exhibition</span> <span className={styles.yearTag}>2024</span><br /><span className={`${styles.subText} ${styles.animatableText}`}>PROCRASTINATION</span>
+										<a href="https://www.instagram.com/p/CqF0xxNosMk/?igsh=djNqc2gxZ245eWE0" data-interactive-cursor="true" className={`${styles.word} ${styles.expoLinkBlock}`}>
+											<span className={styles.animatableText}>FUBAR 2k24 Exhibition</span> <span className={`${styles.yearTag} ${styles.animatableText}`}>2024</span><br /><span className={`${styles.subText} ${styles.animatableText}`}>PROCRASTINATION</span>
 										</a>
 									</li>
 									<li>
-										<a href="https://www.instagram.com/p/C_gPIjloB8r/" data-interactive-cursor="true">
-											<span className={styles.animatableText}>GLITCH.ART.BR </span> <span className={styles.yearTag}>2024</span><br /><span className={`${styles.subText} ${styles.animatableText}`}>V EDITION</span>
+										<a href="https://www.instagram.com/p/C_gPIjloB8r/" data-interactive-cursor="true" className={`${styles.word} ${styles.expoLinkBlock}`}>
+											<span className={styles.animatableText}>GLITCH.ART.BR </span> <span className={`${styles.yearTag} ${styles.animatableText}`}>2024</span><br /><span className={`${styles.subText} ${styles.animatableText}`}>V EDITION</span>
 										</a>
 									</li>
 									<li>
-										<a href="https://www.instagram.com/p/DA_yChPOIks/" data-interactive-cursor="true">
-											<span className={styles.animatableText}>Awita New York Studio</span> <span className={styles.yearTag}>2025</span><br /><span className={`${styles.subText} ${styles.animatableText}`}>2ND YEAR ANNIVERSARY</span>
+										<a href="https://www.instagram.com/p/DA_yChPOIks/" data-interactive-cursor="true" className={`${styles.word} ${styles.expoLinkBlock}`}>
+											<span className={styles.animatableText}>Awita New York Studio</span> <span className={`${styles.yearTag} ${styles.animatableText}`}>2025</span><br /><span className={`${styles.subText} ${styles.animatableText}`}>2ND YEAR ANNIVERSARY</span>
 										</a>
 									</li>
 								</ul>
