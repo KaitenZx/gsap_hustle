@@ -38,12 +38,12 @@ export const GlitchOverlay: React.FC = () => {
 		if (glitchType < 0.3) {
 			const numBlocks = Math.floor(Math.random() * 3) + 1; // Further reduced
 			for (let i = 0; i < numBlocks; i++) {
-				const x = Math.random() * width;
-				const y = Math.random() * height;
-				const w = Math.random() * (width / 12) + 5; // Further reduced width
-				const h = Math.random() * (height / 30) + 3; // Further reduced height
-				const shiftX = (Math.random() - 0.5) * 10; // Further reduced shift
-				const shiftY = (Math.random() - 0.5) * 3;  // Further reduced shift
+				const x = Math.floor(Math.random() * width);
+				const y = Math.floor(Math.random() * height);
+				const w = Math.floor(Math.random() * (width / 12) + 5); // Further reduced width
+				const h = Math.floor(Math.random() * (height / 30) + 3); // Further reduced height
+				const shiftX = Math.floor((Math.random() - 0.5) * 10); // Further reduced shift
+				const shiftY = Math.floor((Math.random() - 0.5) * 3);  // Further reduced shift
 
 				ctx.fillStyle = getRandomColor();
 				ctx.fillRect(x + shiftX, y + shiftY, w, h);
@@ -53,13 +53,13 @@ export const GlitchOverlay: React.FC = () => {
 		else if (glitchType < 0.6) {
 			const numLines = Math.floor(Math.random() * 4) + 2; // Further reduced lines
 			for (let i = 0; i < numLines; i++) {
-				const y = Math.random() * height;
-				const h = Math.random() * 1.0 + 0.25; // Further reduced thickness
-				const offsetX = (Math.random() - 0.5) * (width / 6); // Further reduced offset
-				const lineWidth = Math.random() * (width / 4) + (width / 6); // Further reduced width
+				const y = Math.floor(Math.random() * height);
+				const h = Math.floor(Math.random() * 1.0 + 0.25); // Further reduced thickness
+				const offsetX = Math.floor((Math.random() - 0.5) * (width / 6)); // Further reduced offset
+				const lineWidth = Math.floor(Math.random() * (width / 4) + (width / 6)); // Further reduced width
 				// Use GLITCH_COLORS for colored scanlines, or a more transparent white
 				ctx.fillStyle = Math.random() < 0.6 ? 'rgba(200, 200, 200, 0.03)' : getRandomColor(); // More transparent white
-				ctx.fillRect(offsetX + (Math.random() * width / 5), y, lineWidth, h);
+				ctx.fillRect(offsetX + Math.floor(Math.random() * width / 5), y, lineWidth, h);
 			}
 		}
 		// 3. Pixelation-like effect (large blocks) - SMALLER BLOCKS & MORE TRANSPARENT (via GLITCH_COLORS)
@@ -78,20 +78,20 @@ export const GlitchOverlay: React.FC = () => {
 		}
 		// 4. Jitter/Displacement - SMALLER TEXT & MORE TRANSPARENT (via GLITCH_COLORS)
 		else {
-			ctx.font = `${Math.random() * 7 + 6}px monospace`; // Further reduced font size
+			ctx.font = `${Math.floor(Math.random() * 7 + 6)}px monospace`; // Further reduced font size
 			ctx.fillStyle = getRandomColor();
 			if (Math.random() < 0.07) { // Further reduced text frequency
-				ctx.fillText("!ERR!", Math.random() * width, Math.random() * height); // Shorter text
+				ctx.fillText("!ERR!", Math.floor(Math.random() * width), Math.floor(Math.random() * height)); // Shorter text
 				// ctx.fillText("!LAG!", Math.random() * width, Math.random() * height);
 			}
 
-			const shiftX = (Math.random() - 0.5) * 5; // Further reduced shift
-			const shiftY = (Math.random() - 0.5) * 5; // Further reduced shift
+			const shiftX = Math.floor((Math.random() - 0.5) * 5); // Further reduced shift
+			const shiftY = Math.floor((Math.random() - 0.5) * 5); // Further reduced shift
 			ctx.globalAlpha = 0.3; // Further reduced opacity for ghosting
 			if (Math.random() < 0.2) { // Further reduced ghosting frequency
 				ctx.fillStyle = 'rgba(100, 100, 100, 0.01)'; // More transparent ghost
 				for (let k = 0; k < 2; k++) { // Fewer ghost blocks
-					ctx.fillRect(Math.random() * width + shiftX, Math.random() * height + shiftY, Math.random() * width / 4, Math.random() * height / 4); // Smaller ghost blocks
+					ctx.fillRect(Math.floor(Math.random() * width + shiftX), Math.floor(Math.random() * height + shiftY), Math.floor(Math.random() * width / 4), Math.floor(Math.random() * height / 4)); // Smaller ghost blocks
 				}
 			}
 			ctx.globalAlpha = 1.0;
