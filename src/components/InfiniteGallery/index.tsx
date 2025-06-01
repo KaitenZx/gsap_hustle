@@ -725,14 +725,43 @@ export const InfiniteGallery: React.FC = () => {
 					onChangeY: (self) => {
 						handleScrollActivity();
 						const dims = dimensionsRef.current;
+						const isPinned = isScrollLockedRef.current; // Snapshot current pinned state
 
-						if (!isScrollLockedRef.current || !dims || !contentWrapperElement) return;
-						// Для DRAG: Пропускаем, если горизонтальный скролл преобладает
+						// Check if trying to scroll "up" past the gallery's internal top boundary WHILE PINNED
+						if (isPinned && dims && self.deltaY < 0 && Math.abs(dims.wrapY(currentActualYRef.current)) < 5) {
+							// Conditions:
+							// 1. Gallery is currently pinned.
+							// 2. Dimensions are available.
+							// 3. User is scrolling/swiping up (deltaY < 0 for both wheel and typical touch).
+							// 4. The visual content of the gallery is at its top edge (wrapped Y position is near 0).
+
+							// Action: Allow the page to scroll to exit the pinned state.
+							// This involves setting scrollLocked to false, which will:
+							// - set touch-action: auto (for touch)
+							// - disable the GSAP Observer
+							// - ensure preventDefault is NOT called for the current wheel event
+							if (scrollTriggerInstance.current?.isActive) { // Ensure ST believes it's active
+								setScrollLocked(false);
+							}
+							// Do not process internal scroll for this event; let the page scroll.
+							return;
+						}
+
+						// --- Normal internal scroll processing ---
+						// Guard: if the gallery is not locked (Observer should be disabled), or no dims, do nothing.
+						if (!isScrollLockedRef.current || !dims || !contentWrapperElement) {
+							return;
+						}
+						// Redundant check, as observer should be disabled if not pinned, but good for safety:
+						// if (!isScrollLockedRef.current) return; // This line becomes redundant due to the above check
+
+
+						// For DRAG: Skip if horizontal scroll prevails
 						if (self.isDragging && Math.abs(self.deltaY) < Math.abs(self.deltaX)) return;
 
-						// Предотвращаем стандартное вертикальное поведение (скролл страницы) только для колеса
+						// Prevent default for wheel when locked (isScrollLockedRef.current is now reliable for this event)
 						if (self.event.type === 'wheel' && isScrollLockedRef.current) {
-							if (self.event.cancelable) { // <<< ADDED cancelable check
+							if (self.event.cancelable) {
 								self.event.preventDefault();
 							}
 						}
