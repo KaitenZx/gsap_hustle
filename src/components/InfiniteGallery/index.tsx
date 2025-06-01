@@ -156,8 +156,8 @@ export const InfiniteGallery: React.FC = () => {
 	// <<< Используем number для ID таймаута >>>
 	const scrollStopTimeoutRef = useRef<number | null>(null);
 
-	// <<< Ref для ID анимации (больше не используется в этом компоненте) >>>
-	// const animationFrameIdRef = useRef<number | null>(null);
+	// <<< ADDED: Ref for scroll out attempt >>>
+	const isAttemptingScrollUpOutRef = useRef(false);
 
 	// <<< ADDED: Memoized touch device detection >>>
 	const isTouchDevice = useMemo(() => getIsTouchDevice(), []);
@@ -229,12 +229,17 @@ export const InfiniteGallery: React.FC = () => {
 
 			const containerElement = containerRef.current;
 
-			if (locked) {
-				observerInstance.current?.enable();
-				if (containerElement) containerElement.style.touchAction = 'none';
-			} else {
-				observerInstance.current?.disable();
-				if (containerElement) containerElement.style.touchAction = 'auto';
+			if (containerElement) {
+				if (locked) {
+					observerInstance.current?.enable();
+					containerElement.style.touchAction = 'none';
+					isAttemptingScrollUpOutRef.current = false; // Reset on lock
+				} else {
+					observerInstance.current?.disable();
+					containerElement.style.touchAction = 'auto';
+					// No need to explicitly reset isAttemptingScrollUpOutRef here,
+					// it's reset when re-locked or if the logic in onChangeY resets it.
+				}
 			}
 			document.body.classList.toggle('ifg-locked', locked);
 		}
@@ -729,13 +734,32 @@ export const InfiniteGallery: React.FC = () => {
 						// Для DRAG: Пропускаем, если горизонтальный скролл преобладает
 						if (self.isDragging && Math.abs(self.deltaY) < Math.abs(self.deltaX)) return;
 
-						// Предотвращаем стандартное вертикальное поведение (скролл страницы)
-						if (isScrollLockedRef.current) { // Applicable for both wheel and touch
-							if (self.event.cancelable) { // <<< ADDED cancelable check
-								self.event.preventDefault();
+						let shouldPreventDefault = true;
+
+						if (isScrollLockedRef.current && (self.event.type === 'touch' || self.event.type === 'pointer') && self.deltaY < 0) {
+							const currentWrappedY = dims.wrapY(currentActualYRef.current);
+							if (currentWrappedY > -5) { // Near the top and swiping up
+								shouldPreventDefault = false;
+								if (containerRef.current) {
+									containerRef.current.style.touchAction = 'auto';
+									isAttemptingScrollUpOutRef.current = true; // Mark the attempt
+								}
 							}
 						}
 
+						if (isScrollLockedRef.current) {
+							if (shouldPreventDefault) {
+								if (containerRef.current && isAttemptingScrollUpOutRef.current) {
+									containerRef.current.style.touchAction = 'none';
+									isAttemptingScrollUpOutRef.current = false;
+								}
+								if (self.event.cancelable) {
+									self.event.preventDefault();
+								}
+							}
+						}
+
+						// Обновление incrY и других состояний происходит здесь, ПОСЛЕ определения shouldPreventDefault
 						if (self.isDragging) { // <<< ADDED: Set drag flag if Observer detects dragging
 							didDragSincePressRef.current = true;
 						}
