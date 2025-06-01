@@ -627,10 +627,6 @@ export const InfiniteGallery: React.FC = () => {
 					if (!isTouchDevice) {
 						requestRotationUpdate();
 					}
-					// <<< ADDED: Ensure footer visibility is checked when all scrolling stops >>>
-					// This covers wheel scroll stops and drag stops where inertia might be minimal
-					// or for mobile touch drags that skipped the check in onChangeY.
-					throttledCheckFooterVisibilityRef.current?.();
 				}, 150);
 			};
 
@@ -730,9 +726,7 @@ export const InfiniteGallery: React.FC = () => {
 						if (self.isDragging && Math.abs(self.deltaY) < Math.abs(self.deltaX)) return;
 
 						// Предотвращаем стандартное вертикальное поведение (скролл страницы)
-						// MODIFIED: Only explicitly prevent default for wheel events.
-						// Rely on Observer's default behavior for touch/pointer drags.
-						if (self.event.type === 'wheel' && isScrollLockedRef.current) {
+						if (isScrollLockedRef.current) { // Applicable for both wheel and touch
 							if (self.event.cancelable) { // <<< ADDED cancelable check
 								self.event.preventDefault();
 							}
@@ -759,10 +753,7 @@ export const InfiniteGallery: React.FC = () => {
 						// No vertical preloading implemented in performPreload, so skipping here.
 
 						// Check for footer visibility
-						// <<< MODIFIED: Skip footer check during active touch-dragging on mobile to prevent jerkiness >>>
-						if (!(self.isDragging && isTouchDevice)) {
-							throttledCheckFooterVisibilityRef.current?.();
-						}
+						throttledCheckFooterVisibilityRef.current?.();
 					},
 					// <<< ADDED: onDragEnd for Inertia >>>
 					onDragEnd: (self) => {
