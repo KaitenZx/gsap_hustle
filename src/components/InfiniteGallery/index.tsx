@@ -156,8 +156,8 @@ export const InfiniteGallery: React.FC = () => {
 	// <<< Используем number для ID таймаута >>>
 	const scrollStopTimeoutRef = useRef<number | null>(null);
 
-	// <<< ADDED: Ref for scroll out attempt >>>
-	const isAttemptingScrollUpOutRef = useRef(false);
+	// <<< Ref для ID анимации (больше не используется в этом компоненте) >>>
+	// const animationFrameIdRef = useRef<number | null>(null);
 
 	// <<< ADDED: Memoized touch device detection >>>
 	const isTouchDevice = useMemo(() => getIsTouchDevice(), []);
@@ -227,19 +227,19 @@ export const InfiniteGallery: React.FC = () => {
 			setIsLockedState(locked); // Обновляем state для CSS
 			setIsGalleryPinned(locked); // <<< ADDED: Update context state
 
-			const containerElement = containerRef.current;
-
-			if (containerElement) {
+			// <<< ADDED: Dynamically set touch-action on the container >>>
+			if (containerRef.current) {
 				if (locked) {
-					observerInstance.current?.enable();
-					containerElement.style.touchAction = 'none';
-					isAttemptingScrollUpOutRef.current = false; // Reset on lock
+					containerRef.current.style.touchAction = 'pan-y'; // Allow vertical pan when locked
 				} else {
-					observerInstance.current?.disable();
-					containerElement.style.touchAction = 'auto';
-					// No need to explicitly reset isAttemptingScrollUpOutRef here,
-					// it's reset when re-locked or if the logic in onChangeY resets it.
+					containerRef.current.style.touchAction = 'auto'; // Default behavior when not locked
 				}
+			}
+
+			if (locked) {
+				observerInstance.current?.enable();
+			} else {
+				observerInstance.current?.disable();
 			}
 			document.body.classList.toggle('ifg-locked', locked);
 		}
@@ -422,6 +422,8 @@ export const InfiniteGallery: React.FC = () => {
 	useLayoutEffect(() => {
 		const containerElement = containerRef.current;
 		const contentWrapperElement = contentWrapperRef.current;
+		// <<< ADDED: Capture containerRef.current for cleanup >>>
+		const currentContainerForCleanup = containerRef.current;
 
 		if (!containerElement || !contentWrapperElement || isInitialized.current) {
 			return;
@@ -731,35 +733,33 @@ export const InfiniteGallery: React.FC = () => {
 						const dims = dimensionsRef.current;
 
 						if (!isScrollLockedRef.current || !dims || !contentWrapperElement) return;
+
+						// <<< MODIFIED: Allow upward swipe to unpin if at the top of the gallery >>>
+						if (
+							(self.event.type === 'touch' || self.event.type === 'pointer') &&
+							isScrollLockedRef.current &&
+							incrY.current >= -10 && // Allow a small tolerance from the very top
+							self.deltaY < 0 // Swiping finger upwards
+						) {
+							// Kill any vertical inertia if we are trying to unpin
+							inertiaYTweenRef.current?.kill();
+							// DO NOT preventDefault here. Let the browser scroll the page.
+							// DO NOT update incrY.current.
+							// The browser's scroll should trigger ScrollTrigger to unpin.
+							return;
+						}
+
 						// Для DRAG: Пропускаем, если горизонтальный скролл преобладает
 						if (self.isDragging && Math.abs(self.deltaY) < Math.abs(self.deltaX)) return;
 
-						let shouldPreventDefault = true;
-
-						if (isScrollLockedRef.current && (self.event.type === 'touch' || self.event.type === 'pointer') && self.deltaY < 0) {
-							const currentWrappedY = dims.wrapY(currentActualYRef.current);
-							if (currentWrappedY > -5) { // Near the top and swiping up
-								shouldPreventDefault = false;
-								if (containerRef.current) {
-									containerRef.current.style.touchAction = 'auto';
-									isAttemptingScrollUpOutRef.current = true; // Mark the attempt
-								}
+						// Предотвращаем стандартное вертикальное поведение (скролл страницы)
+						// This will now only be reached if the above condition for unpinning is false
+						if (isScrollLockedRef.current) { // Applicable for both wheel and touch
+							if (self.event.cancelable) { // <<< ADDED cancelable check
+								self.event.preventDefault();
 							}
 						}
 
-						if (isScrollLockedRef.current) {
-							if (shouldPreventDefault) {
-								if (containerRef.current && isAttemptingScrollUpOutRef.current) {
-									containerRef.current.style.touchAction = 'none';
-									isAttemptingScrollUpOutRef.current = false;
-								}
-								if (self.event.cancelable) {
-									self.event.preventDefault();
-								}
-							}
-						}
-
-						// Обновление incrY и других состояний происходит здесь, ПОСЛЕ определения shouldPreventDefault
 						if (self.isDragging) { // <<< ADDED: Set drag flag if Observer detects dragging
 							didDragSincePressRef.current = true;
 						}
@@ -1045,6 +1045,11 @@ export const InfiniteGallery: React.FC = () => {
 			// <<< ADDED: Kill inertia tweens on unmount >>>
 			inertiaXTweenRef.current?.kill();
 			inertiaYTweenRef.current?.kill();
+
+			// <<< ADDED: Reset touch-action on unmount >>>
+			if (currentContainerForCleanup) {
+				currentContainerForCleanup.style.touchAction = 'auto';
+			}
 		};
 		// <<< Обновлены зависимости (убраны minY/maxY/scrollableDistanceY если они где-то были косвенно) >>>
 	}, [setScrollLocked, renderColsCount, performPreload, lerpStep, checkFooterVisibility, isTouchDevice, setIsGalleryPinned]); // <<< ADDED setIsGalleryPinned dependency
