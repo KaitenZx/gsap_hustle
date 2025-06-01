@@ -627,6 +627,10 @@ export const InfiniteGallery: React.FC = () => {
 					if (!isTouchDevice) {
 						requestRotationUpdate();
 					}
+					// <<< ADDED: Ensure footer visibility is checked when all scrolling stops >>>
+					// This covers wheel scroll stops and drag stops where inertia might be minimal
+					// or for mobile touch drags that skipped the check in onChangeY.
+					throttledCheckFooterVisibilityRef.current?.();
 				}, 150);
 			};
 
@@ -753,7 +757,10 @@ export const InfiniteGallery: React.FC = () => {
 						// No vertical preloading implemented in performPreload, so skipping here.
 
 						// Check for footer visibility
-						throttledCheckFooterVisibilityRef.current?.();
+						// <<< MODIFIED: Skip footer check during active touch-dragging on mobile to prevent jerkiness >>>
+						if (!(self.isDragging && isTouchDevice)) {
+							throttledCheckFooterVisibilityRef.current?.();
+						}
 					},
 					// <<< ADDED: onDragEnd for Inertia >>>
 					onDragEnd: (self) => {
