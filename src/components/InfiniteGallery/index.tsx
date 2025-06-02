@@ -231,10 +231,10 @@ export const InfiniteGallery: React.FC = () => {
 
 			if (locked) {
 				observerInstance.current?.enable();
-				if (containerElement) containerElement.style.touchAction = 'none'; // <<< ADDED
+				if (containerElement) containerElement.style.touchAction = 'pan-y'; // <<< MODIFIED
 			} else {
 				observerInstance.current?.disable();
-				if (containerElement) containerElement.style.touchAction = ''; // <<< ADDED (revert to default)
+				if (containerElement) containerElement.style.touchAction = ''; // <<< REMAINS a.s is
 			}
 			document.body.classList.toggle('ifg-locked', locked);
 		}
