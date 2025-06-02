@@ -14,7 +14,7 @@ $column-gap: 2vw;
 	perspective: 400vh;
 	contain: layout paint;
 	user-select: none;
-	touch-action: pan-x pan-y;
+	touch-action: pan-down
 }
 
 .contentWrapper {
