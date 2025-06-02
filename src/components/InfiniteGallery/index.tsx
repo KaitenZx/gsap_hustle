@@ -729,12 +729,19 @@ export const InfiniteGallery: React.FC = () => {
 						// Для DRAG: Пропускаем, если горизонтальный скролл преобладает
 						if (self.isDragging && Math.abs(self.deltaY) < Math.abs(self.deltaX)) return;
 
-						// Предотвращаем стандартное вертикальное поведение (скролл страницы)
-						if (isScrollLockedRef.current) { // Applicable for both wheel and touch
-							if (self.event.cancelable) { // <<< ADDED cancelable check
-								self.event.preventDefault();
+						// --- MODIFIED preventDefault LOGIC ---
+						if (isScrollLockedRef.current) {
+							// If it's a touch/pointer DRAG, prevent default to let Observer handle Y scrolling smoothly.
+							// This stops the browser from trying to pan-y the page simultaneously.
+							if (self.isDragging) { // This implies touch or pointer
+								if (self.event.cancelable) {
+									self.event.preventDefault();
+								}
 							}
+							// For WHEEL events (where self.isDragging is false), DO NOT prevent default.
+							// This allows the wheel event to scroll the page, thus enabling unpinning via wheel.
 						}
+						// --- END MODIFIED preventDefault LOGIC ---
 
 						if (self.isDragging) { // <<< ADDED: Set drag flag if Observer detects dragging
 							didDragSincePressRef.current = true;
