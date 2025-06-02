@@ -227,14 +227,10 @@ export const InfiniteGallery: React.FC = () => {
 			setIsLockedState(locked); // Обновляем state для CSS
 			setIsGalleryPinned(locked); // <<< ADDED: Update context state
 
-			const containerElement = containerRef.current;
-
 			if (locked) {
 				observerInstance.current?.enable();
-				if (containerElement) containerElement.style.touchAction = 'pan-y'; // <<< MODIFIED
 			} else {
 				observerInstance.current?.disable();
-				if (containerElement) containerElement.style.touchAction = ''; // <<< REMAINS a.s is
 			}
 			document.body.classList.toggle('ifg-locked', locked);
 		}
@@ -639,7 +635,7 @@ export const InfiniteGallery: React.FC = () => {
 				observerInstance.current = Observer.create({
 					target: containerElement,
 					type: "wheel,touch,pointer",
-					// preventDefault: ["wheel", "touch", "pointer"], // Reverted due to TS error, default is false
+					preventDefault: true,
 					tolerance: 5,
 					dragMinimum: 3,
 					// <<< ADDED: onPress to kill ongoing inertia >>>
@@ -668,14 +664,6 @@ export const InfiniteGallery: React.FC = () => {
 
 						// Для DRAG: Пропускаем, если вертикальный скролл преобладает
 						if (self.isDragging && Math.abs(self.deltaX) < Math.abs(self.deltaY)) return;
-
-
-						// Предотвращаем стандартный горизонтальный скролл колесом, КОГДА ГАЛЕРЕЯ ЗАБЛОКИРОВАНА
-						if (self.event.type === 'wheel' && isScrollLockedRef.current) {
-							if (self.event.cancelable) { // <<< ADDED cancelable check
-								self.event.preventDefault();
-							}
-						}
 
 						if (self.isDragging) { // <<< ADDED: Set drag flag if Observer detects dragging
 							didDragSincePressRef.current = true;
@@ -728,20 +716,6 @@ export const InfiniteGallery: React.FC = () => {
 						if (!isScrollLockedRef.current || !dims || !contentWrapperElement) return;
 						// Для DRAG: Пропускаем, если горизонтальный скролл преобладает
 						if (self.isDragging && Math.abs(self.deltaY) < Math.abs(self.deltaX)) return;
-
-						// --- MODIFIED preventDefault LOGIC ---
-						if (isScrollLockedRef.current) {
-							// If it's a touch/pointer DRAG, prevent default to let Observer handle Y scrolling smoothly.
-							// This stops the browser from trying to pan-y the page simultaneously.
-							if (self.isDragging) { // This implies touch or pointer
-								if (self.event.cancelable) {
-									self.event.preventDefault();
-								}
-							}
-							// For WHEEL events (where self.isDragging is false), DO NOT prevent default.
-							// This allows the wheel event to scroll the page, thus enabling unpinning via wheel.
-						}
-						// --- END MODIFIED preventDefault LOGIC ---
 
 						if (self.isDragging) { // <<< ADDED: Set drag flag if Observer detects dragging
 							didDragSincePressRef.current = true;
