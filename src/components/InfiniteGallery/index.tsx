@@ -227,6 +227,11 @@ export const InfiniteGallery: React.FC = () => {
 			setIsLockedState(locked); // Обновляем state для CSS
 			setIsGalleryPinned(locked); // <<< ADDED: Update context state
 
+			// <<< ADDED: Dynamically set touch-action on the container >>>
+			if (containerRef.current) {
+				containerRef.current.style.touchAction = locked ? 'none' : 'auto';
+			}
+
 			if (locked) {
 				observerInstance.current?.enable();
 			} else {
