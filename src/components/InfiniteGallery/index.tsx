@@ -716,7 +716,7 @@ export const InfiniteGallery: React.FC = () => {
 						}
 
 						// Check for footer visibility
-						throttledCheckFooterVisibilityRef.current?.();
+						// throttledCheckFooterVisibilityRef.current?.(); // <<< REMOVED
 					},
 					onChangeY: (self) => {
 						handleScrollActivity();
@@ -756,7 +756,7 @@ export const InfiniteGallery: React.FC = () => {
 						// No vertical preloading implemented in performPreload, so skipping here.
 
 						// Check for footer visibility
-						throttledCheckFooterVisibilityRef.current?.();
+						// throttledCheckFooterVisibilityRef.current?.(); // <<< REMOVED
 					},
 					// <<< ADDED: onDragEnd for Inertia >>>
 					onDragEnd: (self) => {
@@ -827,7 +827,7 @@ export const InfiniteGallery: React.FC = () => {
 								currentActualYRef.current = inertiaProxy.y;
 								gsap.set(contentWrapperElement, { y: dims.wrapY(currentActualYRef.current) });
 								// Check for footer visibility during vertical inertia update
-								throttledCheckFooterVisibilityRef.current?.();
+								// throttledCheckFooterVisibilityRef.current?.(); // <<< This should remain commented out for performance during tween
 							},
 							onComplete: () => {
 								if (dims) { // Ensure dims is still valid
@@ -835,6 +835,10 @@ export const InfiniteGallery: React.FC = () => {
 									currentActualYRef.current = inertiaProxy.y;
 								}
 								// Check for footer visibility on vertical inertia complete
+								throttledCheckFooterVisibilityRef.current?.(); // <<< THIS IS NOW ACTIVE
+							},
+							// <<< ADDED: onUp handler to catch non-inertia releases >>>
+							onUp: () => {
 								throttledCheckFooterVisibilityRef.current?.();
 							}
 						});
