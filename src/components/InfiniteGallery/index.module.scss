@@ -13,7 +13,8 @@ $column-gap: 2vw;
 	box-sizing: border-box;
 	perspective: 400vh;
 	contain: layout paint;
-	touch-action: unset;
+	user-select: none;
+	touch-action: pan-x pan-y;
 }
 
 .contentWrapper {
