@@ -229,7 +229,7 @@ export const InfiniteGallery: React.FC = () => {
 
 			// <<< ADDED: Dynamically set touch-action on the container >>>
 			if (containerRef.current) {
-				containerRef.current.style.touchAction = locked ? 'none' : 'auto';
+				containerRef.current.style.touchAction = locked ? 'pan-x pan-y' : 'auto';
 			}
 
 			if (locked) {
@@ -664,104 +664,98 @@ export const InfiniteGallery: React.FC = () => {
 						handleScrollActivity();
 						const dims = dimensionsRef.current;
 
-						// Пропускаем, если мы не заблокированы/не инициализированы
-						if (!isScrollLockedRef.current || !dims || !contentWrapperElement) return;
+						if (!isScrollLockedRef.current || !dims || !contentWrapperElement) {
+							return; // Not locked or no dims
+						}
 
-						// Для DRAG: Пропускаем, если вертикальный скролл преобладает
-						if (self.isDragging && Math.abs(self.deltaX) < Math.abs(self.deltaY)) return;
-
-						// <<< ADDED: Conditional preventDefault for X >>>
-						if (isScrollLockedRef.current && self.event.cancelable) {
-							if (self.event.type === 'wheel') {
-								self.event.preventDefault();
-							} else if ((self.event.type === 'touch' || self.event.type === 'pointer') && self.isDragging) {
-								self.event.preventDefault();
+						// Only process if horizontal movement is dominant or it's a wheel event
+						// For wheel, deltaY might be 0, so Math.abs(self.deltaX) >= Math.abs(self.deltaY) would be true.
+						// For touch, this ensures we only act if swipe is more horizontal than vertical.
+						if (self.event.type === "wheel" || (self.isDragging && Math.abs(self.deltaX) >= Math.abs(self.deltaY))) {
+							if (self.event.cancelable) {
+								self.event.preventDefault(); // We are handling this for internal horizontal scroll
 							}
+
+							if (self.isDragging) { didDragSincePressRef.current = true; }
+							const baseMultiplier = (self.event.type === "wheel" || !self.isDragging) ? 1 : 1.1;
+							// Corrected increment logic based on previous versions
+							const increment = self.deltaX * baseMultiplier;
+
+							if (self.event.type === "wheel") {
+								incrX.current -= increment;
+							} else { // Touch/Pointer
+								incrX.current += increment;
+							}
+
+							isLerpingActiveRef.current = true;
+							if (!lerpLoopIdRef.current) {
+								lerpLoopIdRef.current = requestAnimationFrame(lerpStep);
+							}
+
+							// --- Throttled Preload Logic (copied from original, ensure it's correct) ---
+							let preloadDirection: 1 | -1 = 1;
+							if (self.event.type === "wheel") {
+								if (self.deltaX > 0) preloadDirection = -1; // Content moves left (wheel "down" or "right")
+								else if (self.deltaX < 0) preloadDirection = 1; // Content moves right (wheel "up" or "left")
+							} else { // Touch
+								if (self.deltaX > 0) preloadDirection = 1;    // Content moves right (finger dragged right)
+								else if (self.deltaX < 0) preloadDirection = -1; // Content moves left (finger dragged left)
+							}
+							if (self.deltaX !== 0) {
+								throttledPreloadRef.current?.(preloadDirection);
+							}
+							// --- End Preload Logic ---
 						}
-
-						if (self.isDragging) { // <<< ADDED: Set drag flag if Observer detects dragging
-							didDragSincePressRef.current = true;
-						}
-
-						const baseMultiplier = (self.event.type === "wheel" || !self.isDragging) ? 1 : 1.1;
-						const increment = self.deltaX * baseMultiplier;
-
-						// Применяем инкремент с правильным знаком
-						// For wheel, positive deltaX usually means scrolling "right" (content moves left)
-						// For touch, positive deltaX means finger moved right (content moves right)
-						if (self.event.type === "wheel") {
-							incrX.current -= increment;
-						} else { // Touch/Pointer
-							incrX.current += increment;
-						}
-
-						// <<< LERPING: Activate and start loop if not already active >>>
-						isLerpingActiveRef.current = true;
-						if (!lerpLoopIdRef.current) {
-							lerpLoopIdRef.current = requestAnimationFrame(lerpStep);
-						}
-
-						// Предзагрузка (направление зависит от того, как движется КОНТЕНТ)
-						// Если incrX увеличивается, контент движется вправо (пользователь свайпнул вправо ИЛИ колесо "вниз/вправо")
-						// Если incrX уменьшается, контент движется влево (пользователь свайпнул влево ИЛИ колесо "вверх/влево")
-						// self.deltaX > 0: wheel down/right OR touch right.
-						// For wheel (incrX -= increment): if self.deltaX > 0, increment > 0, incrX decreases (content moves left) -> preload right (dir -1)
-						// For touch (incrX += increment): if self.deltaX > 0, increment > 0, incrX increases (content moves right) -> preload left (dir 1)
-
-						let preloadDirection: 1 | -1 = 1;
-						if (self.event.type === "wheel") {
-							if (self.deltaX > 0) preloadDirection = -1; // Content moves left
-							else if (self.deltaX < 0) preloadDirection = 1; // Content moves right
-						} else { // Touch
-							if (self.deltaX > 0) preloadDirection = 1; // Content moves right
-							else if (self.deltaX < 0) preloadDirection = -1; // Content moves left
-						}
-						if (self.deltaX !== 0) { // Only preload if there's horizontal movement
-							throttledPreloadRef.current?.(preloadDirection);
-						}
-
-						// Check for footer visibility
-						// throttledCheckFooterVisibilityRef.current?.(); // <<< REMOVED
+						// No footer check here, it's handled on onUp/inertiaComplete
 					},
 					onChangeY: (self) => {
 						handleScrollActivity();
 						const dims = dimensionsRef.current;
 
-						if (!isScrollLockedRef.current || !dims || !contentWrapperElement) return;
-						// Для DRAG: Пропускаем, если горизонтальный скролл преобладает
-						if (self.isDragging && Math.abs(self.deltaY) < Math.abs(self.deltaX)) return;
+						if (!isScrollLockedRef.current || !dims || !contentWrapperElement) {
+							return; // Not locked or no dims
+						}
 
-						// <<< ADDED: Conditional preventDefault for Y >>>
-						if (isScrollLockedRef.current && self.event.cancelable) {
-							if (self.event.type === 'wheel') {
-								self.event.preventDefault();
-							} else if ((self.event.type === 'touch' || self.event.type === 'pointer') && self.isDragging) {
-								self.event.preventDefault();
+						const isAttemptingScrollPageUp = self.deltaY < 0; // Finger/wheel moves up
+						const isGalleryContentAtTop = currentActualYRef.current >= -2; // Threshold for top
+
+						if (isAttemptingScrollPageUp && isGalleryContentAtTop) {
+							// ATTEMPT TO UNPIN: Gallery is pinned, user is trying to scroll up, and gallery content is at its top.
+							// DO NOT call self.event.preventDefault().
+							// DO NOT update incrY or currentActualY.
+							// Let the browser handle this gesture, which should scroll the main page due to `touch-action: pan-x pan-y`
+							// (or `auto`) and the gallery container not being internally scrollable upwards further.
+							// The main page scroll will be picked up by Lenis, then ScrollTrigger, to unpin.
+							// console.log('Attempting to scroll page up to unpin...');
+							return; // Explicitly do nothing else in Observer for this specific case.
+						} else {
+							// NORMAL INTERNAL GALLERY SCROLL (not at top, or scrolling down)
+							// Only process if vertical movement is dominant or it's a wheel event.
+							if (self.event.type === "wheel" || (self.isDragging && Math.abs(self.deltaY) >= Math.abs(self.deltaX))) {
+								if (self.event.cancelable) {
+									self.event.preventDefault(); // We are handling this for internal vertical scroll
+								}
+
+								if (self.isDragging) { didDragSincePressRef.current = true; }
+								const baseMultiplier = (self.event.type === "wheel" || !self.isDragging) ? 1 : 1.1;
+								const increment = self.deltaY * baseMultiplier;
+
+								if (self.event.type === "wheel") {
+									incrY.current -= increment;
+								} else { // Touch/Pointer
+									incrY.current += increment;
+								}
+
+								isLerpingActiveRef.current = true;
+								if (!lerpLoopIdRef.current) {
+									lerpLoopIdRef.current = requestAnimationFrame(lerpStep);
+								}
+							} else {
+								// Vertical movement is not dominant during a drag, do nothing for Y scroll.
+								return;
 							}
 						}
-
-						if (self.isDragging) { // <<< ADDED: Set drag flag if Observer detects dragging
-							didDragSincePressRef.current = true;
-						}
-
-						const baseMultiplier = (self.event.type === "wheel" || !self.isDragging) ? 1 : 1.1;
-						const increment = self.deltaY * baseMultiplier;
-
-						if (self.event.type === "wheel") {
-							incrY.current -= increment;
-						} else { // Touch/Pointer
-							incrY.current += increment;
-						}
-
-						// <<< LERPING: Activate and start loop if not already active >>>
-						isLerpingActiveRef.current = true;
-						if (!lerpLoopIdRef.current) {
-							lerpLoopIdRef.current = requestAnimationFrame(lerpStep);
-						}
-						// No vertical preloading implemented in performPreload, so skipping here.
-
-						// Check for footer visibility
-						// throttledCheckFooterVisibilityRef.current?.(); // <<< REMOVED
+						// Footer visibility check is still deferred to onUp and inertia onComplete
 					},
 					// <<< ADDED: onDragEnd for Inertia >>>
 					onDragEnd: (self) => {
