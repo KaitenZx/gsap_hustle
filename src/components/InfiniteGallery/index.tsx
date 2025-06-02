@@ -227,10 +227,25 @@ export const InfiniteGallery: React.FC = () => {
 			setIsLockedState(locked); // Обновляем state для CSS
 			setIsGalleryPinned(locked); // <<< ADDED: Update context state
 
-			if (locked) {
-				observerInstance.current?.enable();
+			if (containerRef.current) {
+				if (locked) {
+					// When gallery is locked/pinned, prevent browser's default touch actions
+					// on the gallery container to avoid conflicts with GSAP Observer during internal scroll.
+					containerRef.current.style.touchAction = 'none';
+					observerInstance.current?.enable();
+				} else {
+					// When gallery is unlocked, restore default browser touch actions
+					// to allow page scrolling and proper unpinning.
+					containerRef.current.style.touchAction = 'auto';
+					observerInstance.current?.disable();
+				}
 			} else {
-				observerInstance.current?.disable();
+				// Fallback if containerRef is not yet available (should be rare in this flow)
+				if (locked) {
+					observerInstance.current?.enable();
+				} else {
+					observerInstance.current?.disable();
+				}
 			}
 			document.body.classList.toggle('ifg-locked', locked);
 		}
