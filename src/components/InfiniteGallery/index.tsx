@@ -227,19 +227,14 @@ export const InfiniteGallery: React.FC = () => {
 			setIsLockedState(locked); // Обновляем state для CSS
 			setIsGalleryPinned(locked); // <<< ADDED: Update context state
 
-			// <<< ADDED: Dynamically set touch-action on the container >>>
-			if (containerRef.current) {
-				if (locked) {
-					containerRef.current.style.touchAction = 'pan-y'; // Allow vertical pan when locked
-				} else {
-					containerRef.current.style.touchAction = 'auto'; // Default behavior when not locked
-				}
-			}
+			const containerElement = containerRef.current;
 
 			if (locked) {
 				observerInstance.current?.enable();
+				if (containerElement) containerElement.style.touchAction = 'none'; // <<< ADDED
 			} else {
 				observerInstance.current?.disable();
+				if (containerElement) containerElement.style.touchAction = ''; // <<< ADDED (revert to default)
 			}
 			document.body.classList.toggle('ifg-locked', locked);
 		}
@@ -422,8 +417,6 @@ export const InfiniteGallery: React.FC = () => {
 	useLayoutEffect(() => {
 		const containerElement = containerRef.current;
 		const contentWrapperElement = contentWrapperRef.current;
-		// <<< ADDED: Capture containerRef.current for cleanup >>>
-		const currentContainerForCleanup = containerRef.current;
 
 		if (!containerElement || !contentWrapperElement || isInitialized.current) {
 			return;
@@ -733,27 +726,10 @@ export const InfiniteGallery: React.FC = () => {
 						const dims = dimensionsRef.current;
 
 						if (!isScrollLockedRef.current || !dims || !contentWrapperElement) return;
-
-						// <<< MODIFIED: Allow upward swipe to unpin if at the top of the gallery >>>
-						if (
-							(self.event.type === 'touch' || self.event.type === 'pointer') &&
-							isScrollLockedRef.current &&
-							incrY.current >= -10 && // Allow a small tolerance from the very top
-							self.deltaY < 0 // Swiping finger upwards
-						) {
-							// Kill any vertical inertia if we are trying to unpin
-							inertiaYTweenRef.current?.kill();
-							// DO NOT preventDefault here. Let the browser scroll the page.
-							// DO NOT update incrY.current.
-							// The browser's scroll should trigger ScrollTrigger to unpin.
-							return;
-						}
-
 						// Для DRAG: Пропускаем, если горизонтальный скролл преобладает
 						if (self.isDragging && Math.abs(self.deltaY) < Math.abs(self.deltaX)) return;
 
 						// Предотвращаем стандартное вертикальное поведение (скролл страницы)
-						// This will now only be reached if the above condition for unpinning is false
 						if (isScrollLockedRef.current) { // Applicable for both wheel and touch
 							if (self.event.cancelable) { // <<< ADDED cancelable check
 								self.event.preventDefault();
@@ -1045,11 +1021,6 @@ export const InfiniteGallery: React.FC = () => {
 			// <<< ADDED: Kill inertia tweens on unmount >>>
 			inertiaXTweenRef.current?.kill();
 			inertiaYTweenRef.current?.kill();
-
-			// <<< ADDED: Reset touch-action on unmount >>>
-			if (currentContainerForCleanup) {
-				currentContainerForCleanup.style.touchAction = 'auto';
-			}
 		};
 		// <<< Обновлены зависимости (убраны minY/maxY/scrollableDistanceY если они где-то были косвенно) >>>
 	}, [setScrollLocked, renderColsCount, performPreload, lerpStep, checkFooterVisibility, isTouchDevice, setIsGalleryPinned]); // <<< ADDED setIsGalleryPinned dependency
