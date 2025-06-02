@@ -635,7 +635,7 @@ export const InfiniteGallery: React.FC = () => {
 				observerInstance.current = Observer.create({
 					target: containerElement,
 					type: "wheel,touch,pointer",
-					preventDefault: true,
+					preventDefault: false,
 					tolerance: 5,
 					dragMinimum: 3,
 					// <<< ADDED: onPress to kill ongoing inertia >>>
@@ -664,6 +664,15 @@ export const InfiniteGallery: React.FC = () => {
 
 						// Для DRAG: Пропускаем, если вертикальный скролл преобладает
 						if (self.isDragging && Math.abs(self.deltaX) < Math.abs(self.deltaY)) return;
+
+						// <<< ADDED: Conditional preventDefault for X >>>
+						if (isScrollLockedRef.current && self.event.cancelable) {
+							if (self.event.type === 'wheel') {
+								self.event.preventDefault();
+							} else if ((self.event.type === 'touch' || self.event.type === 'pointer') && self.isDragging) {
+								self.event.preventDefault();
+							}
+						}
 
 						if (self.isDragging) { // <<< ADDED: Set drag flag if Observer detects dragging
 							didDragSincePressRef.current = true;
@@ -716,6 +725,15 @@ export const InfiniteGallery: React.FC = () => {
 						if (!isScrollLockedRef.current || !dims || !contentWrapperElement) return;
 						// Для DRAG: Пропускаем, если горизонтальный скролл преобладает
 						if (self.isDragging && Math.abs(self.deltaY) < Math.abs(self.deltaX)) return;
+
+						// <<< ADDED: Conditional preventDefault for Y >>>
+						if (isScrollLockedRef.current && self.event.cancelable) {
+							if (self.event.type === 'wheel') {
+								self.event.preventDefault();
+							} else if ((self.event.type === 'touch' || self.event.type === 'pointer') && self.isDragging) {
+								self.event.preventDefault();
+							}
+						}
 
 						if (self.isDragging) { // <<< ADDED: Set drag flag if Observer detects dragging
 							didDragSincePressRef.current = true;
