@@ -117,6 +117,8 @@ export default [
       '@typescript-eslint/no-unsafe-member-access': 'warn',
       '@typescript-eslint/no-unsafe-return': 'warn',
       '@typescript-eslint/no-magic-numbers': 'off', // Числа часто нужны в UI/анимациях
+      '@typescript-eslint/consistent-type-definitions': 'off',
+
 
       // React правила
       'react/react-in-jsx-scope': 'off', // Не нужно с новым JSX transform

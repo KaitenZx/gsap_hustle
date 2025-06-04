@@ -18,6 +18,7 @@ import TwitterIcon from '../../assets/icons/twitter_icon.svg?react';
 import { usePinState } from '../../context/PinStateContext'; // <<< ADDED
 import lqipMapData from '../../lqip-map.json';
 import { ImageModal } from '../ImageModal';
+import { ScrollUpButton } from '../ScrollUpButton';
 
 import { ITEMS, GalleryItem, ROWS, COLS } from './galleryData';
 import styles from './index.module.scss';
@@ -36,7 +37,7 @@ const ROTATION_SENSITIVITY = 18; // <<< Чувствительность пов�
 const LERP_FACTOR = 0.7; // <<< Увеличено для более отзывчивого скролла
 
 // --- Footer Visibility Constants ---
-const INTERNAL_FOOTER_THRESHOLD = -4000; // Pixels scrolled down internally
+const INTERNAL_FOOTER_THRESHOLD = -3000; // Pixels scrolled down internally
 const INTERNAL_FOOTER_HYSTERESIS = 500;  // Pixels to scroll back up before hiding
 
 // --- Функция для предзагрузки одного ИЗОБРАЖЕНИЯ ПРЕВЬЮ ---
@@ -94,7 +95,6 @@ type GridDimensions = {
 	wrapperPaddingLeft: number;       // <<< ADDED: Left padding of the content wrapper
 }
 
-// --- Тип для хранения данных анимации элемента ---
 type MediaAnimData = {
 	element: HTMLDivElement | null;
 	rotX: ReturnType<typeof gsap.quickTo> | null;
@@ -105,7 +105,6 @@ type MediaAnimData = {
 	lastRotY?: number;                // <<< ADDED: Last applied rotationY
 };
 
-// <<< ADDED: Helper to detect touch devices >>>
 const getIsTouchDevice = () => {
 	if (typeof window === 'undefined') return false;
 	return 'ontouchstart' in window || navigator.maxTouchPoints > 0;
@@ -175,6 +174,7 @@ export const InfiniteGallery: React.FC = () => {
 	const [showInternalFooter, setShowInternalFooter] = useState(false);
 	const internalFooterRef = useRef<HTMLDivElement>(null);
 	const showInternalFooterRef = useRef(showInternalFooter); // Ref to mirror state for stable callback
+	const [showScrollUpButton, setShowScrollUpButton] = useState(false); // <<< ADDED for ScrollUpButton
 
 	const { setIsGalleryPinned } = usePinState(); // <<< ADDED
 
@@ -183,16 +183,144 @@ export const InfiniteGallery: React.FC = () => {
 		showInternalFooterRef.current = showInternalFooter;
 	}, [showInternalFooter]);
 
+	// --- Функция Lerp Step ---
+	const lerpStep = useCallback(() => {
+		if (!isInitialized.current || !dimensionsRef.current || !contentWrapperRef.current) {
+			if (isLerpingActiveRef.current) {
+				lerpLoopIdRef.current = requestAnimationFrame(lerpStep);
+			} else {
+				lerpLoopIdRef.current = null;
+			}
+			return;
+		}
+
+		const dims = dimensionsRef.current;
+		const targetX = incrX.current;
+		const targetY = incrY.current;
+
+		let newActualX = currentActualXRef.current + (targetX - currentActualXRef.current) * LERP_FACTOR;
+		let newActualY = currentActualYRef.current + (targetY - currentActualYRef.current) * LERP_FACTOR;
+
+		const deltaThreshold = 0.01;
+
+		if (Math.abs(targetX - newActualX) < deltaThreshold) {
+			newActualX = targetX;
+		}
+		if (Math.abs(targetY - newActualY) < deltaThreshold) {
+			newActualY = targetY;
+		}
+
+		if (currentActualXRef.current !== newActualX || currentActualYRef.current !== newActualY) {
+			currentActualXRef.current = newActualX;
+			currentActualYRef.current = newActualY;
+
+			gsap.set(contentWrapperRef.current, {
+				x: dims.wrapX(currentActualXRef.current),
+				y: dims.wrapY(currentActualYRef.current),
+			});
+		}
+
+		if (isLerpingActiveRef.current) {
+			if (currentActualXRef.current !== targetX || currentActualYRef.current !== targetY) {
+				lerpLoopIdRef.current = requestAnimationFrame(lerpStep);
+			} else {
+				lerpLoopIdRef.current = null;
+			}
+		} else {
+			lerpLoopIdRef.current = null;
+		}
+	}, []); // LERP_FACTOR is a const, so no dependency needed
+
+	// --- useEffect for Lerping Loop (must be after lerpStep definition) ---
+	useEffect(() => {
+		if (isLerpingActiveRef.current && !lerpLoopIdRef.current) {
+			lerpLoopIdRef.current = requestAnimationFrame(lerpStep);
+		} else if (!isLerpingActiveRef.current && lerpLoopIdRef.current) {
+			cancelAnimationFrame(lerpLoopIdRef.current);
+			lerpLoopIdRef.current = null;
+		}
+		return () => {
+			if (lerpLoopIdRef.current) {
+				cancelAnimationFrame(lerpLoopIdRef.current);
+				lerpLoopIdRef.current = null;
+			}
+		};
+	}, [lerpStep]); // Dependency on lerpStep
+
 	// --- Функция для проверки видимости внутреннего футера ---
 	const checkFooterVisibility = useCallback(() => {
 		const yScrolled = incrY.current;
 
 		if (!showInternalFooterRef.current && yScrolled < INTERNAL_FOOTER_THRESHOLD) {
 			setShowInternalFooter(true);
+			setShowScrollUpButton(true);
 		} else if (showInternalFooterRef.current && yScrolled > INTERNAL_FOOTER_THRESHOLD + INTERNAL_FOOTER_HYSTERESIS) {
 			setShowInternalFooter(false);
+			setShowScrollUpButton(false);
 		}
 	}, []); // INTERNAL_FOOTER_THRESHOLD and HYSTERESIS are constants, so no deps needed
+
+	// <<< MODIFIED: Scroll Up Button Click Handler (must be after lerpStep definition) >>>
+	const handleScrollUpRequest = useCallback(() => {
+		// Activate lerping if not already active, so gallery items move smoothly
+		isLerpingActiveRef.current = true;
+		if (!lerpLoopIdRef.current) {
+			lerpLoopIdRef.current = requestAnimationFrame(lerpStep);
+		}
+
+		if (scrollTriggerInstance.current && typeof scrollTriggerInstance.current.start === 'number') {
+			const galleryPinStartScrollY = scrollTriggerInstance.current.start;
+			const twentyVhInPixels = window.innerHeight * 0.2;
+
+			// Corrected targetScrollY calculation:
+			// We want to scroll to a point that is 20vh *above* the gallery's unpin point.
+			// The gallery unpins when window.scrollY < galleryPinStartScrollY.
+			// So, we scroll to galleryPinStartScrollY, then subtract 20vh, and a small buffer.
+			let targetScrollY = galleryPinStartScrollY - twentyVhInPixels - 1;
+			targetScrollY = Math.max(0, targetScrollY); // Ensure not scrolling to a negative value
+
+			// Animate internal scroll target to 0; lerpStep will handle visual updates
+			gsap.to(incrY, {
+				current: 0,
+				duration: 1.5,
+				ease: 'none'
+			});
+
+			gsap.to(window, {
+				scrollTo: targetScrollY,
+				duration: 1.5,
+				ease: 'none',
+				onComplete: () => {
+					// Ensure the target for internal scroll is definitively 0.
+					// The incrY tween above should have already done this, but this is a safeguard.
+					incrY.current = 0;
+
+					// lerpStep is still active and will continue to run until currentActualYRef.current
+					// smoothly reaches incrY.current (which is now 0). 
+					// We no longer directly set currentActualYRef or the gallery's y position here,
+					// to allow lerpStep to provide a smooth finish for gallery items.
+
+					setShowInternalFooter(false);
+					setShowScrollUpButton(false);
+				}
+			});
+		} else {
+			// Fallback if ScrollTrigger isn't ready
+			gsap.to(incrY, { current: 0, duration: 1.5, ease: 'none' });
+
+			gsap.to(window, {
+				scrollTo: 0,
+				duration: 1.5,
+				ease: 'none',
+				onComplete: () => {
+					incrY.current = 0;
+					// Allow lerpStep to finish smoothly in fallback as well
+					setShowInternalFooter(false);
+					setShowScrollUpButton(false);
+				}
+			});
+		}
+	}, [setShowInternalFooter, setShowScrollUpButton, lerpStep]);
 
 	// --- Функция для предзагрузки ПРЕВЬЮ  ---
 	const performPreload = useCallback((scrollDirection: 1 | -1) => {
@@ -267,70 +395,6 @@ export const InfiniteGallery: React.FC = () => {
 	const handleInteractionStart = useCallback((fullSrc: string) => {
 		preloadFullImage(fullSrc);
 	}, []); // Empty dependencies, preloadFullImage is stable
-
-	// --- Функция Lerp Step ---
-	const lerpStep = useCallback(() => {
-		if (!isInitialized.current || !dimensionsRef.current || !contentWrapperRef.current) {
-			if (isLerpingActiveRef.current) {
-				lerpLoopIdRef.current = requestAnimationFrame(lerpStep);
-			} else {
-				lerpLoopIdRef.current = null;
-			}
-			return;
-		}
-
-		const dims = dimensionsRef.current;
-		const targetX = incrX.current;
-		const targetY = incrY.current;
-
-		let newActualX = currentActualXRef.current + (targetX - currentActualXRef.current) * LERP_FACTOR;
-		let newActualY = currentActualYRef.current + (targetY - currentActualYRef.current) * LERP_FACTOR;
-
-		const deltaThreshold = 0.01;
-
-		if (Math.abs(targetX - newActualX) < deltaThreshold) {
-			newActualX = targetX;
-		}
-		if (Math.abs(targetY - newActualY) < deltaThreshold) {
-			newActualY = targetY;
-		}
-
-		if (currentActualXRef.current !== newActualX || currentActualYRef.current !== newActualY) {
-			currentActualXRef.current = newActualX;
-			currentActualYRef.current = newActualY;
-
-			gsap.set(contentWrapperRef.current, {
-				x: dims.wrapX(currentActualXRef.current),
-				y: dims.wrapY(currentActualYRef.current),
-			});
-		}
-
-		if (isLerpingActiveRef.current) {
-			if (currentActualXRef.current !== targetX || currentActualYRef.current !== targetY) {
-				lerpLoopIdRef.current = requestAnimationFrame(lerpStep);
-			} else {
-				lerpLoopIdRef.current = null;
-			}
-		} else {
-			lerpLoopIdRef.current = null;
-		}
-	}, []); // LERP_FACTOR is a const, so no dependency needed
-
-	// --- useEffect for Lerping Loop ---
-	useEffect(() => {
-		if (isLerpingActiveRef.current && !lerpLoopIdRef.current) {
-			lerpLoopIdRef.current = requestAnimationFrame(lerpStep);
-		} else if (!isLerpingActiveRef.current && lerpLoopIdRef.current) {
-			cancelAnimationFrame(lerpLoopIdRef.current);
-			lerpLoopIdRef.current = null;
-		}
-		return () => {
-			if (lerpLoopIdRef.current) {
-				cancelAnimationFrame(lerpLoopIdRef.current);
-				lerpLoopIdRef.current = null;
-			}
-		};
-	}, [lerpStep]); // Dependency on lerpStep
 
 	// --- Функция рендеринга одной колонки  ---
 	const renderColumn = useCallback((columnIndex: number) => {
@@ -1117,13 +1181,7 @@ export const InfiniteGallery: React.FC = () => {
 		// We can throttle or debounce this if scroll events are too frequent for this message
 		const throttledSendScrollState = throttle(sendScrollState, 100);
 
-		// Example: If `isScrollingRef` is updated frequently elsewhere, you might need a way
-		// to trigger `sendScrollState` or `throttledSendScrollState`.
-		// For now, `isScrollingRef` changes during GSAP Observer's scroll activity handlers.
-		// The `scrollStopTimeoutRef` in GSAP context could be a place to also call `throttledSendScrollState`
-		// when scrolling stops and starts.
 
-		// Cleanup function
 		return () => {
 			resizeObserver.disconnect();
 			if (canvasWorkerRef.current) {
@@ -1174,15 +1232,16 @@ export const InfiniteGallery: React.FC = () => {
 					src={selectedItem.fullSrc}
 					alt={selectedItem.alt}
 					onClose={handleCloseModal}
-					// Добавляем логгирование перед доступом к lqipMap
 					placeholderSrc={(() => {
 						if (!selectedItem) return undefined;
 						const key = `/assets/full/${selectedItem.id}.webp`;
-						// Добавим проверку наличия ключа
 						return key in lqipMap ? lqipMap[key] : undefined;
 					})()}
 				/>
 			)}
+
+
+			<ScrollUpButton isVisible={showScrollUpButton} onClick={handleScrollUpRequest} />
 
 			{/* Внутренний футер галереи */}
 			<div

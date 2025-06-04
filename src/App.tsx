@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 
 import { gsap } from 'gsap';
+import { ScrollToPlugin } from 'gsap/ScrollToPlugin';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import Lenis from 'lenis';
 import debounce from 'lodash/debounce';
@@ -67,7 +68,7 @@ function AppContent() {
   useEffect(() => {
     if (typeof window === 'undefined') return; // Guard for SSR or other environments
 
-    gsap.registerPlugin(ScrollTrigger);
+    gsap.registerPlugin(ScrollTrigger, ScrollToPlugin);
 
     const setVisualViewportHeight = () => {
       if (window.visualViewport) {

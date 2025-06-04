@@ -68,7 +68,6 @@ const ScrollDownIndicator: React.FC = () => {
 			tabIndex={0}
 			onKeyDown={handleKeyDown}
 		>
-			{/* First arrow (top one, starts more transparent or syncs with animation state) */}
 			<span className={styles.arrowOne}>
 				<svg width="800px" height="800px" viewBox="0 0 16 16" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlnsXlink="http://www.w3.org/1999/xlink">
 					<rect width="16" height="16" id="icon-bound" fill="none" />

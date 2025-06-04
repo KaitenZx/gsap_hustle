@@ -1,24 +1,36 @@
-.scrollIndicatorContainer {
+.scrollUpButtonContainer {
 	position: fixed;
-	bottom: 30px;
+	/* Adjust position as needed, for now, let's place it somewhere else */
+	bottom: 100px;
 	left: 50%;
+	/* Removed to use right positioning */
 	width: 60px;
 	height: 60px;
 	transform: translateX(-50%);
 	z-index: 1000;
-	/* High enough to be on top of most content */
 	pointer-events: auto;
-	/* Allow clicks to pass through */
 	opacity: 0;
 	/* Start fully transparent */
 	transition: opacity 0.5s ease-in-out;
-	/* Smooth fade transition */
 	z-index: 500;
+
+	&:focus {
+		outline: none;
+	}
+
+	@media (max-width: 767px) {
+		bottom: 50px;
+		width: 40px;
+		height: 40px;
+	}
+
+	@media (min-width: 768px) and (max-width: 1023px) {
+		bottom: 100px;
+	}
 }
 
-.scrollIndicatorContainer.visible {
+.scrollUpButtonContainer.visible {
 	opacity: 1;
-	/* Fade in when visible */
 }
 
 .arrow {
@@ -27,6 +39,12 @@
 	display: block;
 	position: absolute;
 	left: 0;
+	animation: digital-glitch-arrow 2.5s infinite linear;
+
+	@media (max-width: 767px) {
+		width: 40px;
+		height: 40px;
+	}
 
 	svg {
 		width: 100%;
@@ -34,25 +52,21 @@
 
 		path {
 			fill: var(--text-color);
-			/* Theme-aware color */
 			transition: fill 0.3s ease;
-			/* Smooth color transition for theme changes */
 		}
 	}
-
-	animation: digital-glitch-arrow 2.5s infinite linear;
 }
 
-.arrowOne {
+/* Renamed from .arrowOne to .arrowUp */
+.arrowUp {
 	@extend .arrow;
-	bottom: 20px;
-	/* Positioned higher */
-	/* Initial opacity is set by the animation's 90%-100% state if animation starts immediately */
-	/* Or, if relying on animation to define opacity, ensure keyframes cover initial state */
+	/* bottom: 20px; */
+	/* Removed, default position from .arrow is fine */
 	animation-delay: 0.3s;
 }
 
 
+/* Reusing the same animation as it's direction-agnostic */
 @keyframes digital-glitch-arrow {
 
 	/* Adapted from digital-glitch-icon and combined with pulse */
