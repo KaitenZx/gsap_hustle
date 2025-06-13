@@ -90,37 +90,43 @@ export const AboutMe = () => {
 		charWidthRef.current = metrics.width;
 		aspectRef.current = charWidthRef.current > 0 ? charWidthRef.current / charHeightRef.current : 1;
 
-		// --- Recalculate cols/rows based on current container/window size --- 
+		// --- Recalculate cols/rows based on current container/window size ---
 		const container = aboutMeContainerRef.current;
-		if (container) {
+		const canvas = canvasRef.current; // Get canvas ref
+		if (container && canvas) { // Check both
 			const dpr = window.devicePixelRatio || 1;
 			dprRef.current = dpr;
-			const rect = container.getBoundingClientRect();
-			const newWidthFromContainer = rect.width;
-			const newHeightFromViewport = window.visualViewport ? window.visualViewport.height : window.innerHeight;
 
-			// Update canvas size based on container width and viewport height
-			const canvas = canvasRef.current;
-			if (canvas) {
-				// Preserve the context before resizing
-				ctx.save();
-				// Reset transform before setting new dimensions
-				ctx.setTransform(1, 0, 0, 1, 0, 0);
+			// Use getBoundingClientRect to get dimensions as rendered by CSS
+			const containerRect = container.getBoundingClientRect();
+			const canvasRect = canvas.getBoundingClientRect();
 
+			const newWidthFromContainer = containerRect.width;
+			// newHeight is now from the canvas element itself, which is styled with 100lvh
+			const newHeightFromCanvas = canvasRect.height;
+
+			// Update canvas size
+			// Preserve the context before resizing
+			ctx.save();
+			// Reset transform before setting new dimensions
+			ctx.setTransform(1, 0, 0, 1, 0, 0);
+
+			// Set drawing buffer size.
+			if (canvas.width !== Math.round(newWidthFromContainer * dpr) || canvas.height !== Math.round(newHeightFromCanvas * dpr)) {
 				canvas.width = newWidthFromContainer * dpr;
-				canvas.height = newHeightFromViewport * dpr;
-				canvas.style.width = `${newWidthFromContainer}px`;
-				canvas.style.height = `${newHeightFromViewport}px`;
-
-				// Restore context settings (like font, fillStyle etc.)
-				ctx.restore();
-				// Apply scaling for High DPI
-				ctx.scale(dpr, dpr);
+				canvas.height = newHeightFromCanvas * dpr;
 			}
+			// CRITICAL: We NO LONGER set canvas.style.width or canvas.style.height.
+			// This allows the CSS (`width: 100%`, `height: 100lvh`) to be the source of truth.
 
-			// Update grid dimensions
+			// Restore context settings (like font, fillStyle etc.)
+			ctx.restore();
+			// Apply scaling for High DPI
+			ctx.scale(dpr, dpr);
+
+			// Update grid dimensions using the new CSS-driven dimensions
 			colsRef.current = charWidthRef.current > 0 ? Math.ceil(newWidthFromContainer / charWidthRef.current) : 0;
-			rowsRef.current = charHeightRef.current > 0 ? Math.ceil(newHeightFromViewport / charHeightRef.current) : 0;
+			rowsRef.current = charHeightRef.current > 0 ? Math.ceil(newHeightFromCanvas / charHeightRef.current) : 0;
 
 			// --- Performance Cap for Large Screens ---
 			const MAX_COLS = 250; // Adjust as needed
@@ -182,26 +188,9 @@ export const AboutMe = () => {
 				wrapWordsInSpans(elementsToWrap);
 			}
 
-			// --- Add .word class to icons in the links column --- 
-			/*
-			const linkIcons: HTMLElement[] = Array.from(
-				pinnedTextContainerEl.querySelectorAll(`.${styles.linksColumn} .${styles.linkIcon}`)
-			).filter(el => el instanceof HTMLElement);
-			linkIcons.forEach(icon => icon.classList.add(styles.word));
-			*/
-			// --- End icon class addition ---
 
-			/* // Commented out as yearTag is now part of the animated <a> tag
-			const yearTagElements: HTMLElement[] = Array.from(pinnedTextContainerEl.querySelectorAll(`.${styles.yearTag}`))
-				.filter(el => el instanceof HTMLElement);
-			yearTagElements.forEach(tagEl => tagEl.classList.add(styles.word));
-			*/
-
-			// Select all elements that should be animated as individual "words" by GSAP
-			// This includes <a> tags with .expoLinkBlock and .word, 
-			// and all <span> tags with .word (created by wrapWordsInSpans or directly assigned like link icons)
 			const words: HTMLElement[] = Array.from(pinnedTextContainerEl.querySelectorAll(
-				`.${styles.word}` // Selects all elements that now have styles.word
+				`.${styles.word}`
 			)).filter(el => el instanceof HTMLElement);
 
 			if (words.length === 0) {

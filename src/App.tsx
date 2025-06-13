@@ -88,11 +88,9 @@ function AppContent() {
 
     setVisualViewportHeight(); // Первоначальная установка
 
-    // Событие resize на visualViewport для более точного отслеживания изменений
-    // связанных с клавиатурой, зумом и т.д.
-    if (window.visualViewport) {
-      window.visualViewport.addEventListener('resize', debouncedRefresh);
-    }
+    // Cобытие resize на visualViewport удалено, чтобы избежать лишних пересчетов
+    // при появлении/скрытии UI мобильного браузера, так как .lvh в CSS
+    // и новая логика canvas справляются с этим.
 
     // window.addEventListener('resize') все еще полезен для отлавливания
     // изменений размера окна, которые не всегда триггерят visualViewport.resize (например, поворот экрана)
@@ -101,9 +99,6 @@ function AppContent() {
 
 
     return () => {
-      if (window.visualViewport) {
-        window.visualViewport.removeEventListener('resize', debouncedRefresh);
-      }
       window.removeEventListener('resize', debouncedRefresh);
       window.removeEventListener('orientationchange', debouncedRefresh);
       debouncedRefresh.cancel();
