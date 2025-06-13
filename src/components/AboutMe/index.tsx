@@ -22,12 +22,17 @@ import { vec2, sub, Vec2, copy } from './utils/vec2';
 // Original density string
 const DENSITY_ORIGINAL = '#gLitCh?*:pxls×+=-· ';
 
+// Data for links column - moved outside component for performance
+const linksData = [
+	{ href: "https://www.instagram.com/glitchypixels/", text: "INSTAGRAM", iconComponent: InstagramIcon, alt: "Instagram Icon" },
+	{ href: "https://x.com/iamglitchypixel", text: "TWITTER", iconComponent: TwitterIcon, alt: "Twitter Icon" },
+	{ href: "https://www.reddit.com/user/iamglitchypixels/", text: "REDDIT", iconComponent: RedditIcon, alt: "Reddit Icon" },
+	{ href: "https://thehug.xyz/artists/glitchypixels", text: "THEHUG", iconComponent: TheHugIcon, alt: "TheHug Icon" },
+	{ href: "mailto:iamglitchypixel@gmail.com", text: "MAIL", iconComponent: EmailIcon, alt: "Email Icon" } // Corrected mailto link
+];
 
-
-// Scroll distance for dither/glitch fade animation
 const DITHER_FADE_VH = 100; // Fade out over the first 100vh of scrolling
 
-// Utility function to wrap words in spans - reinstated
 const wrapWordsInSpans = (elements: HTMLElement[]) => {
 	elements.forEach(element => {
 		if (!element?.textContent) return;
@@ -38,7 +43,6 @@ const wrapWordsInSpans = (elements: HTMLElement[]) => {
 	});
 };
 
-// Define scroll distances for animation and pause
 const TEXT_ANIM_SCROLL_DISTANCE_VH = 300; // Text animation happens over this scroll distance
 const PAUSE_SCROLL_DISTANCE_VH = 40;   // Pause lasts for this scroll distance
 
@@ -78,7 +82,6 @@ export const AboutMe = () => {
 	const backgroundColorRef = useRef('#000000'); // Ref for background color
 	const textColorRef = useRef('#FFFFFF');     // Ref for text color
 
-	// --- New Refs for Optimization ---
 	const mRef = useRef(40); // For Math.min(cols, rows)
 	const maxGlitchOffsetXRef = useRef(0);
 	const maxGlitchOffsetYRef = useRef(0);
@@ -86,7 +89,6 @@ export const AboutMe = () => {
 
 	const { setIsAboutMePinned } = usePinState();
 
-	// Moved calculateCharMetrics outside useEffect to be reusable
 	const calculateCharMetrics = (ctx: CanvasRenderingContext2D | null) => {
 		if (!ctx) return;
 		ctx.font = '16px "Alpha Lyrae", monospace'; // Use a consistent base size for measurement
@@ -99,7 +101,6 @@ export const AboutMe = () => {
 		charWidthRef.current = metrics.width;
 		aspectRef.current = charWidthRef.current > 0 ? charWidthRef.current / charHeightRef.current : 1;
 
-		// --- Recalculate cols/rows based on current container/window size ---
 		const container = aboutMeContainerRef.current;
 		const canvas = canvasRef.current; // Get canvas ref
 		if (container && canvas) { // Check both
@@ -111,13 +112,9 @@ export const AboutMe = () => {
 			const canvasRect = canvas.getBoundingClientRect();
 
 			const newWidthFromContainer = containerRect.width;
-			// newHeight is now from the canvas element itself, which is styled with 100lvh
 			const newHeightFromCanvas = canvasRect.height;
 
-			// Update canvas size
-			// Preserve the context before resizing
 			ctx.save();
-			// Reset transform before setting new dimensions
 			ctx.setTransform(1, 0, 0, 1, 0, 0);
 
 			// Set drawing buffer size.
@@ -125,12 +122,8 @@ export const AboutMe = () => {
 				canvas.width = newWidthFromContainer * dpr;
 				canvas.height = newHeightFromCanvas * dpr;
 			}
-			// CRITICAL: We NO LONGER set canvas.style.width or canvas.style.height.
-			// This allows the CSS (`width: 100%`, `height: 100lvh`) to be the source of truth.
 
-			// Restore context settings (like font, fillStyle etc.)
 			ctx.restore();
-			// Apply scaling for High DPI
 			ctx.scale(dpr, dpr);
 
 			// Update grid dimensions using the new CSS-driven dimensions
@@ -142,7 +135,6 @@ export const AboutMe = () => {
 			const MAX_ROWS = 120; // Adjust as needed
 			colsRef.current = Math.min(colsRef.current, MAX_COLS);
 			rowsRef.current = Math.min(rowsRef.current, MAX_ROWS);
-			// --- End Performance Cap ---
 
 			// --- Pre-calculate values for render loop ---
 			mRef.current = Math.min(colsRef.current, rowsRef.current);
@@ -171,8 +163,8 @@ export const AboutMe = () => {
 
 		let masterTimeline: gsap.core.Timeline | null = null;
 		let canvasPinScrollTrigger: ScrollTrigger | null = null;
-		let ditherScrollTrigger: ScrollTrigger | null = null; // Added: ScrollTrigger for dither
-		let textPinScrollTrigger: ScrollTrigger | null = null; // Added: Separate trigger for pinning text
+		let ditherScrollTrigger: ScrollTrigger | null = null;
+		let textPinScrollTrigger: ScrollTrigger | null = null;
 		let unpinFadeInScrollTrigger: ScrollTrigger | null = null;
 
 		// --- Dither Fade Animation ---
@@ -182,10 +174,8 @@ export const AboutMe = () => {
 			end: `+=${DITHER_FADE_VH}vh`, // End after scrolling DITHER_FADE_VH
 			scrub: true,
 			onUpdate: self => {
-				// Update glitch strength (1 -> 0)
 				ditherStrength.current = 1 - self.progress;
 
-				// Update canvas opacity (1 -> 0.4)
 				if (currentCanvasElement) {
 					const targetOpacity = 1 - self.progress * (1 - 0.4);
 					currentCanvasElement.style.opacity = targetOpacity.toFixed(2);
@@ -292,14 +282,12 @@ export const AboutMe = () => {
 			}
 
 
-			// Add all word animation tweens to the masterTimeline at the beginning (time 0)
-			// These animations will play out as the masterTimeline progresses through its first "segment"
 			if (wordAnimationTweens.length > 0) {
 				masterTimeline.add(wordAnimationTweens, 0);
 			} else {
 				// If no words to animate, ensure the text animation segment still "exists"
 				// with a tiny duration on the master timeline.
-				masterTimeline.to({}, { duration: 0.001 }, 0);
+				masterTimeline.to({}, { duration: 0.01 });
 			}
 
 
@@ -310,30 +298,27 @@ export const AboutMe = () => {
 			if (TEXT_ANIM_SCROLL_DISTANCE_VH > 0.001 && maxTextAnimationImplicitDuration > 0.0001) {
 				pauseTimelineDuration = maxTextAnimationImplicitDuration * (PAUSE_SCROLL_DISTANCE_VH / TEXT_ANIM_SCROLL_DISTANCE_VH);
 			} else if (PAUSE_SCROLL_DISTANCE_VH > 0) {
-				// If text animation part is effectively zero (or has no scroll distance assigned),
-				// but pause has scroll distance, give pause a default timeline duration (e.g., 1 unit).
-				// This means the pause will take up most/all of the scrubbed timeline.
 				pauseTimelineDuration = 1; // Arbitrary unit, makes sense if it's the only "active" part
 			}
 			pauseTimelineDuration = Math.max(0, pauseTimelineDuration); // Ensure non-negative
 
 
-			// Add an empty tween to the masterTimeline for the "pause"
-			// It starts after the text animations are meant to have finished on the timeline.
-			// The position is `maxTextAnimationImplicitDuration`.
-			// Its duration is `pauseTimelineDuration`.
 			if (pauseTimelineDuration > 0.0001) {
 				masterTimeline.to({}, { duration: pauseTimelineDuration }, maxTextAnimationImplicitDuration);
 			}
 
-			// Ensure the timeline has some minimal length if everything was zero
 			if (masterTimeline.duration() === 0) {
 				masterTimeline.to({}, { duration: 0.01 });
 			}
 
 		};
 
-		const timerId = setTimeout(initTextAnimation, 100);
+		document.fonts.ready.then(() => {
+			initTextAnimation();
+		}).catch(error => {
+			console.error('Font loading failed, initializing animation with fallback fonts:', error);
+			initTextAnimation();
+		});
 
 		// --- Animation for canvas fade-in on unpin ---
 		unpinFadeInScrollTrigger = ScrollTrigger.create({
@@ -341,12 +326,9 @@ export const AboutMe = () => {
 			start: "bottom bottom",
 			end: "bottom top",
 			scrub: true,
-			// markers: {startColor: "cyan", endColor: "cyan", indent: 200}, // For debugging
 			onUpdate: self => {
-				// ditherStrength was ~0, opacity was ~0.4 before this trigger became active.
-				// We want ditherStrength to go to 1, opacity to 1.
 
-				ditherStrength.current = self.progress; // progress is 0 (start) to 1 (end)
+				ditherStrength.current = self.progress;
 
 				const initialOpacity = 0.4; // The opacity state when this trigger begins
 				const targetOpacity = 1.0;
@@ -358,7 +340,6 @@ export const AboutMe = () => {
 		});
 
 		return () => {
-			clearTimeout(timerId);
 			if (masterTimeline) {
 				const st = masterTimeline.scrollTrigger;
 				if (st) { st.kill(); }
@@ -392,7 +373,6 @@ export const AboutMe = () => {
 		const animationActive = { current: false };
 		const isStaticRender = { current: false }; // Flag for one-off static render
 
-		// --- Style application function ---
 		// Reads CSS variables and applies static styles to the canvas context.
 		const updateAndApplyCanvasStyles = () => {
 			const computedStyles = getComputedStyle(document.documentElement);
@@ -426,24 +406,17 @@ export const AboutMe = () => {
 					x: touch.clientX - rect.left,
 					y: touch.clientY - rect.top,
 				};
-				// Optional: Prevent default touch action like scrolling if interaction is desired
-				// However, be cautious as this canvas might be fullscreen
-				// event.preventDefault(); 
 			}
 		};
 
 		canvas.addEventListener('mousemove', handleMouseMove);
-		// Add touch event listeners
 		canvas.addEventListener('touchstart', handleTouchEvent, { passive: true });
 		canvas.addEventListener('touchmove', handleTouchEvent, { passive: true });
 
 		// --- Resize Handler ---
 		const debouncedResizeHandler = debounce(() => {
-			// Recalculate canvas dimensions, char metrics, cols, rows
 			calculateCharMetrics(ctx);
-			// Re-apply canvas styles as font size might have changed
 			updateAndApplyCanvasStyles();
-			// Refresh GSAP ScrollTrigger calculations
 			ScrollTrigger.refresh();
 		}, 250); // Debounce timeout
 
@@ -466,13 +439,10 @@ export const AboutMe = () => {
 
 		// --- Render Loop ---
 		const renderAnimation = () => {
-			// If animation is off and we are not doing a final static render, then stop.
 			if (!animationActive.current && !isStaticRender.current) {
 				return;
 			}
 
-			// Request next frame *conditionally*.
-			// If it's a static render, we won't request a next frame.
 			if (animationActive.current) {
 				animationFrameId.current = requestAnimationFrame(renderAnimation);
 			}
@@ -484,18 +454,18 @@ export const AboutMe = () => {
 				lastAnimationRunTime_aboutme = currentTime - (elapsed % animationFrameInterval_aboutme);
 
 				// --- Time Calculation & State Save ---
-				// For a static render, use the time from the last animated frame.
-				// Otherwise, calculate the new time from the current timestamp.
 				const t = isStaticRender.current
 					? lastRenderTimeRef.current
 					: (Date.now() - startTime.current) / 1000;
 
-				// If we are still actively animating, update the last known time.
-				// This value will be used if the next frame is a static one.
+				// Optimization: Pre-calculate time-dependent values before the loops
+				const sin_t_05 = Math.sin(t * 0.5);
+				const cos_t_07 = Math.cos(t * 0.7);
+				const sin_t_03 = Math.sin(t * 0.3);
+
 				if (animationActive.current) {
 					lastRenderTimeRef.current = t;
 				}
-				// --- End Time Calculation ---
 
 				// Clear canvas with the background color from the ref
 				ctx.fillStyle = backgroundColorRef.current;
@@ -533,20 +503,16 @@ export const AboutMe = () => {
 							reusableSt
 						);
 
-						// The rendering logic is now the same for static and animated frames.
-						// The time `t` is either live or frozen, ensuring the scene is consistent.
-						const d1 = sdCircle(reusableSt, 0.3 + 0.1 * Math.sin(t * 0.5));
-						const d2 = sdCircle(sub(reusableSt, reusablePointerNormalized, reusableSubResult), 0.2 + 0.05 * Math.cos(t * 0.7));
-						const d = opSmoothUnion(d1, d2, 0.6 + 0.2 * Math.sin(t * 0.3));
+						const d1 = sdCircle(reusableSt, 0.3 + 0.1 * sin_t_05);
+						const d2 = sdCircle(sub(reusableSt, reusablePointerNormalized, reusableSubResult), 0.2 + 0.05 * cos_t_07);
+						const d = opSmoothUnion(d1, d2, 0.6 + 0.2 * sin_t_03);
 						const c = 1.0 - Math.exp(-4 * Math.abs(d));
 
 						// --- Dithering Logic ---
 						const currentGlitchStrength = ditherStrength.current; // Use ditherStrength for glitch intensity
 
 						// --- Original Character Selection ---
-						// Map original intensity 'c' back to character index
-						let index = Math.floor(c * DENSITY_ORIGINAL.length);
-						index = Math.max(0, Math.min(index, DENSITY_ORIGINAL.length - 1));
+						const index = Math.min(Math.floor(c * DENSITY_ORIGINAL.length), DENSITY_ORIGINAL.length - 1);
 						let char = DENSITY_ORIGINAL[index]; // Start with the calculated character
 
 						// --- Glitch Effect Logic (Symbolic + Positional) ---
@@ -579,7 +545,6 @@ export const AboutMe = () => {
 				}
 			}
 
-			// If this was a static render, turn the flag off now that it's done.
 			if (isStaticRender.current) {
 				isStaticRender.current = false;
 			}
@@ -637,12 +602,6 @@ export const AboutMe = () => {
 			});
 		}
 
-		// --- Initial render call after setup ---
-		// Start animation immediately if initially visible (or let ScrollTrigger handle it)
-		// Consider checking initial visibility if needed
-		// cancelAnimationFrame(animationFrameId.current); // Ensure clean start
-		// lastAnimationRunTime_aboutme = Date.now();
-		// animationFrameId.current = requestAnimationFrame(renderAnimation);
 
 		// --- Cleanup Function ---
 		return () => {
@@ -663,15 +622,6 @@ export const AboutMe = () => {
 		};
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []); // Keep dependencies empty to run once on mount
-
-	// Data for links column
-	const linksData = [
-		{ href: "https://www.instagram.com/glitchypixels/", text: "INSTAGRAM", iconComponent: InstagramIcon, alt: "Instagram Icon" },
-		{ href: "https://x.com/iamglitchypixel", text: "TWITTER", iconComponent: TwitterIcon, alt: "Twitter Icon" },
-		{ href: "https://www.reddit.com/user/iamglitchypixels/", text: "REDDIT", iconComponent: RedditIcon, alt: "Reddit Icon" },
-		{ href: "https://thehug.xyz/artists/glitchypixels", text: "THEHUG", iconComponent: TheHugIcon, alt: "TheHug Icon" },
-		{ href: "mailto:iamglitchypixel@gmail.com", text: "MAIL", iconComponent: EmailIcon, alt: "Email Icon" } // Corrected mailto link
-	];
 
 	return (
 		<div ref={aboutMeContainerRef} className={styles.aboutMeContainer}>
@@ -711,7 +661,6 @@ export const AboutMe = () => {
 							</div>
 						</div>
 
-						{/* New wrapper for expos and links */}
 						<div className={styles.exposLinksWrapper}>
 							<div className={`${styles.textColumn} ${styles.exposColumn}`}>
 								<h2>EXPOS</h2>
@@ -768,7 +717,7 @@ export const AboutMe = () => {
 									))}
 								</ul>
 							</div>
-						</div> {/* End of new wrapper */}
+						</div>
 					</div>
 				</div>
 			</section>
