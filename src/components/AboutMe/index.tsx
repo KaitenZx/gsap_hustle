@@ -379,6 +379,7 @@ export const AboutMe = () => {
 		const animationFrameInterval_aboutme = 1000 / TARGET_CANVAS_FPS_ABOUTME;
 		let lastAnimationRunTime_aboutme = 0;
 		const animationActive = { current: false };
+		const isStaticRender = { current: false }; // Flag for one-off static render
 
 		// Initial calculation
 		calculateCharMetrics(ctx);
@@ -426,12 +427,22 @@ export const AboutMe = () => {
 
 		// --- Render Loop ---
 		const renderAnimation = () => {
-			animationFrameId.current = requestAnimationFrame(renderAnimation);
+			// If animation is off and we are not doing a final static render, then stop.
+			if (!animationActive.current && !isStaticRender.current) {
+				return;
+			}
+
+			// Request next frame *conditionally*.
+			// If it's a static render, we won't request a next frame.
+			if (animationActive.current) {
+				animationFrameId.current = requestAnimationFrame(renderAnimation);
+			}
+
 
 			const currentTime = Date.now();
 			const elapsed = currentTime - lastAnimationRunTime_aboutme;
 
-			if (elapsed > animationFrameInterval_aboutme) {
+			if (elapsed > animationFrameInterval_aboutme || isStaticRender.current) {
 				lastAnimationRunTime_aboutme = currentTime - (elapsed % animationFrameInterval_aboutme);
 
 				// Get theme colors from CSS variables
@@ -451,7 +462,7 @@ export const AboutMe = () => {
 
 				const m = Math.min(colsRef.current, rowsRef.current);
 
-				if (isTouchDeviceRef.current) {
+				if (isTouchDeviceRef.current || isStaticRender.current) { // Use fixed pointer for static render too
 					// For touch devices, fix the pointer to 3/4 towards bottom-right of the grid
 					reusablePointerInGridCoords.x = colsRef.current * 0.75;
 					reusablePointerInGridCoords.y = rowsRef.current * 0.85;
@@ -470,6 +481,9 @@ export const AboutMe = () => {
 					reusablePointerNormalized
 				);
 
+				// For static render, remove the interactive elements from the SDF
+				const finalTime = isStaticRender.current ? startTime.current / 1000 : t;
+
 				for (let j = 0; j < rowsRef.current; j++) {
 					for (let i = 0; i < colsRef.current; i++) {
 						vec2(i, j, reusableCoord);
@@ -479,9 +493,15 @@ export const AboutMe = () => {
 							reusableSt
 						);
 
-						const d1 = sdCircle(reusableSt, 0.3 + 0.1 * Math.sin(t * 0.5));
-						const d2 = sdCircle(sub(reusableSt, reusablePointerNormalized, reusableSubResult), 0.2 + 0.05 * Math.cos(t * 0.7));
-						const d = opSmoothUnion(d1, d2, 0.6 + 0.2 * Math.sin(t * 0.3));
+						const d1 = sdCircle(reusableSt, 0.3 + 0.1 * Math.sin(finalTime * 0.5));
+
+						let d;
+						if (isStaticRender.current) {
+							d = d1; // Only the base animated circle for static version
+						} else {
+							const d2 = sdCircle(sub(reusableSt, reusablePointerNormalized, reusableSubResult), 0.2 + 0.05 * Math.cos(t * 0.7));
+							d = opSmoothUnion(d1, d2, 0.6 + 0.2 * Math.sin(t * 0.3));
+						}
 						const c = 1.0 - Math.exp(-4 * Math.abs(d));
 
 						// --- Dithering Logic ---
@@ -532,6 +552,11 @@ export const AboutMe = () => {
 					}
 				}
 			}
+
+			// If this was a static render, turn the flag off now that it's done.
+			if (isStaticRender.current) {
+				isStaticRender.current = false;
+			}
 		};
 
 		let GsapAnimationScrollTrigger: ScrollTrigger | undefined;
@@ -543,8 +568,11 @@ export const AboutMe = () => {
 					start: `top top-=${DITHER_FADE_VH}vh`, // Matches text animation start
 					onEnter: () => {
 						console.log("Mobile: Stopping canvas animation.");
-						animationActive.current = false;
-						cancelAnimationFrame(animationFrameId.current);
+						if (animationActive.current) {
+							animationActive.current = false;
+							isStaticRender.current = true; // Request one last static frame
+							requestAnimationFrame(renderAnimation); // Trigger the static render
+						}
 					},
 					onLeaveBack: () => {
 						console.log("Mobile: Restarting canvas animation.");
