@@ -13,6 +13,8 @@
 	background-color: transparent;
 	contain: strict;
 	/* Canvas will handle its own background or transparency */
+	will-change: opacity;
+	/* Performance hint for the browser */
 }
 
 .glitchOverlayCanvas.active {
