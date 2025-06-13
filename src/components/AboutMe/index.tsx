@@ -416,6 +416,17 @@ export const AboutMe = () => {
 			calculateCharMetrics(ctx);
 			updateAndApplyCanvasStyles();
 			ScrollTrigger.refresh();
+
+			// If the animation is paused (which only happens on mobile when text is pinned),
+			// the canvas was just cleared by calculateCharMetrics. We must force
+			// a single static redraw to restore the visual state.
+			if (!animationActive.current && isTouchDeviceRef.current) {
+				isStaticRender.current = true;
+				// We call renderAnimation directly (not via requestAnimationFrame)
+				// to ensure it executes synchronously after the resize logic.
+				// The debounce wrapper prevents this from firing excessively.
+				renderAnimation();
+			}
 		}, 250); // Debounce timeout
 
 		window.addEventListener('resize', debouncedResizeHandler);
