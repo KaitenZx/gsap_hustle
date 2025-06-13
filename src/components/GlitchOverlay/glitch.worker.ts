@@ -2,9 +2,11 @@
 // It's responsible for all the canvas drawing logic to free up the main thread.
 
 // --- STATE ---
+let canvas: OffscreenCanvas | null = null
 let ctx: OffscreenCanvasRenderingContext2D | null = null
 let canvasLogicalWidth = 0
 let canvasLogicalHeight = 0
+let dpr = 1
 
 // Animation loop state
 let animationFrameId: number | null = null
@@ -163,12 +165,14 @@ self.onmessage = (e: MessageEvent<WorkerMessage>) => {
 
 	switch (type) {
 		case 'init': {
-			const { canvas, logicalWidth, logicalHeight, dpr } = payload
-			if (!canvas) return
-			canvasLogicalWidth = logicalWidth
-			canvasLogicalHeight = logicalHeight
+			// Save all necessary initial data from the main thread
+			canvas = payload.canvas
+			canvasLogicalWidth = payload.logicalWidth
+			canvasLogicalHeight = payload.logicalHeight
+			dpr = payload.dpr
 			ctx = canvas.getContext('2d')
 			if (ctx) {
+				// This scaling needs to be re-applied after every resize
 				ctx.scale(dpr, dpr)
 			}
 			break
@@ -182,13 +186,23 @@ self.onmessage = (e: MessageEvent<WorkerMessage>) => {
 			break
 		}
 		case 'resize': {
-			const { logicalWidth, logicalHeight } = payload
-			canvasLogicalWidth = logicalWidth
-			canvasLogicalHeight = logicalHeight
+			// CRITICAL FIX: The worker must handle resizing the OffscreenCanvas.
+			if (!canvas || !ctx) break
+
+			// Update logical dimensions
+			canvasLogicalWidth = payload.logicalWidth
+			canvasLogicalHeight = payload.logicalHeight
+
+			// Update physical dimensions of the OffscreenCanvas
+			canvas.width = canvasLogicalWidth * dpr
+			canvas.height = canvasLogicalHeight * dpr
+
+			// After resizing, the context is reset, so we must re-apply the scale
+			ctx.scale(dpr, dpr)
 
 			// If the animation is running, draw one frame immediately
 			// to prevent a blank canvas during resize.
-			if (animationFrameId && ctx) {
+			if (animationFrameId) {
 				drawGlitch(ctx, canvasLogicalWidth, canvasLogicalHeight)
 			}
 			break

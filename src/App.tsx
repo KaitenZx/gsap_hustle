@@ -11,14 +11,11 @@ import { AboutMe } from './components/AboutMe';
 import { GlitchCursor } from './components/GlitchCursor';
 import { GlitchOverlay } from './components/GlitchOverlay';
 import { InfiniteGallery } from './components/InfiniteGallery'
-import { ITEMS, GalleryItem } from './components/InfiniteGallery/galleryData';
 import 'lenis/dist/lenis.css'; // Раскомментируйте, если используете npm-пакет
 import './styles/theme.css'; // Import theme styles
 import { PinStateProvider } from './context/PinStateContext';
 import { ThemeProvider } from './context/ThemeContext'; // Import ThemeProvider
 
-// Set to track preloaded URLs
-const _appPreloadedUrls = new Set<string>();
 
 function AppContent() {
   // --- useEffect для инициализации Lenis ---
@@ -53,17 +50,6 @@ function AppContent() {
       lenis.destroy();
     };
   }, []); // Пустой массив зависимостей для однократной инициализации
-
-  // Add useEffect for preloading
-  useEffect(() => {
-    ITEMS.forEach((item: GalleryItem) => {
-      if (!_appPreloadedUrls.has(item.previewSrc)) {
-        _appPreloadedUrls.add(item.previewSrc);
-        const img = new Image();
-        img.src = item.previewSrc;
-      }
-    });
-  }, []); // Empty dependency array ensures this runs only once on mount
 
   useEffect(() => {
     if (typeof window === 'undefined') return; // Guard for SSR or other environments

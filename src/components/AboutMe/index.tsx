@@ -93,6 +93,7 @@ export const AboutMe = () => {
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const mousePositionRef = useRef<Vec2>({ x: 0, y: 0 });
 	const animationFrameId = useRef<number>(0);
+	const frameCounterRef = useRef(0); // For interlaced rendering
 	const startTime = useRef<number>(Date.now());
 	const lastRenderTimeRef = useRef<number>(0); // For freezing animation state
 	const ditherStrength = useRef<number>(1.0); // Added: Controls dither effect (1 = max, 0 = none)
@@ -322,19 +323,22 @@ export const AboutMe = () => {
 		unpinFadeInScrollTrigger = ScrollTrigger.create({
 			trigger: pinHeightEl,
 			start: "bottom bottom",
-			end: "bottom top",
-			scrub: true,
-			onUpdate: self => {
-
-				ditherStrength.current = self.progress;
-
-				const initialOpacity = 0.4; // The opacity state when this trigger begins
-				const targetOpacity = 1.0;
-				const newOpacity = initialOpacity + (self.progress * (targetOpacity - initialOpacity));
+			scrub: false, // Ensure scrub is off
+			onEnter: () => {
+				// Immediately set final state
+				ditherStrength.current = 0.3;
 				if (currentCanvasElement) {
-					currentCanvasElement.style.opacity = newOpacity.toFixed(2);
+					currentCanvasElement.style.opacity = '1.0';
 				}
 			},
+			onLeaveBack: () => {
+				// Immediately restore initial state
+				const initialOpacity = 0.1;
+				ditherStrength.current = 0.0;
+				if (currentCanvasElement) {
+					currentCanvasElement.style.opacity = initialOpacity.toFixed(2);
+				}
+			}
 		});
 
 		return () => {
@@ -476,9 +480,15 @@ export const AboutMe = () => {
 					lastRenderTimeRef.current = t;
 				}
 
-				// Clear canvas with the background color from the ref
-				ctx.fillStyle = backgroundColorRef.current;
-				ctx.fillRect(0, 0, canvas.width / dprRef.current, canvas.height / dprRef.current);
+				// If it's a static, one-off render, clear everything.
+				// Otherwise, we'll clear row-by-row for interlacing.
+				if (isStaticRender.current) {
+					ctx.fillStyle = backgroundColorRef.current;
+					ctx.fillRect(0, 0, canvas.width / dprRef.current, canvas.height / dprRef.current);
+				} else {
+					// For regular animation, increment frame for interlacing
+					frameCounterRef.current++;
+				}
 
 				// Set text color from the ref
 				ctx.fillStyle = textColorRef.current;
@@ -504,6 +514,25 @@ export const AboutMe = () => {
 				);
 
 				for (let j = 0; j < rowsRef.current; j++) {
+					// --- Interlacing Optimization ---
+					// For animated frames, skip rows based on interlacing pattern.
+					// For static frames (e.g., after resize), render all rows.
+					if (!isStaticRender.current && j % 2 !== frameCounterRef.current % 2) {
+						continue;
+					}
+
+					// For animated frames, clear only the specific row we're about to draw.
+					if (!isStaticRender.current) {
+						ctx.fillStyle = backgroundColorRef.current;
+						ctx.fillRect(
+							0,
+							j * charHeightRef.current,
+							canvas.width / dprRef.current, // Use full canvas width for safety
+							charHeightRef.current
+						);
+						ctx.fillStyle = textColorRef.current; // Reset fill style for text
+					}
+
 					for (let i = 0; i < colsRef.current; i++) {
 						vec2(i, j, reusableCoord);
 						vec2(

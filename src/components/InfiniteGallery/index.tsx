@@ -155,10 +155,7 @@ export const InfiniteGallery: React.FC = () => {
 	// <<< Используем number для ID таймаута >>>
 	const scrollStopTimeoutRef = useRef<number | null>(null);
 
-	// <<< Ref для ID анимации (больше не используется в этом компоненте) >>>
-	// const animationFrameIdRef = useRef<number | null>(null);
 
-	// <<< ADDED: Memoized touch device detection >>>
 	const isTouchDevice = useMemo(() => getIsTouchDevice(), []);
 
 	// --- Состояние для блокировки скролла --- 
@@ -183,7 +180,6 @@ export const InfiniteGallery: React.FC = () => {
 		showInternalFooterRef.current = showInternalFooter;
 	}, [showInternalFooter]);
 
-	// --- Функция Lerp Step ---
 	const lerpStep = useCallback(() => {
 		if (!isInitialized.current || !dimensionsRef.current || !contentWrapperRef.current) {
 			if (isLerpingActiveRef.current) {
@@ -229,9 +225,8 @@ export const InfiniteGallery: React.FC = () => {
 		} else {
 			lerpLoopIdRef.current = null;
 		}
-	}, []); // LERP_FACTOR is a const, so no dependency needed
+	}, []);
 
-	// --- useEffect for Lerping Loop (must be after lerpStep definition) ---
 	useEffect(() => {
 		if (isLerpingActiveRef.current && !lerpLoopIdRef.current) {
 			lerpLoopIdRef.current = requestAnimationFrame(lerpStep);
@@ -245,7 +240,7 @@ export const InfiniteGallery: React.FC = () => {
 				lerpLoopIdRef.current = null;
 			}
 		};
-	}, [lerpStep]); // Dependency on lerpStep
+	}, [lerpStep]);
 
 	// --- Функция для проверки видимости внутреннего футера ---
 	const checkFooterVisibility = useCallback(() => {
@@ -258,11 +253,8 @@ export const InfiniteGallery: React.FC = () => {
 			setShowInternalFooter(false);
 			setShowScrollUpButton(false);
 		}
-	}, []); // INTERNAL_FOOTER_THRESHOLD and HYSTERESIS are constants, so no deps needed
-
-	// <<< MODIFIED: Scroll Up Button Click Handler (must be after lerpStep definition) >>>
+	}, []);
 	const handleScrollUpRequest = useCallback(() => {
-		// Activate lerping if not already active, so gallery items move smoothly
 		isLerpingActiveRef.current = true;
 		if (!lerpLoopIdRef.current) {
 			lerpLoopIdRef.current = requestAnimationFrame(lerpStep);
@@ -272,14 +264,10 @@ export const InfiniteGallery: React.FC = () => {
 			const galleryPinStartScrollY = scrollTriggerInstance.current.start;
 			const twentyVhInPixels = window.innerHeight * 0.2;
 
-			// Corrected targetScrollY calculation:
-			// We want to scroll to a point that is 20vh *above* the gallery's unpin point.
-			// The gallery unpins when window.scrollY < galleryPinStartScrollY.
-			// So, we scroll to galleryPinStartScrollY, then subtract 20vh, and a small buffer.
+
 			let targetScrollY = galleryPinStartScrollY - twentyVhInPixels - 1;
 			targetScrollY = Math.max(0, targetScrollY); // Ensure not scrolling to a negative value
 
-			// Animate internal scroll target to 0; lerpStep will handle visual updates
 			gsap.to(incrY, {
 				current: 0,
 				duration: 1.5,
@@ -291,21 +279,13 @@ export const InfiniteGallery: React.FC = () => {
 				duration: 1.5,
 				ease: 'none',
 				onComplete: () => {
-					// Ensure the target for internal scroll is definitively 0.
-					// The incrY tween above should have already done this, but this is a safeguard.
 					incrY.current = 0;
-
-					// lerpStep is still active and will continue to run until currentActualYRef.current
-					// smoothly reaches incrY.current (which is now 0). 
-					// We no longer directly set currentActualYRef or the gallery's y position here,
-					// to allow lerpStep to provide a smooth finish for gallery items.
 
 					setShowInternalFooter(false);
 					setShowScrollUpButton(false);
 				}
 			});
 		} else {
-			// Fallback if ScrollTrigger isn't ready
 			gsap.to(incrY, { current: 0, duration: 1.5, ease: 'none' });
 
 			gsap.to(window, {
@@ -314,7 +294,6 @@ export const InfiniteGallery: React.FC = () => {
 				ease: 'none',
 				onComplete: () => {
 					incrY.current = 0;
-					// Allow lerpStep to finish smoothly in fallback as well
 					setShowInternalFooter(false);
 					setShowScrollUpButton(false);
 				}
@@ -326,7 +305,6 @@ export const InfiniteGallery: React.FC = () => {
 	const performPreload = useCallback((scrollDirection: 1 | -1) => {
 		const dims = dimensionsRef.current;
 		if (dims && dims.columnTotalWidth > 0) {
-			// Используем currentActualXRef для более точного определения видимой колонки
 			const currentWrappedX = dims.wrapX(currentActualXRef.current);
 			const currentApproxFirstVisibleColIndex = Math.floor(-currentWrappedX / dims.columnTotalWidth);
 			const preloadColsCount = 4;
@@ -357,13 +335,9 @@ export const InfiniteGallery: React.FC = () => {
 
 			if (containerRef.current) {
 				if (locked) {
-					// When gallery is locked/pinned, prevent browser's default touch actions
-					// on the gallery container to avoid conflicts with GSAP Observer during internal scroll.
 					containerRef.current.style.touchAction = 'none';
 					observerInstance.current?.enable();
 				} else {
-					// When gallery is unlocked, restore default browser touch actions
-					// to allow page scrolling and proper unpinning.
 					containerRef.current.style.touchAction = 'auto';
 					observerInstance.current?.disable();
 				}
@@ -379,22 +353,21 @@ export const InfiniteGallery: React.FC = () => {
 		}
 	}, [setIsGalleryPinned]); // <<< ADDED setIsGalleryPinned dependency
 
-	// --- НОВАЯ Функция обработчика клика по изображению  ---
 	const handleImageClick = useCallback((item: GalleryItem) => { // <<< Принимаем весь объект
 		if (!didDragSincePressRef.current) { // <<< ADDED: Check if dragging occurred
 			setSelectedItem(item); // <<< Сохраняем весь объект
 		}
-	}, []); // Dependencies are stable (setSelectedItem, didDragSincePressRef)
+	}, []);
 
-	// --- НОВАЯ Функция закрытия модального окна  ---
+	// --- Функция закрытия модального окна  ---
 	const handleCloseModal = useCallback(() => {
 		setSelectedItem(null); // <<< Сбрасываем объект
 	}, []);
 
-	// --- НОВАЯ Функция для начала предзагрузки при взаимодействии ---
+	// ---  Функция для начала предзагрузки при взаимодействии ---
 	const handleInteractionStart = useCallback((fullSrc: string) => {
 		preloadFullImage(fullSrc);
-	}, []); // Empty dependencies, preloadFullImage is stable
+	}, []);
 
 	// --- Функция рендеринга одной колонки  ---
 	const renderColumn = useCallback((columnIndex: number) => {
@@ -411,7 +384,6 @@ export const InfiniteGallery: React.FC = () => {
 			// <<< Вычисляем финальный индекс элемента в массиве ITEMS (с оберткой) >>>
 			const itemIndex = (baseItemIndex + logicalRowIndex); // % TOTAL_ITEMS; - не нужен если ITEMS.length === TOTAL_ITEMS
 
-			// Проверка на случай, если ITEMS пустой или itemIndex некорректен (хотя не должно быть при правильном заполнении ITEMS)
 			if (itemIndex < ITEMS.length && itemIndex >= 0) {
 				const item: GalleryItem = ITEMS[itemIndex];
 				// Привязываем ref только к самому первому элементу (0, 0)
@@ -466,7 +438,6 @@ export const InfiniteGallery: React.FC = () => {
 						<img
 							src={item.previewSrc}
 							alt={item.alt}
-							loading="lazy"
 							decoding="async"
 							style={{ pointerEvents: 'none' }}
 						/>
@@ -552,14 +523,14 @@ export const InfiniteGallery: React.FC = () => {
 				totalContentLogicalWidth,
 				totalContentHeight: gridContentHeight,
 				fullWrapperHeight,
-				repeatingWidth, // <<< Добавили
-				repeatingHeight, // <<< Добавили
+				repeatingWidth,
+				repeatingHeight,
 				wrapX,
-				wrapY, // <<< Добавили
-				wrapperPaddingTop, // <<< ADDED
-				wrapperPaddingLeft // <<< ADDED
+				wrapY,
+				wrapperPaddingTop,
+				wrapperPaddingLeft
 			};
-			dimensionsRef.current = newDimensions; // Сохраняем в ref
+			dimensionsRef.current = newDimensions;
 			return newDimensions;
 		};
 
@@ -567,7 +538,7 @@ export const InfiniteGallery: React.FC = () => {
 		const calculateRenderCols = (dims: GridDimensions): number => {
 			if (!dims || dims.columnTotalWidth <= 0) {
 				console.warn("IFG: Cannot calculate render cols, invalid dimensions. Falling back to COLS.");
-				return COLS; // Возвращаем базовое число в случае ошибки
+				return COLS;
 			}
 			// Формула: Логическая ширина + Ширина вьюпорта, делим на ширину колонки, округляем вверх + буфер
 			const requiredCols = Math.ceil(
@@ -601,13 +572,11 @@ export const InfiniteGallery: React.FC = () => {
 
 				// --- Get container and wrapper info ONCE ---
 				const containerRect = containerElement.getBoundingClientRect();
-				// Get current transform of the wrapper from GSAP (already wrapped)
 				const wrapperCurrentX = gsap.getProperty(wrapperElement, "x") as number;
 				const wrapperCurrentY = gsap.getProperty(wrapperElement, "y") as number;
 
 				currentMap.forEach((refData, _key) => {
 					if (refData.element && refData.rotX && refData.rotY) {
-						// const el = refData.element; // Removed as it's no longer directly used here
 						const rotXQuickTo = refData.rotX;
 						const rotYQuickTo = refData.rotY;
 
@@ -621,10 +590,7 @@ export const InfiniteGallery: React.FC = () => {
 						// Simple visibility check (can be refined)
 						if (itemScreenY + dims.itemHeight < 0 || itemScreenY > window.innerHeight ||
 							itemScreenX + dims.columnWidth < 0 || itemScreenX > window.innerWidth) {
-							// Optional: Reset rotation if item is off-screen
-							// rotXQuickTo(0);
-							// rotYQuickTo(0);
-							return; // Skip if not visible
+							return;
 						}
 
 						const midpointX = itemScreenX + dims.columnWidth / 2;
@@ -660,17 +626,14 @@ export const InfiniteGallery: React.FC = () => {
 			};
 
 			const handleMouseMove = (event: MouseEvent) => {
-				// <<< MODIFIED: Do nothing if touch device >>>
 				if (isTouchDevice) return;
 				mousePos.current = { x: event.clientX, y: event.clientY };
-				// <<< Используем вспомогательную функцию >>>
 				requestRotationUpdate();
 			};
 
 			// <<< Выносим хелпер за пределы create >>>
 			const handleScrollActivity = () => {
 				if (!containerElement) return;
-				// <<< MODIFIED: Center calculation only needed if not touch device and rotation is active >>>
 				if (!isTouchDevice && !isScrollingRef.current) {
 					const bounds = containerElement.getBoundingClientRect();
 					containerCenterRef.current = {
@@ -686,7 +649,6 @@ export const InfiniteGallery: React.FC = () => {
 				}
 
 
-				// <<< MODIFIED: Only request rotation update if not touch device >>>
 				if (!isTouchDevice) {
 					requestRotationUpdate();
 				}
@@ -701,8 +663,6 @@ export const InfiniteGallery: React.FC = () => {
 							canvasWorkerRef.current.postMessage({ isScrolling: false, isTouchDevice: isTouchDevice });
 						}
 					}
-					// <<< MODIFIED: When scrolling stops, if not a touch device, request one final rotation update.
-					// This helps settle the items based on the last mouse position if it changedhiddenly.
 					if (!isTouchDevice) {
 						requestRotationUpdate();
 					}
@@ -717,15 +677,10 @@ export const InfiniteGallery: React.FC = () => {
 					preventDefault: false,
 					tolerance: 5,
 					dragMinimum: 3,
-					// <<< ADDED: onPress to kill ongoing inertia >>>
 					onPress: () => {
 						inertiaXTweenRef.current?.kill();
 						inertiaYTweenRef.current?.kill();
-						// Also, when a new press happens, it means any "centering" for rotation should stop
-						// and switch to mouse-following rotation if the gallery isn't actively scrolling via inertia/drag.
-						// However, handleScrollActivity already manages isScrollingRef, which should be okay.
 
-						// <<< LERPING: Activate lerping, ensure actuals match targets >>>
 						currentActualXRef.current = incrX.current;
 						currentActualYRef.current = incrY.current;
 						isLerpingActiveRef.current = true;
@@ -744,7 +699,6 @@ export const InfiniteGallery: React.FC = () => {
 						// Для DRAG: Пропускаем, если вертикальный скролл преобладает
 						if (self.isDragging && Math.abs(self.deltaX) < Math.abs(self.deltaY)) return;
 
-						// <<< ADDED: Conditional preventDefault for X >>>
 						if (isScrollLockedRef.current && self.event.cancelable) {
 							if (self.event.type === 'wheel') {
 								self.event.preventDefault();
@@ -753,34 +707,24 @@ export const InfiniteGallery: React.FC = () => {
 							}
 						}
 
-						if (self.isDragging) { // <<< ADDED: Set drag flag if Observer detects dragging
+						if (self.isDragging) {
 							didDragSincePressRef.current = true;
 						}
 
 						const baseMultiplier = (self.event.type === "wheel" || !self.isDragging) ? 1 : 1.1;
 						const increment = self.deltaX * baseMultiplier;
 
-						// Применяем инкремент с правильным знаком
-						// For wheel, positive deltaX usually means scrolling "right" (content moves left)
-						// For touch, positive deltaX means finger moved right (content moves right)
 						if (self.event.type === "wheel") {
 							incrX.current -= increment;
-						} else { // Touch/Pointer
+						} else {
 							incrX.current += increment;
 						}
 
-						// <<< LERPING: Activate and start loop if not already active >>>
 						isLerpingActiveRef.current = true;
 						if (!lerpLoopIdRef.current) {
 							lerpLoopIdRef.current = requestAnimationFrame(lerpStep);
 						}
 
-						// Предзагрузка (направление зависит от того, как движется КОНТЕНТ)
-						// Если incrX увеличивается, контент движется вправо (пользователь свайпнул вправо ИЛИ колесо "вниз/вправо")
-						// Если incrX уменьшается, контент движется влево (пользователь свайпнул влево ИЛИ колесо "вверх/влево")
-						// self.deltaX > 0: wheel down/right OR touch right.
-						// For wheel (incrX -= increment): if self.deltaX > 0, increment > 0, incrX decreases (content moves left) -> preload right (dir -1)
-						// For touch (incrX += increment): if self.deltaX > 0, increment > 0, incrX increases (content moves right) -> preload left (dir 1)
 
 						let preloadDirection: 1 | -1 = 1;
 						if (self.event.type === "wheel") {
@@ -794,18 +738,14 @@ export const InfiniteGallery: React.FC = () => {
 							throttledPreloadRef.current?.(preloadDirection);
 						}
 
-						// Check for footer visibility
-						throttledCheckFooterVisibilityRef.current?.();
 					},
 					onChangeY: (self) => {
 						handleScrollActivity();
 						const dims = dimensionsRef.current;
 
 						if (!isScrollLockedRef.current || !dims || !contentWrapperElement) return;
-						// Для DRAG: Пропускаем, если горизонтальный скролл преобладает
 						if (self.isDragging && Math.abs(self.deltaY) < Math.abs(self.deltaX)) return;
 
-						// <<< ADDED: Conditional preventDefault for Y >>>
 						if (isScrollLockedRef.current && self.event.cancelable) {
 							if (self.event.type === 'wheel') {
 								self.event.preventDefault();
@@ -814,7 +754,7 @@ export const InfiniteGallery: React.FC = () => {
 							}
 						}
 
-						if (self.isDragging) { // <<< ADDED: Set drag flag if Observer detects dragging
+						if (self.isDragging) {
 							didDragSincePressRef.current = true;
 						}
 
@@ -823,7 +763,7 @@ export const InfiniteGallery: React.FC = () => {
 
 						if (self.event.type === "wheel") {
 							incrY.current -= increment;
-						} else { // Touch/Pointer
+						} else {
 							incrY.current += increment;
 						}
 
@@ -832,25 +772,22 @@ export const InfiniteGallery: React.FC = () => {
 						if (!lerpLoopIdRef.current) {
 							lerpLoopIdRef.current = requestAnimationFrame(lerpStep);
 						}
-						// No vertical preloading implemented in performPreload, so skipping here.
 
 						// Check for footer visibility
 						throttledCheckFooterVisibilityRef.current?.();
 					},
-					// <<< ADDED: onDragEnd for Inertia >>>
 					onDragEnd: (self) => {
 						const dims = dimensionsRef.current;
 						if (!dims || !contentWrapperElement || !isScrollLockedRef.current) return;
 
-						// <<< LERPING: Deactivate manual lerping for inertia >>>
 						isLerpingActiveRef.current = false;
 						if (lerpLoopIdRef.current) {
 							cancelAnimationFrame(lerpLoopIdRef.current);
 							lerpLoopIdRef.current = null;
 						}
 
-						inertiaXTweenRef.current?.kill(); // Kill previous X tween just in case
-						inertiaYTweenRef.current?.kill(); // Kill previous Y tween just in case
+						inertiaXTweenRef.current?.kill();
+						inertiaYTweenRef.current?.kill();
 
 						// <<< LERPING: Inertia proxy object initialized with current actual values >>>
 						const inertiaProxy = { x: currentActualXRef.current, y: currentActualYRef.current };
@@ -861,32 +798,22 @@ export const InfiniteGallery: React.FC = () => {
 							inertia: {
 								x: { velocity: self.velocityX }
 							},
-							// modifiers: { // <<< REMOVED: wrapping is done via onUpdate and currentActualXRef
-							// 	x: gsap.utils.unitize(value => dims.wrapX(parseFloat(value as string)), "px")
-							// },
 							ease: "none",
 							onStart: () => {
-								// self.velocityX > 0: content is thrown to the right (user swiped right)
-								//   => preload content that will appear on the left of viewport (dir 1 for performPreload)
-								// self.velocityX < 0: content is thrown to the left (user swiped left)
-								//   => preload content that will appear on the right of viewport (dir -1 for performPreload)
 								if (self.velocityX > 50) throttledPreloadRef.current?.(1);
 								else if (self.velocityX < -50) throttledPreloadRef.current?.(-1);
 							},
 							onUpdate: function () {
 								if (!dims || !contentWrapperElement) return;
-								// <<< LERPING: Update target and actual from proxy, then apply wrapped actual >>>
 								incrX.current = inertiaProxy.x;
 								currentActualXRef.current = inertiaProxy.x;
 								gsap.set(contentWrapperElement, { x: dims.wrapX(currentActualXRef.current) });
-								// NO checkFooterVisibility() here
 							},
 							onComplete: () => {
 								if (dims) { // Ensure dims is still valid
 									incrX.current = inertiaProxy.x;
 									currentActualXRef.current = inertiaProxy.x;
 								}
-								// NO checkFooterVisibility() here
 							}
 						});
 
@@ -895,17 +822,12 @@ export const InfiniteGallery: React.FC = () => {
 							inertia: {
 								y: { velocity: self.velocityY }
 							},
-							// modifiers: { // <<< REMOVED: wrapping is done via onUpdate and currentActualYRef
-							// 	y: gsap.utils.unitize(value => dims.wrapY(parseFloat(value as string)), "px")
-							// },
 							ease: "none",
 							onUpdate: function () {
 								if (!dims || !contentWrapperElement) return;
-								// <<< LERPING: Update target and actual from proxy, then apply wrapped actual >>>
 								incrY.current = inertiaProxy.y;
 								currentActualYRef.current = inertiaProxy.y;
 								gsap.set(contentWrapperElement, { y: dims.wrapY(currentActualYRef.current) });
-								// Check for footer visibility during vertical inertia update
 								throttledCheckFooterVisibilityRef.current?.();
 							},
 							onComplete: () => {
@@ -913,7 +835,6 @@ export const InfiniteGallery: React.FC = () => {
 									incrY.current = inertiaProxy.y;
 									currentActualYRef.current = inertiaProxy.y;
 								}
-								// Check for footer visibility on vertical inertia complete
 								throttledCheckFooterVisibilityRef.current?.();
 							}
 						});
@@ -925,8 +846,6 @@ export const InfiniteGallery: React.FC = () => {
 			// --- Создание throttled-функции для ПРЕДЗАГРУЗКИ ---
 			throttledPreloadRef.current = throttle(performPreload, PRELOAD_THROTTLE_MS, { leading: false, trailing: true });
 
-			// <<< ADDED: Create throttled function for footer visibility check >>>
-			// Use a slightly longer throttle time than preload, e.g., 250ms, as it's less critical
 			const FOOTER_VISIBILITY_THROTTLE_MS = 250;
 			throttledCheckFooterVisibilityRef.current = throttle(checkFooterVisibility, FOOTER_VISIBILITY_THROTTLE_MS, { leading: false, trailing: true });
 
@@ -942,7 +861,6 @@ export const InfiniteGallery: React.FC = () => {
 					pin: true,
 					pinSpacing: true,
 					anticipatePin: 0,
-					// markers: true, // Показать маркеры для отладки
 					invalidateOnRefresh: true, // Пересчитывать при рефреше
 
 					onToggle: (self) => {
@@ -961,24 +879,18 @@ export const InfiniteGallery: React.FC = () => {
 					// 2. Пересчитываем количество колонок на основе новых размеров
 					const newRenderCols = calculateRenderCols(newDims);
 
-					// <<< ADDED: Kill inertia tweens on resize before position reset >>>
 					inertiaXTweenRef.current?.kill();
 					inertiaYTweenRef.current?.kill();
 
 					// 3. Обновляем GSAP и позицию ВНУТРИ контекста
 					gsapCtx.current.add(() => {
-						// setupScrollQuickTo(newDims); // <<< REMOVED
-						// Сбрасываем X, Y остается как есть (будет обернут wrapY)
-						// Можно опционально сбросить X, но Y трогать не нужно, чтобы сохранить позицию в цикле
 						incrX.current = 0;
 						currentActualXRef.current = 0; // <<< LERPING: Reset actual as well
-						// incrY.current = newDims.wrapY(incrY.current); // Можно явно обернуть текущее значение на всякий случай
-						// currentActualYRef.current = newDims.wrapY(currentActualYRef.current); // <<< LERPING: And wrap actual Y
+						currentActualYRef.current = newDims.wrapY(currentActualYRef.current); // <<< LERPING: And wrap actual Y
 						gsap.set(contentWrapperElement, {
 							x: newDims.wrapX(currentActualXRef.current), // Use wrapped actual
-							y: 0 // Directly set initial Y to 0 to prevent upward shift from wrapY(0)
+							y: currentActualYRef.current // <<< FIX: Preserve Y position on resize
 						});
-						// Позицию Y не трогаем, quickTo ее держит (quickTo удален, но логика сохранения Y остается)
 
 						// <<< Сброс вращений при ресайзе (опционально) >>>
 						mediaAnimRefs.current.forEach(refData => {
@@ -1006,8 +918,15 @@ export const InfiniteGallery: React.FC = () => {
 			if (initialDims) {
 				const initialRenderCols = calculateRenderCols(initialDims);
 				setRenderColsCount(initialRenderCols);
-				// setupScrollQuickTo(initialDims); // <<< REMOVED
-				// Устанавливаем начальные позиции в 0 (wrapX/wrapY их нормализуют если нужно)
+
+				// <<< Проактивная предзагрузка начальных изображений >>>
+				const visibleColsApprox = Math.ceil(initialDims.viewportWidth / initialDims.columnTotalWidth);
+				const preloadBuffer = 2; // Сколько доп. колонок грузить с каждой стороны
+				for (let i = -preloadBuffer; i < visibleColsApprox + preloadBuffer; i++) {
+					const urlsToPreload = getColumnPreviewImageUrls(i);
+					urlsToPreload.forEach(preloadImage);
+				}
+
 				incrX.current = 0;
 				incrY.current = 0;
 				currentActualXRef.current = 0; // <<< LERPING: Initialize actual
@@ -1023,7 +942,6 @@ export const InfiniteGallery: React.FC = () => {
 
 				// 6. Проверяем начальное состояние блокировки (асинхронно, после возможного обновления ST)
 				setTimeout(() => {
-					// Перепроверяем инстанс на случай быстрого размонтирования
 					if (scrollTriggerInstance.current) {
 						setScrollLocked(scrollTriggerInstance.current.isActive);
 					}
@@ -1031,11 +949,9 @@ export const InfiniteGallery: React.FC = () => {
 
 			} else {
 				console.error("IFG: Failed to get initial dimensions. Component might not work.");
-				// Устанавливаем какое-то дефолтное количество колонок, если расчет не удался
 				setRenderColsCount(COLS);
 			}
 
-			// <<< FIX: Возвращаем функцию очистки из КОНТЕКСТА GSAP >>>
 			return () => {
 				window.removeEventListener('mousemove', handleMouseMove);
 				if (updateRotationsRequest) {
@@ -1061,13 +977,12 @@ export const InfiniteGallery: React.FC = () => {
 		return () => {
 			resizeObserverRef.current?.disconnect();
 			throttledPreloadRef.current?.cancel();
-			// <<< ADDED: Cancel throttled footer check on unmount >>>
 			throttledCheckFooterVisibilityRef.current?.cancel();
 
 			// Убиваем ScrollTrigger явно перед ревертом контекста
 			scrollTriggerInstance.current?.kill();
 			scrollTriggerInstance.current = null;
-			setIsGalleryPinned(false); // <<< ADDED: Ensure state is false on cleanup
+			setIsGalleryPinned(false);
 
 
 			gsapCtx.current?.revert(); // Это должно убить Observer и quickTo, созданные внутри контекста
@@ -1077,18 +992,14 @@ export const InfiniteGallery: React.FC = () => {
 
 			// Сброс рефов
 			resizeObserverRef.current = null;
-			observerInstance.current = null; // Должен быть убит ревертом, но для надежности
+			observerInstance.current = null;
 			gsapCtx.current = null;
-			// xToRef.current = null; // <<< REMOVED
-			// yToRef.current = null; // <<< REMOVED
 			throttledPreloadRef.current = null;
-			// <<< ADDED: Clear throttled footer check ref on unmount >>>
 			throttledCheckFooterVisibilityRef.current = null;
 
 			dimensionsRef.current = null;
 			isInitialized.current = false;
 			isScrollLockedRef.current = false;
-			// <<< LERPING: Clear lerp loop on unmount (double check as it's also in GSAP context cleanup) >>>
 			if (lerpLoopIdRef.current) {
 				cancelAnimationFrame(lerpLoopIdRef.current);
 				lerpLoopIdRef.current = null;
@@ -1096,17 +1007,17 @@ export const InfiniteGallery: React.FC = () => {
 			isLerpingActiveRef.current = false;
 
 
-			// <<< ADDED: Kill inertia tweens on unmount >>>
 			inertiaXTweenRef.current?.kill();
 			inertiaYTweenRef.current?.kill();
 		};
-		// <<< Обновлены зависимости (убраны minY/maxY/scrollableDistanceY если они где-то были косвенно) >>>
 	}, [setScrollLocked, renderColsCount, performPreload, lerpStep, checkFooterVisibility, isTouchDevice, setIsGalleryPinned]); // <<< ADDED setIsGalleryPinned dependency
+
+	useEffect(() => {
+		mediaAnimRefs.current.clear();
+	}, [renderColsCount]);
 
 	// --- Мемоизация массива колонок  ---
 	const columnsToRender = useMemo(() => {
-		// Очищаем refs перед рендером новых колонок, чтобы удалить старые записи
-		mediaAnimRefs.current.clear();
 		return Array.from({ length: renderColsCount }).map((_, index) =>
 			renderColumn(index)
 		);
@@ -1127,9 +1038,6 @@ export const InfiniteGallery: React.FC = () => {
 			canvasWorkerRef.current.terminate();
 		}
 
-		// Create the worker
-		// Note: Vite requires specific handling for worker imports.
-		// Using `new URL('./canvas.worker.ts', import.meta.url)` is the standard way.
 		const worker = new Worker(new URL('./canvas.worker.ts', import.meta.url), { type: 'module' });
 		canvasWorkerRef.current = worker;
 
@@ -1165,20 +1073,12 @@ export const InfiniteGallery: React.FC = () => {
 		const resizeObserver = new ResizeObserver(updateWorker);
 		resizeObserver.observe(containerElement);
 
-		// Optional: Listen for theme changes if you have a dynamic theme system
-		// For simplicity, we'll send theme color on resize and initial setup.
-		// A MutationObserver on `document.documentElement` for `style` attribute changes
-		// could be used for more dynamic theme updates.
-
-		// Update worker on scroll state change (e.g., to potentially pause/throttle if desired in worker)
-		// For now, worker is designed to run continuously, but we send the state for future use.
 		const sendScrollState = () => {
 			if (canvasWorkerRef.current) {
 				canvasWorkerRef.current.postMessage({ isScrolling: isScrollingRef.current, isTouchDevice: isTouchDevice });
 			}
 		};
 
-		// We can throttle or debounce this if scroll events are too frequent for this message
 		const throttledSendScrollState = throttle(sendScrollState, 100);
 
 
@@ -1215,6 +1115,15 @@ export const InfiniteGallery: React.FC = () => {
 		{ href: "mailto:iamglitchypixel@gmail.com", text: "MAIL", iconComponent: EmailIcon, ariaLabel: "Mail" }
 	], []);
 
+	// --- Memoize placeholder source for ImageModal (Readability) ---
+	const placeholderSrc = useMemo(() => {
+		if (!selectedItem) return undefined;
+		const key = `/assets/full/${selectedItem.id}.webp`;
+		// The `lqipMap[key]` will return undefined if the key doesn't exist,
+		// so the `key in lqipMap` check is redundant.
+		return lqipMap[key];
+	}, [selectedItem]);
+
 	return (
 		<section
 			className={`${styles.mwg_effect} ${isLockedState ? styles.isLocked : ''}`}
@@ -1232,11 +1141,7 @@ export const InfiniteGallery: React.FC = () => {
 					src={selectedItem.fullSrc}
 					alt={selectedItem.alt}
 					onClose={handleCloseModal}
-					placeholderSrc={(() => {
-						if (!selectedItem) return undefined;
-						const key = `/assets/full/${selectedItem.id}.webp`;
-						return key in lqipMap ? lqipMap[key] : undefined;
-					})()}
+					placeholderSrc={placeholderSrc}
 				/>
 			)}
 

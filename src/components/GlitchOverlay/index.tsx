@@ -19,13 +19,13 @@ export const GlitchOverlay: React.FC = memo(() => {
 		workerRef.current = worker;
 
 		const canvas = canvasRef.current;
-		const offscreenCanvas = canvas.transferControlToOffscreen();
-
 		const dpr = window.devicePixelRatio || 1;
 		const rect = canvas.getBoundingClientRect();
 
 		canvas.width = rect.width * dpr;
 		canvas.height = rect.height * dpr;
+
+		const offscreenCanvas = canvas.transferControlToOffscreen();
 
 		worker.postMessage(
 			{
@@ -61,14 +61,8 @@ export const GlitchOverlay: React.FC = memo(() => {
 			const worker = workerRef.current;
 			if (!canvas || !worker) return;
 
-			const dpr = window.devicePixelRatio || 1;
 			const rect = canvas.getBoundingClientRect();
 
-			// Update the actual canvas size on the main thread
-			canvas.width = rect.width * dpr;
-			canvas.height = rect.height * dpr;
-
-			// Inform the worker of the new logical size
 			worker.postMessage({
 				type: 'resize',
 				payload: {
