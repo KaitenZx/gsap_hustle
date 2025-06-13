@@ -27,22 +27,6 @@
 		contain: strict;
 	}
 
-	.staticCanvasFrame {
-		display: none; // Initially hidden
-		width: 100%;
-		height: 100lvh;
-		background-color: transparent;
-		position: absolute;
-		top: 0;
-		left: 0;
-		z-index: 1;
-		contain: strict;
-		pointer-events: none;
-		background-size: cover;
-		background-position: center;
-		background-repeat: no-repeat;
-	}
-
 	.mwgEffect004 {
 		position: relative;
 		width: 100%;

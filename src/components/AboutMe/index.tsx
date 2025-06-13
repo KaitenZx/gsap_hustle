@@ -62,8 +62,6 @@ export const AboutMe = () => {
 	const pinHeightRef = useRef<HTMLDivElement>(null);
 	const pinnedTextContainerRef = useRef<HTMLDivElement>(null);
 	const paragraphsContainerRef = useRef<HTMLDivElement>(null);
-	const staticCanvasFrameRef = useRef<string | null>(null);
-	const staticFrameContainerRef = useRef<HTMLDivElement>(null);
 
 	const reusableCoord = useRef(vec2(0, 0)).current;
 	const reusableSt = useRef(vec2(0, 0)).current;
@@ -234,20 +232,6 @@ export const AboutMe = () => {
 					pinSpacing: false,
 					onToggle: (self) => setIsAboutMePinned(self.isActive),
 				});
-
-				// Pin the static frame container only on mobile devices
-				if (staticFrameContainerRef.current) {
-					const isTouchDevice = typeof window !== 'undefined' && (('ontouchstart' in window) || navigator.maxTouchPoints > 0);
-					if (isTouchDevice) {
-						ScrollTrigger.create({
-							trigger: pinHeightEl,
-							pin: staticFrameContainerRef.current,
-							start: 'top top',
-							end: 'bottom bottom',
-							pinSpacing: false,
-						});
-					}
-				}
 			}
 
 			const lines: HTMLElement[][] = [[]];
@@ -383,9 +367,8 @@ export const AboutMe = () => {
 	useEffect(() => {
 		const canvas = canvasRef.current;
 		const container = aboutMeContainerRef.current;
-		const staticFrameDiv = staticFrameContainerRef.current;
 
-		if (!canvas || !container || !staticFrameDiv) return;
+		if (!canvas || !container) return;
 
 		// Determine if it's a touch device
 		isTouchDeviceRef.current = typeof window !== 'undefined' && (('ontouchstart' in window) || navigator.maxTouchPoints > 0);
@@ -401,102 +384,6 @@ export const AboutMe = () => {
 
 		// Initial calculation
 		calculateCharMetrics(ctx);
-
-		const renderAnimationWithCapture = (isCapture = false) => {
-			// --- Time Calculation & State Save ---
-			const t = (isCapture || isStaticRender.current)
-				? lastRenderTimeRef.current
-				: (Date.now() - startTime.current) / 1000;
-
-			if (!isCapture && animationActive.current) {
-				lastRenderTimeRef.current = t;
-			}
-			// --- End Time Calculation ---
-
-			const computedStyles = getComputedStyle(document.documentElement);
-			const canvasBackgroundColor = computedStyles.getPropertyValue('--background-color').trim();
-			const canvasTextColor = computedStyles.getPropertyValue('--text-color').trim();
-
-			ctx.fillStyle = canvasBackgroundColor;
-			ctx.fillRect(0, 0, canvas.width / dprRef.current, canvas.height / dprRef.current);
-
-			ctx.font = `${charHeightRef.current * 0.8}px "Alpha Lyrae", monospace`;
-			ctx.fillStyle = canvasTextColor;
-			ctx.textAlign = 'center';
-			ctx.textBaseline = 'middle';
-
-			const m = Math.min(colsRef.current, rowsRef.current);
-
-			const pointerTarget = (isCapture || isTouchDeviceRef.current || !animationActive.current)
-				? { x: colsRef.current * 0.75, y: rowsRef.current * 0.85 }
-				: { x: (mousePositionRef.current.x / charWidthRef.current), y: (mousePositionRef.current.y / charHeightRef.current) };
-
-			vec2(pointerTarget.x, pointerTarget.y, reusablePointerInGridCoords);
-
-			vec2(
-				2.0 * (reusablePointerInGridCoords.x - colsRef.current / 2) / m * aspectRef.current,
-				2.0 * (reusablePointerInGridCoords.y - rowsRef.current / 2) / m,
-				reusablePointerNormalized
-			);
-
-			for (let j = 0; j < rowsRef.current; j++) {
-				for (let i = 0; i < colsRef.current; i++) {
-					vec2(i, j, reusableCoord);
-					vec2(
-						2.0 * (reusableCoord.x - colsRef.current / 2) / m * aspectRef.current,
-						2.0 * (reusableCoord.y - rowsRef.current / 2) / m,
-						reusableSt
-					);
-
-					const d1 = sdCircle(reusableSt, 0.3 + 0.1 * Math.sin(t * 0.5));
-					const d2 = sdCircle(sub(reusableSt, reusablePointerNormalized, reusableSubResult), 0.2 + 0.05 * Math.cos(t * 0.7));
-					const d = opSmoothUnion(d1, d2, 0.6 + 0.2 * Math.sin(t * 0.3));
-					const c = 1.0 - Math.exp(-4 * Math.abs(d));
-
-					const currentGlitchStrength = isCapture ? 1.0 : ditherStrength.current;
-
-					let index = Math.floor(c * DENSITY_ORIGINAL.length);
-					index = Math.max(0, Math.min(index, DENSITY_ORIGINAL.length - 1));
-					let char = DENSITY_ORIGINAL[index];
-
-					let offsetX = 0;
-					let offsetY = 0;
-
-					if (currentGlitchStrength > 0.001) {
-						if (Math.random() < currentGlitchStrength * MAX_SYMBOL_GLITCH_PROB) {
-							const randomIndex = Math.floor(Math.random() * DENSITY_ORIGINAL.length);
-							char = DENSITY_ORIGINAL[randomIndex];
-						}
-						const maxOffsetX = charWidthRef.current * MAX_GLITCH_OFFSET_X_FACTOR;
-						const maxOffsetY = charHeightRef.current * MAX_GLITCH_OFFSET_Y_FACTOR;
-						offsetX = (Math.random() - 0.5) * 2 * maxOffsetX * currentGlitchStrength;
-						offsetY = (Math.random() - 0.5) * 2 * maxOffsetY * currentGlitchStrength;
-					}
-
-					if (char && char !== ' ') {
-						ctx.fillText(
-							char,
-							(i + 0.5) * charWidthRef.current + offsetX,
-							(j + 0.5) * charHeightRef.current + offsetY
-						);
-					}
-				}
-			}
-		};
-
-		const captureInitialFrame = () => {
-			if (!isTouchDeviceRef.current || staticCanvasFrameRef.current) return;
-			console.log("Mobile: Capturing initial canvas frame.");
-			renderAnimationWithCapture(true);
-			try {
-				staticCanvasFrameRef.current = canvas.toDataURL('image/webp', 0.8);
-			} catch (e) {
-				console.error("Could not capture canvas frame:", e);
-				staticCanvasFrameRef.current = canvas.toDataURL('image/png');
-			}
-		};
-
-		captureInitialFrame();
 
 		const handleMouseMove = (event: MouseEvent) => {
 			const rect = canvas.getBoundingClientRect();
@@ -558,8 +445,108 @@ export const AboutMe = () => {
 			if (elapsed > animationFrameInterval_aboutme || isStaticRender.current) {
 				lastAnimationRunTime_aboutme = currentTime - (elapsed % animationFrameInterval_aboutme);
 
-				// --- Main rendering logic moved to a separate function ---
-				renderAnimationWithCapture(false);
+				// --- Time Calculation & State Save ---
+				// For a static render, use the time from the last animated frame.
+				// Otherwise, calculate the new time from the current timestamp.
+				const t = isStaticRender.current
+					? lastRenderTimeRef.current
+					: (Date.now() - startTime.current) / 1000;
+
+				// If we are still actively animating, update the last known time.
+				// This value will be used if the next frame is a static one.
+				if (animationActive.current) {
+					lastRenderTimeRef.current = t;
+				}
+				// --- End Time Calculation ---
+
+				// Get theme colors from CSS variables
+				const computedStyles = getComputedStyle(document.documentElement);
+				const canvasBackgroundColor = computedStyles.getPropertyValue('--background-color').trim();
+				const canvasTextColor = computedStyles.getPropertyValue('--text-color').trim();
+
+				ctx.fillStyle = canvasBackgroundColor;
+				ctx.fillRect(0, 0, canvas.width / dprRef.current, canvas.height / dprRef.current);
+
+				ctx.font = `${charHeightRef.current * 0.8}px "Alpha Lyrae", monospace`;
+				ctx.fillStyle = canvasTextColor;
+				ctx.textAlign = 'center';
+				ctx.textBaseline = 'middle';
+
+				const m = Math.min(colsRef.current, rowsRef.current);
+
+				if (isTouchDeviceRef.current || !animationActive.current) { // Use fixed pointer for static render too
+					// For touch devices, fix the pointer to 3/4 towards bottom-right of the grid
+					reusablePointerInGridCoords.x = colsRef.current * 0.75;
+					reusablePointerInGridCoords.y = rowsRef.current * 0.85;
+				} else {
+					// For non-touch devices, use the actual mouse/pointer position in grid coordinates
+					vec2(
+						(mousePositionRef.current.x / charWidthRef.current),
+						(mousePositionRef.current.y / charHeightRef.current),
+						reusablePointerInGridCoords
+					);
+				}
+
+				vec2(
+					2.0 * (reusablePointerInGridCoords.x - colsRef.current / 2) / m * aspectRef.current,
+					2.0 * (reusablePointerInGridCoords.y - rowsRef.current / 2) / m,
+					reusablePointerNormalized
+				);
+
+				for (let j = 0; j < rowsRef.current; j++) {
+					for (let i = 0; i < colsRef.current; i++) {
+						vec2(i, j, reusableCoord);
+						vec2(
+							2.0 * (reusableCoord.x - colsRef.current / 2) / m * aspectRef.current,
+							2.0 * (reusableCoord.y - rowsRef.current / 2) / m,
+							reusableSt
+						);
+
+						// The rendering logic is now the same for static and animated frames.
+						// The time `t` is either live or frozen, ensuring the scene is consistent.
+						const d1 = sdCircle(reusableSt, 0.3 + 0.1 * Math.sin(t * 0.5));
+						const d2 = sdCircle(sub(reusableSt, reusablePointerNormalized, reusableSubResult), 0.2 + 0.05 * Math.cos(t * 0.7));
+						const d = opSmoothUnion(d1, d2, 0.6 + 0.2 * Math.sin(t * 0.3));
+						const c = 1.0 - Math.exp(-4 * Math.abs(d));
+
+						// --- Dithering Logic ---
+						const currentGlitchStrength = ditherStrength.current; // Use ditherStrength for glitch intensity
+
+						// --- Original Character Selection ---
+						// Map original intensity 'c' back to character index
+						let index = Math.floor(c * DENSITY_ORIGINAL.length);
+						index = Math.max(0, Math.min(index, DENSITY_ORIGINAL.length - 1));
+						let char = DENSITY_ORIGINAL[index]; // Start with the calculated character
+
+						// --- Glitch Effect Logic (Symbolic + Positional) ---
+						let offsetX = 0;
+						let offsetY = 0;
+
+						if (currentGlitchStrength > 0.001) { // Apply glitch only if strength is noticeable
+							// 1. Symbolic Glitch:
+							if (Math.random() < currentGlitchStrength * MAX_SYMBOL_GLITCH_PROB) {
+								const randomIndex = Math.floor(Math.random() * DENSITY_ORIGINAL.length);
+								char = DENSITY_ORIGINAL[randomIndex]; // Replace with random char
+							}
+
+							// 2. Positional Glitch:
+							const maxOffsetX = charWidthRef.current * MAX_GLITCH_OFFSET_X_FACTOR;
+							const maxOffsetY = charHeightRef.current * MAX_GLITCH_OFFSET_Y_FACTOR;
+							offsetX = (Math.random() - 0.5) * 2 * maxOffsetX * currentGlitchStrength;
+							offsetY = (Math.random() - 0.5) * 2 * maxOffsetY * currentGlitchStrength;
+						}
+
+						// --- Drawing Logic ---
+						if (char && char !== ' ') {
+							ctx.fillText(
+								char, // Use potentially glitched character
+								(i + 0.5) * charWidthRef.current + offsetX, // Add X offset
+								(j + 0.5) * charHeightRef.current + offsetY  // Add Y offset
+							);
+						}
+						// --- End Glitch/Drawing Logic ---
+					}
+				}
 			}
 
 			// If this was a static render, turn the flag off now that it's done.
@@ -576,19 +563,15 @@ export const AboutMe = () => {
 					trigger: pinHeightRef.current,
 					start: `top top-=${DITHER_FADE_VH}vh`, // Matches text animation start
 					onEnter: () => {
-						console.log("Mobile: Stopping canvas animation and showing static frame.");
-						animationActive.current = false;
-						cancelAnimationFrame(animationFrameId.current);
-						if (staticCanvasFrameRef.current) {
-							canvas.style.display = 'none';
-							staticFrameDiv.style.backgroundImage = `url(${staticCanvasFrameRef.current})`;
-							staticFrameDiv.style.display = 'block';
+						console.log("Mobile: Stopping canvas animation.");
+						if (animationActive.current) {
+							animationActive.current = false;
+							isStaticRender.current = true; // Request one last static frame
+							requestAnimationFrame(renderAnimation); // Trigger the static render
 						}
 					},
 					onLeaveBack: () => {
 						console.log("Mobile: Restarting canvas animation.");
-						staticFrameDiv.style.display = 'none';
-						canvas.style.display = 'block';
 						if (!animationActive.current) {
 							animationActive.current = true;
 							lastAnimationRunTime_aboutme = Date.now();
@@ -667,10 +650,6 @@ export const AboutMe = () => {
 			<canvas
 				ref={canvasRef}
 				className={styles.asciiCanvas}
-			/>
-			<div
-				ref={staticFrameContainerRef}
-				className={styles.staticCanvasFrame}
 			/>
 			<ScrollDownIndicator />
 			<section className={styles.mwgEffect004}>
