@@ -17,12 +17,10 @@ import styles from './index.module.scss';
 import { sdCircle, opSmoothUnion } from './utils/sdf';
 import { vec2, sub, Vec2, copy } from './utils/vec2';
 
-// Import icons
 
 // Original density string
 const DENSITY_ORIGINAL = '#gLitCh?*:pxls×+=-· ';
 
-// Data for links column - moved outside component for performance
 const linksData = [
 	{ href: "https://www.instagram.com/glitchypixels/", text: "INSTAGRAM", iconComponent: InstagramIcon, alt: "Instagram Icon" },
 	{ href: "https://x.com/iamglitchypixel", text: "TWITTER", iconComponent: TwitterIcon, alt: "Twitter Icon" },
@@ -562,7 +560,6 @@ export const AboutMe = () => {
 						if (animationActive.current) {
 							animationActive.current = false;
 							isStaticRender.current = true; // Request one last static frame
-							requestAnimationFrame(renderAnimation); // Trigger the static render
 						}
 					},
 					onLeaveBack: () => {
