@@ -52,6 +52,7 @@ export const AboutMe = () => {
 	const mousePositionRef = useRef<Vec2>({ x: 0, y: 0 });
 	const animationFrameId = useRef<number>(0);
 	const startTime = useRef<number>(Date.now());
+	const lastRenderTimeRef = useRef<number>(0); // For freezing animation state
 	const ditherStrength = useRef<number>(1.0); // Added: Controls dither effect (1 = max, 0 = none)
 	const isTouchDeviceRef = useRef<boolean>(false); // Added: To detect touch devices
 	const mobileAnimationStopperRef = useRef<ScrollTrigger | null>(null);
@@ -438,19 +439,30 @@ export const AboutMe = () => {
 				animationFrameId.current = requestAnimationFrame(renderAnimation);
 			}
 
-
 			const currentTime = Date.now();
 			const elapsed = currentTime - lastAnimationRunTime_aboutme;
 
 			if (elapsed > animationFrameInterval_aboutme || isStaticRender.current) {
 				lastAnimationRunTime_aboutme = currentTime - (elapsed % animationFrameInterval_aboutme);
 
+				// --- Time Calculation & State Save ---
+				// For a static render, use the time from the last animated frame.
+				// Otherwise, calculate the new time from the current timestamp.
+				const t = isStaticRender.current
+					? lastRenderTimeRef.current
+					: (Date.now() - startTime.current) / 1000;
+
+				// If we are still actively animating, update the last known time.
+				// This value will be used if the next frame is a static one.
+				if (animationActive.current) {
+					lastRenderTimeRef.current = t;
+				}
+				// --- End Time Calculation ---
+
 				// Get theme colors from CSS variables
 				const computedStyles = getComputedStyle(document.documentElement);
 				const canvasBackgroundColor = computedStyles.getPropertyValue('--background-color').trim();
 				const canvasTextColor = computedStyles.getPropertyValue('--text-color').trim();
-
-				const t = (currentTime - startTime.current) / 1000;
 
 				ctx.fillStyle = canvasBackgroundColor;
 				ctx.fillRect(0, 0, canvas.width / dprRef.current, canvas.height / dprRef.current);
@@ -462,7 +474,7 @@ export const AboutMe = () => {
 
 				const m = Math.min(colsRef.current, rowsRef.current);
 
-				if (isTouchDeviceRef.current || isStaticRender.current) { // Use fixed pointer for static render too
+				if (isTouchDeviceRef.current || !animationActive.current) { // Use fixed pointer for static render too
 					// For touch devices, fix the pointer to 3/4 towards bottom-right of the grid
 					reusablePointerInGridCoords.x = colsRef.current * 0.75;
 					reusablePointerInGridCoords.y = rowsRef.current * 0.85;
@@ -481,9 +493,6 @@ export const AboutMe = () => {
 					reusablePointerNormalized
 				);
 
-				// For static render, remove the interactive elements from the SDF
-				const finalTime = isStaticRender.current ? startTime.current / 1000 : t;
-
 				for (let j = 0; j < rowsRef.current; j++) {
 					for (let i = 0; i < colsRef.current; i++) {
 						vec2(i, j, reusableCoord);
@@ -493,28 +502,15 @@ export const AboutMe = () => {
 							reusableSt
 						);
 
-						const d1 = sdCircle(reusableSt, 0.3 + 0.1 * Math.sin(finalTime * 0.5));
-
-						let d;
-						if (isStaticRender.current) {
-							d = d1; // Only the base animated circle for static version
-						} else {
-							const d2 = sdCircle(sub(reusableSt, reusablePointerNormalized, reusableSubResult), 0.2 + 0.05 * Math.cos(t * 0.7));
-							d = opSmoothUnion(d1, d2, 0.6 + 0.2 * Math.sin(t * 0.3));
-						}
+						// The rendering logic is now the same for static and animated frames.
+						// The time `t` is either live or frozen, ensuring the scene is consistent.
+						const d1 = sdCircle(reusableSt, 0.3 + 0.1 * Math.sin(t * 0.5));
+						const d2 = sdCircle(sub(reusableSt, reusablePointerNormalized, reusableSubResult), 0.2 + 0.05 * Math.cos(t * 0.7));
+						const d = opSmoothUnion(d1, d2, 0.6 + 0.2 * Math.sin(t * 0.3));
 						const c = 1.0 - Math.exp(-4 * Math.abs(d));
 
 						// --- Dithering Logic ---
-						/* // Removed Bayer Dithering Logic
-						const threshold = bayerMatrix4x4[j % BAYER_MATRIX_SIZE][i % BAYER_MATRIX_SIZE];
-						const ditherTargetC = c > threshold ? 1.0 : 0.0; // Target intensity for full dither (binary)
-						*/
 						const currentGlitchStrength = ditherStrength.current; // Use ditherStrength for glitch intensity
-
-						/* // Removed Lerp logic
-						// Interpolate between original intensity and dithered intensity
-						const effectiveC = lerp(c, ditherTargetC, currentGlitchStrength);
-						*/
 
 						// --- Original Character Selection ---
 						// Map original intensity 'c' back to character index
