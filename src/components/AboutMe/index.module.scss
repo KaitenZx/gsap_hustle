@@ -227,7 +227,6 @@
 							&>a.expoLinkBlock {
 								// Targeting 'a' tags that are direct children and have expoLinkBlock
 								display: block; // Ensure it still behaves as a block
-								pointer-events: none; // Initially not clickable
 							}
 
 							a {

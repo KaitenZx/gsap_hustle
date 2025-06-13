@@ -15,7 +15,7 @@ import { ThemeToggleButton } from '../ThemeToggleButton/ThemeToggleButton';
 
 import styles from './index.module.scss';
 import { sdCircle, opSmoothUnion } from './utils/sdf';
-import { vec2, sub, Vec2 } from './utils/vec2';
+import { vec2, sub, Vec2, copy } from './utils/vec2';
 
 // Import icons
 
@@ -75,6 +75,14 @@ export const AboutMe = () => {
 	const charHeightRef = useRef(20);
 	const aspectRef = useRef(0.5);
 	const dprRef = useRef(window.devicePixelRatio || 1);
+	const backgroundColorRef = useRef('#000000'); // Ref for background color
+	const textColorRef = useRef('#FFFFFF');     // Ref for text color
+
+	// --- New Refs for Optimization ---
+	const mRef = useRef(40); // For Math.min(cols, rows)
+	const maxGlitchOffsetXRef = useRef(0);
+	const maxGlitchOffsetYRef = useRef(0);
+	const fixedPointerGridCoordsRef = useRef(vec2(0, 0)); // For static/touch pointer position
 
 	const { setIsAboutMePinned } = usePinState();
 
@@ -135,6 +143,15 @@ export const AboutMe = () => {
 			colsRef.current = Math.min(colsRef.current, MAX_COLS);
 			rowsRef.current = Math.min(rowsRef.current, MAX_ROWS);
 			// --- End Performance Cap ---
+
+			// --- Pre-calculate values for render loop ---
+			mRef.current = Math.min(colsRef.current, rowsRef.current);
+			maxGlitchOffsetXRef.current = charWidthRef.current * MAX_GLITCH_OFFSET_X_FACTOR;
+			maxGlitchOffsetYRef.current = charHeightRef.current * MAX_GLITCH_OFFSET_Y_FACTOR;
+			fixedPointerGridCoordsRef.current = vec2(
+				colsRef.current * 0.75,
+				rowsRef.current * 0.85
+			);
 		}
 	};
 
@@ -258,13 +275,6 @@ export const AboutMe = () => {
 						x: 0,
 						stagger: 0.1,
 						ease: 'power1.inOut',
-						onComplete: () => {
-							lineWords.forEach(wordEl => {
-								if (wordEl.classList.contains(styles.expoLinkBlock)) {
-									wordEl.style.pointerEvents = 'auto';
-								}
-							});
-						}
 					});
 					wordAnimationTweens.push(tween);
 					if (tween.duration() > maxTextAnimationImplicitDuration) {
@@ -382,8 +392,22 @@ export const AboutMe = () => {
 		const animationActive = { current: false };
 		const isStaticRender = { current: false }; // Flag for one-off static render
 
+		// --- Style application function ---
+		// Reads CSS variables and applies static styles to the canvas context.
+		const updateAndApplyCanvasStyles = () => {
+			const computedStyles = getComputedStyle(document.documentElement);
+			backgroundColorRef.current = computedStyles.getPropertyValue('--background-color').trim();
+			textColorRef.current = computedStyles.getPropertyValue('--text-color').trim();
+
+			// Apply static styles that don't change within the render loop
+			ctx.font = `${charHeightRef.current * 0.8}px "Alpha Lyrae", monospace`;
+			ctx.textAlign = 'center';
+			ctx.textBaseline = 'middle';
+		};
+
 		// Initial calculation
 		calculateCharMetrics(ctx);
+		updateAndApplyCanvasStyles(); // Apply initial styles
 
 		const handleMouseMove = (event: MouseEvent) => {
 			const rect = canvas.getBoundingClientRect();
@@ -417,6 +441,8 @@ export const AboutMe = () => {
 		const debouncedResizeHandler = debounce(() => {
 			// Recalculate canvas dimensions, char metrics, cols, rows
 			calculateCharMetrics(ctx);
+			// Re-apply canvas styles as font size might have changed
+			updateAndApplyCanvasStyles();
 			// Refresh GSAP ScrollTrigger calculations
 			ScrollTrigger.refresh();
 		}, 250); // Debounce timeout
@@ -425,6 +451,18 @@ export const AboutMe = () => {
 		if (window.visualViewport) {
 			window.visualViewport.addEventListener('resize', debouncedResizeHandler);
 		}
+
+		// --- Observer for theme changes ---
+		const observer = new MutationObserver((mutationsList) => {
+			for (const mutation of mutationsList) {
+				if (mutation.type === 'attributes' && mutation.attributeName === 'data-theme') {
+					updateAndApplyCanvasStyles(); // Re-apply styles on theme change
+					break;
+				}
+			}
+		});
+		observer.observe(document.documentElement, { attributes: true });
+
 
 		// --- Render Loop ---
 		const renderAnimation = () => {
@@ -459,25 +497,18 @@ export const AboutMe = () => {
 				}
 				// --- End Time Calculation ---
 
-				// Get theme colors from CSS variables
-				const computedStyles = getComputedStyle(document.documentElement);
-				const canvasBackgroundColor = computedStyles.getPropertyValue('--background-color').trim();
-				const canvasTextColor = computedStyles.getPropertyValue('--text-color').trim();
-
-				ctx.fillStyle = canvasBackgroundColor;
+				// Clear canvas with the background color from the ref
+				ctx.fillStyle = backgroundColorRef.current;
 				ctx.fillRect(0, 0, canvas.width / dprRef.current, canvas.height / dprRef.current);
 
-				ctx.font = `${charHeightRef.current * 0.8}px "Alpha Lyrae", monospace`;
-				ctx.fillStyle = canvasTextColor;
-				ctx.textAlign = 'center';
-				ctx.textBaseline = 'middle';
+				// Set text color from the ref
+				ctx.fillStyle = textColorRef.current;
 
-				const m = Math.min(colsRef.current, rowsRef.current);
+				const m = mRef.current; // Use pre-calculated value
 
 				if (isTouchDeviceRef.current || !animationActive.current) { // Use fixed pointer for static render too
-					// For touch devices, fix the pointer to 3/4 towards bottom-right of the grid
-					reusablePointerInGridCoords.x = colsRef.current * 0.75;
-					reusablePointerInGridCoords.y = rowsRef.current * 0.85;
+					// For touch devices, use pre-calculated fixed pointer
+					copy(fixedPointerGridCoordsRef.current, reusablePointerInGridCoords);
 				} else {
 					// For non-touch devices, use the actual mouse/pointer position in grid coordinates
 					vec2(
@@ -530,10 +561,9 @@ export const AboutMe = () => {
 							}
 
 							// 2. Positional Glitch:
-							const maxOffsetX = charWidthRef.current * MAX_GLITCH_OFFSET_X_FACTOR;
-							const maxOffsetY = charHeightRef.current * MAX_GLITCH_OFFSET_Y_FACTOR;
-							offsetX = (Math.random() - 0.5) * 2 * maxOffsetX * currentGlitchStrength;
-							offsetY = (Math.random() - 0.5) * 2 * maxOffsetY * currentGlitchStrength;
+							// Use pre-calculated max offsets
+							offsetX = (Math.random() - 0.5) * 2 * maxGlitchOffsetXRef.current * currentGlitchStrength;
+							offsetY = (Math.random() - 0.5) * 2 * maxGlitchOffsetYRef.current * currentGlitchStrength;
 						}
 
 						// --- Drawing Logic ---
@@ -626,6 +656,7 @@ export const AboutMe = () => {
 				window.visualViewport.removeEventListener('resize', debouncedResizeHandler);
 			}
 			debouncedResizeHandler.cancel();
+			observer.disconnect(); // Disconnect the observer
 			GsapAnimationScrollTrigger?.kill();
 			mobileAnimationStopperRef.current?.kill();
 			// Note: GSAP timelines/triggers from the other useEffect are cleaned up there
