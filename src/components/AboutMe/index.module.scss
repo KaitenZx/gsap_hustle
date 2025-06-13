@@ -14,7 +14,7 @@
 	.asciiCanvas {
 		display: block;
 		width: 100%;
-		height: 100%;
+		height: 100lvh;
 		background-color: transparent;
 		color: #fff;
 		opacity: 1;
@@ -32,9 +32,13 @@
 		width: 100%;
 
 		.pinHeight {
-			height: 480vh;
+			height: 440vh;
 			position: relative;
 			pointer-events: none;
+
+			@media (max-width: 767px) {
+				height: 340vh;
+			}
 
 			.textAnimationContainer {
 				height: 100dvh;

@@ -40,8 +40,7 @@ const wrapWordsInSpans = (elements: HTMLElement[]) => {
 
 // Define scroll distances for animation and pause
 const TEXT_ANIM_SCROLL_DISTANCE_VH = 300; // Text animation happens over this scroll distance
-const PAUSE_SCROLL_DISTANCE_VH = 80;   // Pause lasts for this scroll distance
-// Total scroll distance is implicitly defined by .pinHeight in SCSS
+const PAUSE_SCROLL_DISTANCE_VH = 40;   // Pause lasts for this scroll distance
 
 // --- Constants for Glitch Effect ---
 const MAX_SYMBOL_GLITCH_PROB = 0.15; // Max probability (at strength=1) of replacing a symbol
@@ -55,6 +54,7 @@ export const AboutMe = () => {
 	const startTime = useRef<number>(Date.now());
 	const ditherStrength = useRef<number>(1.0); // Added: Controls dither effect (1 = max, 0 = none)
 	const isTouchDeviceRef = useRef<boolean>(false); // Added: To detect touch devices
+	const mobileAnimationStopperRef = useRef<ScrollTrigger | null>(null);
 
 	// Refs for GSAP text animation
 	const aboutMeContainerRef = useRef<HTMLDivElement>(null);
@@ -389,6 +389,7 @@ export const AboutMe = () => {
 		const TARGET_CANVAS_FPS_ABOUTME = 15;
 		const animationFrameInterval_aboutme = 1000 / TARGET_CANVAS_FPS_ABOUTME;
 		let lastAnimationRunTime_aboutme = 0;
+		const animationActive = { current: false };
 
 		// Initial calculation
 		calculateCharMetrics(ctx);
@@ -546,16 +547,47 @@ export const AboutMe = () => {
 
 		let GsapAnimationScrollTrigger: ScrollTrigger | undefined;
 		if (container && canvasRef.current) {
+			// On mobile, stop the animation when text appears.
+			if (isTouchDeviceRef.current && pinHeightRef.current) {
+				mobileAnimationStopperRef.current = ScrollTrigger.create({
+					trigger: pinHeightRef.current,
+					start: `top top-=${DITHER_FADE_VH}vh`, // Matches text animation start
+					onEnter: () => {
+						console.log("Mobile: Stopping canvas animation.");
+						animationActive.current = false;
+						cancelAnimationFrame(animationFrameId.current);
+					},
+					onLeaveBack: () => {
+						console.log("Mobile: Restarting canvas animation.");
+						if (!animationActive.current) {
+							animationActive.current = true;
+							lastAnimationRunTime_aboutme = Date.now();
+							animationFrameId.current = requestAnimationFrame(renderAnimation);
+						}
+					},
+				});
+			}
+
 			GsapAnimationScrollTrigger = ScrollTrigger.create({
 				trigger: container,
 				start: "top bottom",
 				end: "bottom top",
 				onToggle: self => {
-					if (self.isActive) {
+					// On mobile, if the text animation is already active, don't restart the canvas animation.
+					if (isTouchDeviceRef.current && mobileAnimationStopperRef.current?.isActive) {
+						animationActive.current = false;
 						cancelAnimationFrame(animationFrameId.current);
-						lastAnimationRunTime_aboutme = Date.now();
-						animationFrameId.current = requestAnimationFrame(renderAnimation);
+						return;
+					}
+
+					if (self.isActive) {
+						if (!animationActive.current) {
+							animationActive.current = true;
+							lastAnimationRunTime_aboutme = Date.now();
+							animationFrameId.current = requestAnimationFrame(renderAnimation);
+						}
 					} else {
+						animationActive.current = false;
 						cancelAnimationFrame(animationFrameId.current);
 					}
 				}
@@ -582,6 +614,7 @@ export const AboutMe = () => {
 			}
 			debouncedResizeHandler.cancel();
 			GsapAnimationScrollTrigger?.kill();
+			mobileAnimationStopperRef.current?.kill();
 			// Note: GSAP timelines/triggers from the other useEffect are cleaned up there
 		};
 		// eslint-disable-next-line react-hooks/exhaustive-deps
