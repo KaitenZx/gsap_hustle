@@ -307,7 +307,7 @@ export const InfiniteGallery: React.FC = () => {
 		if (dims && dims.columnTotalWidth > 0) {
 			const currentWrappedX = dims.wrapX(currentActualXRef.current);
 			const currentApproxFirstVisibleColIndex = Math.floor(-currentWrappedX / dims.columnTotalWidth);
-			const preloadColsCount = 4;
+			const preloadColsCount = 8;
 			let firstColToPreload: number;
 
 			if (scrollDirection === 1) {
@@ -674,7 +674,7 @@ export const InfiniteGallery: React.FC = () => {
 				observerInstance.current = Observer.create({
 					target: containerElement,
 					type: "wheel,touch,pointer",
-					preventDefault: false,
+					preventDefault: true,
 					tolerance: 5,
 					dragMinimum: 3,
 					onPress: () => {
@@ -699,13 +699,8 @@ export const InfiniteGallery: React.FC = () => {
 						// Для DRAG: Пропускаем, если вертикальный скролл преобладает
 						if (self.isDragging && Math.abs(self.deltaX) < Math.abs(self.deltaY)) return;
 
-						if (isScrollLockedRef.current && self.event.cancelable) {
-							if (self.event.type === 'wheel') {
-								self.event.preventDefault();
-							} else if ((self.event.type === 'touch' || self.event.type === 'pointer') && self.isDragging) {
-								self.event.preventDefault();
-							}
-						}
+						// <<< ADDED: For wheel events, only proceed if horizontal scroll is dominant
+						if (self.event.type === 'wheel' && Math.abs(self.deltaX) < Math.abs(self.deltaY)) return;
 
 						if (self.isDragging) {
 							didDragSincePressRef.current = true;
@@ -745,14 +740,6 @@ export const InfiniteGallery: React.FC = () => {
 
 						if (!isScrollLockedRef.current || !dims || !contentWrapperElement) return;
 						if (self.isDragging && Math.abs(self.deltaY) < Math.abs(self.deltaX)) return;
-
-						if (isScrollLockedRef.current && self.event.cancelable) {
-							if (self.event.type === 'wheel') {
-								self.event.preventDefault();
-							} else if ((self.event.type === 'touch' || self.event.type === 'pointer') && self.isDragging) {
-								self.event.preventDefault();
-							}
-						}
 
 						if (self.isDragging) {
 							didDragSincePressRef.current = true;
