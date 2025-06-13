@@ -360,9 +360,9 @@ p {
 
 .word {
 	display: inline-block;
-	transform: translate(calc(100vw - 25px), 0);
 	color: inherit;
 	opacity: 1;
+	will-change: transform, opacity;
 }
 
 .textContainerHiddenByOpacity {

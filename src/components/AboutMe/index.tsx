@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-misused-promises */
 import { useRef, useEffect } from 'react';
 
 import { gsap } from 'gsap';
@@ -39,6 +40,45 @@ const wrapWordsInSpans = (elements: HTMLElement[]) => {
 			.map(word => `<span class="${styles.word}">${word}</span>`)
 			.join(' ');
 	});
+};
+
+/**
+ * Groups words into lines based on their vertical position.
+ * This is necessary to create a line-by-line animation effect.
+ * @param elements Array of word elements.
+ * @returns An array of arrays, where each inner array is a line of elements.
+ */
+const groupWordsByLines = (elements: HTMLElement[]): HTMLElement[][] => {
+	if (elements.length === 0) {
+		return [];
+	}
+
+	// 1. Batch read: read all offsetTop values in one go.
+	const wordsWithPositions = elements.map(el => ({
+		element: el,
+		top: el.offsetTop
+	}));
+
+	// 2. Process data without reading from the DOM.
+	const lines: HTMLElement[][] = [];
+	if (wordsWithPositions.length > 0) {
+		let currentLine: HTMLElement[] = [wordsWithPositions[0].element];
+		let lastOffsetTop = wordsWithPositions[0].top;
+
+		for (let i = 1; i < wordsWithPositions.length; i++) {
+			const wordInfo = wordsWithPositions[i];
+			if (wordInfo.top === lastOffsetTop) {
+				currentLine.push(wordInfo.element);
+			} else {
+				lines.push(currentLine);
+				currentLine = [wordInfo.element];
+				lastOffsetTop = wordInfo.top;
+			}
+		}
+		lines.push(currentLine); // Add the last line
+	}
+
+	return lines;
 };
 
 const TEXT_ANIM_SCROLL_DISTANCE_VH = 300; // Text animation happens over this scroll distance
@@ -182,34 +222,34 @@ export const AboutMe = () => {
 		});
 
 		const initTextAnimation = () => {
-			const elementsToWrap: HTMLElement[] = Array.from(
+			if (!pinnedTextContainerEl || !pinHeightEl) return;
+
+			const elementsToWrap = Array.from(
 				pinnedTextContainerEl.querySelectorAll(
 					`.${styles.aboutColumn} h2, .${styles.aboutColumn} p,` +
 					`.${styles.exposColumn} h2, .${styles.exposColumn} .${styles.animatableText},` +
 					`.${styles.linksColumn} h2, .${styles.linksColumn} .${styles.animatableText}`
 				)
-			).filter(el => el instanceof HTMLElement);
+			).filter((el): el is HTMLElement => el instanceof HTMLElement);
 
 			if (elementsToWrap.length > 0) {
 				wrapWordsInSpans(elementsToWrap);
 			}
 
-
-			const words: HTMLElement[] = Array.from(pinnedTextContainerEl.querySelectorAll(
-				`.${styles.word}`
-			)).filter(el => el instanceof HTMLElement);
+			const words = Array.from(pinnedTextContainerEl.querySelectorAll(`.${styles.word}`))
+				.filter((el): el is HTMLElement => el instanceof HTMLElement);
 
 			if (words.length === 0) {
 				console.warn('[AboutMe GSAP] No words found to animate.');
 				return;
 			}
 
-			gsap.set(words, { autoAlpha: 0, xPercent: -100 });
+			// Set initial state
+			gsap.set(words, { autoAlpha: 0, x: '100vw' });
+			gsap.set(pinnedTextContainerEl, { opacity: 1 });
 
-			if (pinnedTextContainerEl) {
-				gsap.set(pinnedTextContainerEl, { opacity: 1 });
-			}
 
+			// Create pin triggers
 			textPinScrollTrigger = ScrollTrigger.create({
 				trigger: pinHeightEl,
 				pin: pinnedTextContainerEl,
@@ -219,6 +259,17 @@ export const AboutMe = () => {
 				onToggle: (self) => setIsAboutMePinned(self.isActive),
 			});
 
+			if (currentCanvasElement) {
+				canvasPinScrollTrigger = ScrollTrigger.create({
+					trigger: pinHeightEl,
+					pin: currentCanvasElement,
+					start: 'top top',
+					end: 'bottom bottom',
+					pinSpacing: false,
+				});
+			}
+
+			// Create master timeline
 			masterTimeline = gsap.timeline({
 				scrollTrigger: {
 					trigger: pinHeightEl,
@@ -228,87 +279,36 @@ export const AboutMe = () => {
 				}
 			});
 
-			if (currentCanvasElement && pinHeightEl) {
-				canvasPinScrollTrigger = ScrollTrigger.create({
-					trigger: pinHeightEl,
-					pin: currentCanvasElement,
-					start: 'top top',
-					end: 'bottom bottom',
-					pinSpacing: false,
-					onToggle: (self) => setIsAboutMePinned(self.isActive),
-				});
-			}
+			// Get words from each column and group them by lines
+			const aboutWords = Array.from(pinnedTextContainerEl.querySelectorAll(`.${styles.aboutColumn} .${styles.word}`))
+				.filter((el): el is HTMLElement => el instanceof HTMLElement);
+			const exposAndLinksWords = Array.from(pinnedTextContainerEl.querySelectorAll(`.${styles.exposLinksWrapper} .${styles.word}`))
+				.filter((el): el is HTMLElement => el instanceof HTMLElement);
 
-			const lines: HTMLElement[][] = [[]];
-			let lineIndex = 0;
-			let lastOffsetTop = words.length > 0 ? words[0].offsetTop : 0;
+			const aboutLines = groupWordsByLines(aboutWords);
+			const exposAndLinksLines = groupWordsByLines(exposAndLinksWords);
 
-			words.forEach((word, i) => {
-				if (i > 0 && word.offsetTop !== lastOffsetTop) {
-					lines.push([]);
-					lineIndex++;
-					lastOffsetTop = word.offsetTop;
-				}
-				lines[lineIndex].push(word);
-			});
+			const commonTweenVars = {
+				autoAlpha: 1,
+				x: 0,
+				ease: 'power1.inOut',
+				stagger: 0.05,
+			};
 
-			const wordAnimationTweens: gsap.core.Tween[] = [];
-			let maxTextAnimationImplicitDuration = 0;
+			// Add line animations to the timeline
+			aboutLines.forEach(line => masterTimeline?.to(line, commonTweenVars, "<"));
+			exposAndLinksLines.forEach(line => masterTimeline?.to(line, commonTweenVars, "<"));
 
-			lines.forEach(lineWords => {
-				if (lineWords.length > 0) {
-					const tween = gsap.to(lineWords, {
-						autoAlpha: 1,
-						xPercent: 0,
-						x: 0,
-						stagger: 0.1,
-						ease: 'power1.inOut',
-					});
-					wordAnimationTweens.push(tween);
-					if (tween.duration() > maxTextAnimationImplicitDuration) {
-						maxTextAnimationImplicitDuration = tween.duration();
-					}
-				}
-			});
-
-			// Fallback if no words or all lines have 1 word (duration would be GSAP default 0.5s for .to())
-			if (wordAnimationTweens.length > 0 && maxTextAnimationImplicitDuration === 0) {
-				// This case means all tweens are for single words, so duration is default 0.5s
-				maxTextAnimationImplicitDuration = 0.5;
-			} else if (wordAnimationTweens.length === 0) {
-				maxTextAnimationImplicitDuration = 0.01; // Avoid 0 for calculations if no words
-			}
-
-
-			if (wordAnimationTweens.length > 0) {
-				masterTimeline.add(wordAnimationTweens, 0);
-			} else {
-				// If no words to animate, ensure the text animation segment still "exists"
-				// with a tiny duration on the master timeline.
-				masterTimeline.to({}, { duration: 0.01 });
-			}
-
-
-			// Calculate the "timeline duration" for the pause part.
-			// This duration must be proportional to maxTextAnimationImplicitDuration,
-			// based on the ratio of PAUSE_SCROLL_DISTANCE_VH to TEXT_ANIM_SCROLL_DISTANCE_VH.
-			let pauseTimelineDuration = 0;
-			if (TEXT_ANIM_SCROLL_DISTANCE_VH > 0.001 && maxTextAnimationImplicitDuration > 0.0001) {
-				pauseTimelineDuration = maxTextAnimationImplicitDuration * (PAUSE_SCROLL_DISTANCE_VH / TEXT_ANIM_SCROLL_DISTANCE_VH);
-			} else if (PAUSE_SCROLL_DISTANCE_VH > 0) {
-				pauseTimelineDuration = 1; // Arbitrary unit, makes sense if it's the only "active" part
-			}
-			pauseTimelineDuration = Math.max(0, pauseTimelineDuration); // Ensure non-negative
-
-
-			if (pauseTimelineDuration > 0.0001) {
-				masterTimeline.to({}, { duration: pauseTimelineDuration }, maxTextAnimationImplicitDuration);
+			// Add pause
+			const animationDuration = masterTimeline.duration();
+			if (TEXT_ANIM_SCROLL_DISTANCE_VH > 0.01 && animationDuration > 0) {
+				const pauseDuration = animationDuration * (PAUSE_SCROLL_DISTANCE_VH / TEXT_ANIM_SCROLL_DISTANCE_VH);
+				masterTimeline.to({}, { duration: pauseDuration });
 			}
 
 			if (masterTimeline.duration() === 0) {
 				masterTimeline.to({}, { duration: 0.01 });
 			}
-
 		};
 
 		document.fonts.ready.then(() => {
