@@ -12,7 +12,7 @@ $column-gap: 2vw;
 	background-color: var(--background-color);
 	box-sizing: border-box;
 	perspective: 400vh;
-	contain: layout paint;
+	// contain: layout paint; /* <<< REMOVED to prevent rendering glitches */
 	user-select: none;
 }
 
@@ -40,7 +40,7 @@ $column-gap: 2vw;
 	gap: $row-gap;
 	box-sizing: border-box;
 	pointer-events: none;
-	contain: layout style;
+	// contain: layout style; /* <<< REMOVED to prevent rendering glitches */
 }
 
 .media {
