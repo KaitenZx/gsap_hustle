@@ -98,3 +98,39 @@ if (ITEMS.length < previewImages.slice(0, TOTAL_ITEMS).length) {
 		`[InfiniteGalleryData] Warning: Expected ${TOTAL_ITEMS} preview images, but only found ${previewImages.length} in '/src/assets/preview/'.`
 	)
 }
+
+// --- НОВЫЕ ЭКСПОРТИРУЕМЫЕ УТИЛИТЫ ДЛЯ ПРЕДЗАГРУЗКИ ---
+
+// Глобальный Set для отслеживания URL превью, которые уже были запрошены
+const _preloadedUrls = new Set<string>()
+
+/**
+ * Запускает предзагрузку превью-изображения, если оно не было загружено ранее.
+ * @param url URL превью-изображения для предзагрузки.
+ */
+export const preloadImage = (url: string) => {
+	if (!_preloadedUrls.has(url)) {
+		_preloadedUrls.add(url)
+		const img = new Image()
+		img.src = url
+	}
+}
+
+/**
+ * Возвращает массив URL превью-изображений для указанной колонки.
+ * @param columnIndex Индекс колонки.
+ * @returns Массив строк с URL.
+ */
+export const getColumnPreviewImageUrls = (columnIndex: number): string[] => {
+	const urls: string[] = []
+	// Обертка индекса для бесконечной прокрутки
+	const wrappedIndex = ((columnIndex % COLS) + COLS) % COLS
+	const baseItemIndex = wrappedIndex * ROWS
+	for (let i = 0; i < ROWS; i++) {
+		const itemIndex = baseItemIndex + i
+		if (itemIndex < ITEMS.length) {
+			urls.push(ITEMS[itemIndex].previewSrc)
+		}
+	}
+	return urls
+}

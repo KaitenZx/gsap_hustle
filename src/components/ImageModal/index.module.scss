@@ -68,8 +68,14 @@
 .placeholderImage {
 	@extend .modalImageBase; // Наследуем базовые стили
 	opacity: 1; // Изначально видимо
-	// filter: blur(5px); // Опционально: размытие для плейсхолдера, если он не data:uri
-
+	// filter: blur(5px); // <<< REMOVED
+	// <<< NEW: Pixelation effect for LQIP >>>
+	image-rendering: -moz-crisp-edges;
+	/* Firefox */
+	image-rendering: -webkit-crisp-edges;
+	/* Webkit (Chrome, Safari) */
+	image-rendering: pixelated;
+	/* Standard */
 
 	&.mainLoaded {
 		opacity: 0; // Скрываем, когда основное загружено

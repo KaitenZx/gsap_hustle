@@ -52,6 +52,16 @@ $column-gap: 2vw;
 	pointer-events: none; // События отключены на контейнере
 	overflow: hidden; // Важно для object-fit: cover/contain, если изображение больше/меньше
 	will-change: transform;
+	// <<< ADDED: Styles for LQIP background >>>
+	background-size: cover;
+	background-position: center;
+	// <<< NEW: Pixelation effect for LQIP >>>
+	image-rendering: -moz-crisp-edges;
+	/* Firefox */
+	image-rendering: -webkit-crisp-edges;
+	/* Webkit (Chrome, Safari) */
+	image-rendering: pixelated;
+	/* Standard */
 
 	// Стили для вложенного изображения
 	img {
@@ -61,6 +71,14 @@ $column-gap: 2vw;
 		object-fit: cover; // Масштабирует с сохранением пропорций, обрезая лишнее. Можно заменить на 'contain', если нужно видеть все изображение.
 		pointer-events: none; // Убедимся, что и само изображение не ловит события
 		// border-radius: inherit; // Можно наследовать скругление, если нужно
+
+		// <<< ADDED: Fade-in animation styles >>>
+		opacity: 0;
+		transition: opacity 0.4s ease-in-out;
+
+		&.imageLoaded {
+			opacity: 1;
+		}
 	}
 }
 

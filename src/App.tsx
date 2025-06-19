@@ -10,15 +10,15 @@ import styles from './App.module.scss'
 import { AboutMe } from './components/AboutMe';
 import { GlitchCursor } from './components/GlitchCursor';
 import { GlitchOverlay } from './components/GlitchOverlay';
-import { InfiniteGallery } from './components/InfiniteGallery'
-import { ITEMS, GalleryItem } from './components/InfiniteGallery/galleryData';
+import { InfiniteGallery } from './components/InfiniteGallery';
+import { getColumnPreviewImageUrls, preloadImage } from './components/InfiniteGallery/galleryData';
 import 'lenis/dist/lenis.css'; // Раскомментируйте, если используете npm-пакет
 import './styles/theme.css'; // Import theme styles
 import { PinStateProvider } from './context/PinStateContext';
 import { ThemeProvider } from './context/ThemeContext'; // Import ThemeProvider
 
 // Set to track preloaded URLs
-const _appPreloadedUrls = new Set<string>();
+// const _appPreloadedUrls = new Set<string>(); // <<< REMOVED
 
 function AppContent() {
   // --- useEffect для инициализации Lenis ---
@@ -54,7 +54,19 @@ function AppContent() {
     };
   }, []); // Пустой массив зависимостей для однократной инициализации
 
+  // <<< ADDED: Smart preloading for the initial set of gallery images >>>
+  useEffect(() => {
+    // Preload images for the first few columns to ensure they are ready
+    // by the time the user scrolls down to the gallery.
+    const INITIAL_PRELOAD_COLS = 8; // Preload 8 columns
+    for (let i = 0; i < INITIAL_PRELOAD_COLS; i++) {
+      const urlsToPreload = getColumnPreviewImageUrls(i);
+      urlsToPreload.forEach(preloadImage);
+    }
+  }, []);
+
   // Add useEffect for preloading
+  /* <<< REMOVED
   useEffect(() => {
     ITEMS.forEach((item: GalleryItem) => {
       if (!_appPreloadedUrls.has(item.previewSrc)) {
@@ -64,6 +76,7 @@ function AppContent() {
       }
     });
   }, []); // Empty dependency array ensures this runs only once on mount
+  */
 
   useEffect(() => {
     if (typeof window === 'undefined') return; // Guard for SSR or other environments

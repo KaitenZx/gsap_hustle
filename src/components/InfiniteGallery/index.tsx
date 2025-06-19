@@ -20,7 +20,7 @@ import lqipMapData from '../../lqip-map.json';
 import { ImageModal } from '../ImageModal';
 import { ScrollUpButton } from '../ScrollUpButton';
 
-import { ITEMS, GalleryItem, ROWS, COLS } from './galleryData';
+import { ITEMS, GalleryItem, ROWS, COLS, preloadImage, getColumnPreviewImageUrls } from './galleryData';
 import styles from './index.module.scss';
 
 // <<< Явно типизируем карту >>>
@@ -40,7 +40,8 @@ const LERP_FACTOR = 0.7; // <<< Увеличено для более отзыв�
 const INTERNAL_FOOTER_THRESHOLD = -3000; // Pixels scrolled down internally
 const INTERNAL_FOOTER_HYSTERESIS = 500;  // Pixels to scroll back up before hiding
 
-// --- Функция для предзагрузки одного ИЗОБРАЖЕНИЯ ПРЕВЬЮ ---
+// --- Вспомогательная функция для получения URL ПРЕВЬЮ изображений колонки ---
+/* <<< REMOVED: Moved to galleryData.ts >>>
 const _preloadedUrls = new Set<string>();
 const preloadImage = (url: string) => {
 	if (!_preloadedUrls.has(url)) {
@@ -50,7 +51,6 @@ const preloadImage = (url: string) => {
 	}
 };
 
-// --- Вспомогательная функция для получения URL ПРЕВЬЮ изображений колонки ---
 const getColumnPreviewImageUrls = (columnIndex: number): string[] => {
 	const urls: string[] = [];
 	const wrappedIndex = (columnIndex % COLS + COLS) % COLS;
@@ -64,6 +64,7 @@ const getColumnPreviewImageUrls = (columnIndex: number): string[] => {
 	}
 	return urls;
 };
+*/
 
 // --- Function for preloading ONE FULL-SIZE IMAGE ---
 const _preloadedFullUrls = new Set<string>();
@@ -390,6 +391,10 @@ export const InfiniteGallery: React.FC = () => {
 				const isFirstLogicalItem = renderRowIndex === 0;
 				// Уникальный ключ для React, учитывая renderRowIndex
 				const itemKey = `${columnIndex}-${item.id}-${renderRowIndex}`;
+				// <<< ADDED: Get LQIP Source >>>
+				const lqipKey = `/assets/full/${item.id}.webp`;
+				const lqipSrc = lqipMap[lqipKey];
+
 
 				itemsInColumn.push(
 					<div
@@ -433,12 +438,17 @@ export const InfiniteGallery: React.FC = () => {
 								handleImageClick(item);
 							}
 						}}
-						style={{ cursor: 'pointer', pointerEvents: 'auto' }}
+						style={{
+							backgroundImage: lqipSrc ? `url(${lqipSrc})` : 'none',
+							cursor: 'pointer',
+							pointerEvents: 'auto'
+						}}
 					>
 						<img
 							src={item.previewSrc}
 							alt={item.alt}
 							decoding="async"
+							onLoad={e => e.currentTarget.classList.add(styles.imageLoaded)}
 							style={{ pointerEvents: 'none' }}
 						/>
 					</div>
@@ -908,7 +918,7 @@ export const InfiniteGallery: React.FC = () => {
 
 				// <<< Проактивная предзагрузка начальных изображений >>>
 				const visibleColsApprox = Math.ceil(initialDims.viewportWidth / initialDims.columnTotalWidth);
-				const preloadBuffer = 2; // Сколько доп. колонок грузить с каждой стороны
+				const preloadBuffer = 5; // <<< УВЕЛИЧЕНО: 2 (было) + 3 (добавлено) = 5 колонок с каждой стороны
 				for (let i = -preloadBuffer; i < visibleColsApprox + preloadBuffer; i++) {
 					const urlsToPreload = getColumnPreviewImageUrls(i);
 					urlsToPreload.forEach(preloadImage);
