@@ -997,14 +997,12 @@ export const InfiniteGallery: React.FC = () => {
 			inertiaXTweenRef.current?.kill();
 			inertiaYTweenRef.current?.kill();
 		};
-	}, [setScrollLocked, renderColsCount, performPreload, lerpStep, checkFooterVisibility, isTouchDevice, setIsGalleryPinned]); // <<< ADDED setIsGalleryPinned dependency
-
-	useEffect(() => {
-		mediaAnimRefs.current.clear();
-	}, [renderColsCount]);
+	}, [setScrollLocked, renderColsCount, performPreload, lerpStep, checkFooterVisibility, isTouchDevice, setIsGalleryPinned]);
 
 	// --- Мемоизация массива колонок  ---
 	const columnsToRender = useMemo(() => {
+		// Очищаем refs перед рендером новых колонок, чтобы удалить старые записи
+		mediaAnimRefs.current.clear();
 		return Array.from({ length: renderColsCount }).map((_, index) =>
 			renderColumn(index)
 		);
