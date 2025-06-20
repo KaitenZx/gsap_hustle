@@ -42,31 +42,9 @@ const MOBILE_FOOTER_THRESHOLD = -1500;  // A smaller scroll distance for mobile 
 const FOOTER_HYSTERESIS = 500;         // Pixels to scroll back up before hiding
 const MOBILE_BREAKPOINT_PX = 768;      // Matches SCSS breakpoint for mobile
 
-// --- Вспомогательная функция для получения URL ПРЕВЬЮ изображений колонки ---
-/* <<< REMOVED: Moved to galleryData.ts >>>
-const _preloadedUrls = new Set<string>();
-const preloadImage = (url: string) => {
-	if (!_preloadedUrls.has(url)) {
-		_preloadedUrls.add(url);
-		const img = new Image();
-		img.src = url;
-	}
-};
-
-const getColumnPreviewImageUrls = (columnIndex: number): string[] => {
-	const urls: string[] = [];
-	const wrappedIndex = (columnIndex % COLS + COLS) % COLS;
-	const baseItemIndex = wrappedIndex * ROWS;
-	for (let i = 0; i < ROWS; i++) {
-		const itemIndex = baseItemIndex + i;
-		if (itemIndex < ITEMS.length) {
-			// Используем previewSrc
-			urls.push(ITEMS[itemIndex].previewSrc);
-		}
-	}
-	return urls;
-};
-*/
+// --- Preloading constants ---
+const PRELOAD_COLS_COUNT_DESKTOP = 8;
+const PRELOAD_COLS_COUNT_MOBILE = 12; // Preload more columns on mobile for fast flicks
 
 // --- Function for preloading ONE FULL-SIZE IMAGE ---
 const _preloadedFullUrls = new Set<string>();
@@ -78,7 +56,7 @@ const preloadFullImage = (url: string) => {
 	}
 };
 
-// --- Тип для хранения рассчитанных размеров (ОБНОВЛЕНО) ---
+// --- Тип для хранения рассчитанных размеров  ---
 type GridDimensions = {
 	viewportWidth: number;
 	viewportHeight: number;
@@ -188,7 +166,7 @@ export const InfiniteGallery: React.FC = () => {
 
 	const dimensionsRef = useRef<GridDimensions | null>(null); // Хранение рассчитанных размеров
 	const isInitialized = useRef(false); // Флаг для однократной инициализации
-	const didDragSincePressRef = useRef(false); // <<< ADDED: Ref to track drag state for click handling
+	const didDragSincePressRef = useRef(false); //  Ref to track drag state for click handling
 
 	// --- Refs для Lerping ---
 	const currentActualXRef = useRef(0);
@@ -358,17 +336,19 @@ export const InfiniteGallery: React.FC = () => {
 	}, [setShowInternalFooter, setShowScrollUpButton, lerpStep]);
 
 	// --- Функция для предзагрузки ПРЕВЬЮ  ---
-	const performPreload = useCallback((scrollDirection: 1 | -1) => {
+	const performPreload = useCallback((scrollDirection: 'left' | 'right') => {
 		const dims = dimensionsRef.current;
 		if (dims && dims.columnTotalWidth > 0) {
 			const currentWrappedX = dims.wrapX(currentActualXRef.current);
 			const currentApproxFirstVisibleColIndex = Math.floor(-currentWrappedX / dims.columnTotalWidth);
-			const preloadColsCount = 8;
+			const preloadColsCount = dims.viewportWidth <= MOBILE_BREAKPOINT_PX ? PRELOAD_COLS_COUNT_MOBILE : PRELOAD_COLS_COUNT_DESKTOP;
 			let firstColToPreload: number;
 
-			if (scrollDirection === 1) {
+			if (scrollDirection === 'left') {
+				// User scrolls left, content moves right, revealing columns with smaller indices (to the left).
 				firstColToPreload = currentApproxFirstVisibleColIndex - preloadColsCount;
-			} else {
+			} else { // 'right'
+				// User scrolls right, content moves left, revealing columns with larger indices (to the right).
 				const visibleColsApprox = Math.ceil(dims.viewportWidth / dims.columnTotalWidth);
 				firstColToPreload = currentApproxFirstVisibleColIndex + visibleColsApprox;
 			}
@@ -380,7 +360,7 @@ export const InfiniteGallery: React.FC = () => {
 				urlsToPreload.forEach(preloadImage); // preloadImage теперь предзагружает превью
 			}
 		}
-	}, []); // Зависимости не изменились
+	}, []);
 
 	// --- Функция для управления блокировкой скролла ---
 	const setScrollLocked = useCallback((locked: boolean) => {
@@ -716,7 +696,7 @@ export const InfiniteGallery: React.FC = () => {
 					clearTimeout(scrollStopTimeoutRef.current);
 				}
 				scrollStopTimeoutRef.current = window.setTimeout(() => {
-					if (isScrollingRef.current) { // If it was scrolling, but now it stops
+					if (isScrollingRef.current) {
 						isScrollingRef.current = false;
 						if (canvasWorkerRef.current) {
 							canvasWorkerRef.current.postMessage({ isScrolling: false, isTouchDevice: isTouchDevice });
@@ -780,16 +760,12 @@ export const InfiniteGallery: React.FC = () => {
 						}
 
 
-						let preloadDirection: 1 | -1 = 1;
-						if (self.event.type === "wheel") {
-							if (self.deltaX > 0) preloadDirection = -1; // Content moves left
-							else if (self.deltaX < 0) preloadDirection = 1; // Content moves right
-						} else { // Touch
-							if (self.deltaX > 0) preloadDirection = 1; // Content moves right
-							else if (self.deltaX < 0) preloadDirection = -1; // Content moves left
-						}
-						if (self.deltaX !== 0) { // Only preload if there's horizontal movement
-							throttledPreloadRef.current?.(preloadDirection);
+						// Determine preload direction based on content movement.
+						// A negative deltaX from the user (swipe right-to-left) moves content left, revealing items on the right.
+						if (self.deltaX < 0) {
+							throttledPreloadRef.current?.('right');
+						} else if (self.deltaX > 0) {
+							throttledPreloadRef.current?.('left');
 						}
 
 					},
@@ -838,6 +814,8 @@ export const InfiniteGallery: React.FC = () => {
 						// <<< LERPING: Inertia proxy object initialized with current actual values >>>
 						const inertiaProxy = { x: currentActualXRef.current, y: currentActualYRef.current };
 
+						// Determine direction for preloading during inertia
+						const inertiaPreloadDirection = self.velocityX < 0 ? 'right' : 'left';
 
 						// Horizontal Inertia
 						inertiaXTweenRef.current = gsap.to(inertiaProxy, {
@@ -846,14 +824,20 @@ export const InfiniteGallery: React.FC = () => {
 							},
 							ease: "none",
 							onStart: () => {
-								if (self.velocityX > 50) throttledPreloadRef.current?.(1);
-								else if (self.velocityX < -50) throttledPreloadRef.current?.(-1);
+								// Trigger one preload at the start of inertia
+								if (Math.abs(self.velocityX) > 50) {
+									throttledPreloadRef.current?.(inertiaPreloadDirection);
+								}
 							},
 							onUpdate: function () {
 								if (!dims || !contentWrapperElement) return;
 								incrX.current = inertiaProxy.x;
 								currentActualXRef.current = inertiaProxy.x;
 								gsap.set(contentWrapperElement, { x: dims.wrapX(currentActualXRef.current) });
+								// <<< ADDED: Continuously preload during the inertia animation >>>
+								if (Math.abs(self.velocityX) > 50) {
+									throttledPreloadRef.current?.(inertiaPreloadDirection);
+								}
 							},
 							onComplete: () => {
 								if (dims) { // Ensure dims is still valid
@@ -967,7 +951,9 @@ export const InfiniteGallery: React.FC = () => {
 
 				// <<< Проактивная предзагрузка начальных изображений >>>
 				const visibleColsApprox = Math.ceil(initialDims.viewportWidth / initialDims.columnTotalWidth);
-				const preloadBuffer = 5; // <<< УВЕЛИЧЕНО: 2 (было) + 3 (добавлено) = 5 колонок с каждой стороны
+				const isMobile = initialDims.viewportWidth <= MOBILE_BREAKPOINT_PX;
+				const preloadBuffer = isMobile ? 8 : 5; // Use a larger buffer for mobile
+
 				for (let i = -preloadBuffer; i < visibleColsApprox + preloadBuffer; i++) {
 					const urlsToPreload = getColumnPreviewImageUrls(i);
 					urlsToPreload.forEach(preloadImage);
