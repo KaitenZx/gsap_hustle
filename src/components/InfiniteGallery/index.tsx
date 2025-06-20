@@ -37,8 +37,10 @@ const ROTATION_SENSITIVITY = 18; // <<< Чувствительность пов�
 const LERP_FACTOR = 0.7; // <<< Увеличено для более отзывчивого скролла
 
 // --- Footer Visibility Constants ---
-const INTERNAL_FOOTER_THRESHOLD = -3000; // Pixels scrolled down internally
-const INTERNAL_FOOTER_HYSTERESIS = 500;  // Pixels to scroll back up before hiding
+const DESKTOP_FOOTER_THRESHOLD = -3000; // Pixels scrolled down on desktop
+const MOBILE_FOOTER_THRESHOLD = -1500;  // A smaller scroll distance for mobile devices
+const FOOTER_HYSTERESIS = 500;         // Pixels to scroll back up before hiding
+const MOBILE_BREAKPOINT_PX = 768;      // Matches SCSS breakpoint for mobile
 
 // --- Вспомогательная функция для получения URL ПРЕВЬЮ изображений колонки ---
 /* <<< REMOVED: Moved to galleryData.ts >>>
@@ -292,11 +294,18 @@ export const InfiniteGallery: React.FC = () => {
 	// --- Функция для проверки видимости внутреннего футера ---
 	const checkFooterVisibility = useCallback(() => {
 		const yScrolled = incrY.current;
+		const dims = dimensionsRef.current;
 
-		if (!showInternalFooterRef.current && yScrolled < INTERNAL_FOOTER_THRESHOLD) {
+		// Use different thresholds for mobile and desktop, based on viewport width
+		const threshold =
+			dims && dims.viewportWidth <= MOBILE_BREAKPOINT_PX
+				? MOBILE_FOOTER_THRESHOLD
+				: DESKTOP_FOOTER_THRESHOLD;
+
+		if (!showInternalFooterRef.current && yScrolled < threshold) {
 			setShowInternalFooter(true);
 			setShowScrollUpButton(true);
-		} else if (showInternalFooterRef.current && yScrolled > INTERNAL_FOOTER_THRESHOLD + INTERNAL_FOOTER_HYSTERESIS) {
+		} else if (showInternalFooterRef.current && yScrolled > threshold + FOOTER_HYSTERESIS) {
 			setShowInternalFooter(false);
 			setShowScrollUpButton(false);
 		}
