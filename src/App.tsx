@@ -17,11 +17,8 @@ import './styles/theme.css'; // Import theme styles
 import { PinStateProvider } from './context/PinStateContext';
 import { ThemeProvider } from './context/ThemeContext'; // Import ThemeProvider
 
-// Set to track preloaded URLs
-// const _appPreloadedUrls = new Set<string>(); // <<< REMOVED
 
 function AppContent() {
-  // --- useEffect для инициализации Lenis ---
   useEffect(() => {
     const lenis = new Lenis({
       // wrapper: window, // по умолчанию window
@@ -54,7 +51,6 @@ function AppContent() {
     };
   }, []); // Пустой массив зависимостей для однократной инициализации
 
-  // <<< ADDED: Smart preloading for the initial set of gallery images >>>
   useEffect(() => {
     // Preload images for the first few columns to ensure they are ready
     // by the time the user scrolls down to the gallery.
@@ -65,18 +61,7 @@ function AppContent() {
     }
   }, []);
 
-  // Add useEffect for preloading
-  /* <<< REMOVED
-  useEffect(() => {
-    ITEMS.forEach((item: GalleryItem) => {
-      if (!_appPreloadedUrls.has(item.previewSrc)) {
-        _appPreloadedUrls.add(item.previewSrc);
-        const img = new Image();
-        img.src = item.previewSrc;
-      }
-    });
-  }, []); // Empty dependency array ensures this runs only once on mount
-  */
+
 
   useEffect(() => {
     if (typeof window === 'undefined') return; // Guard for SSR or other environments
@@ -101,12 +86,7 @@ function AppContent() {
 
     setVisualViewportHeight(); // Первоначальная установка
 
-    // Cобытие resize на visualViewport удалено, чтобы избежать лишних пересчетов
-    // при появлении/скрытии UI мобильного браузера, так как .lvh в CSS
-    // и новая логика canvas справляются с этим.
 
-    // window.addEventListener('resize') все еще полезен для отлавливания
-    // изменений размера окна, которые не всегда триггерят visualViewport.resize (например, поворот экрана)
     window.addEventListener('resize', debouncedRefresh);
     window.addEventListener('orientationchange', debouncedRefresh);
 
