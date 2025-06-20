@@ -11,7 +11,7 @@ import { gsap } from 'gsap';
 import { InertiaPlugin } from 'gsap/InertiaPlugin';
 import { Observer } from 'gsap/Observer';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import { debounce, throttle } from 'lodash';
+import { throttle } from 'lodash';
 
 import { usePinState } from '../../context/PinStateContext';
 import lqipMapData from '../../lqip-map.json';
@@ -24,8 +24,9 @@ import {
 	GalleryItem,
 	getColumnPreviewImageUrls,
 	preloadImage,
-	ROWS,
 } from './galleryData';
+import { useCanvasWorker } from './hooks/useCanvasWorker';
+import { useGridDimensions } from './hooks/useGridDimensions';
 import styles from './index.module.scss';
 import { InternalFooter } from './InternalFooter';
 import { GridDimensions, MediaAnimData } from './types';
@@ -34,8 +35,6 @@ import { GridDimensions, MediaAnimData } from './types';
 const lqipMap: Record<string, string> = lqipMapData;
 gsap.registerPlugin(Observer, ScrollTrigger, InertiaPlugin);
 // --- Константы ---
-const DEBOUNCE_RESIZE_MS = 150; // Задержка debounce для ресайза
-const RENDER_COLS_BUFFER = 4; // Дополнительные колонки для рендеринга (запас)
 const PRELOAD_THROTTLE_MS = 150; // Задержка throttle для предзагрузки
 const ROTATION_CLAMP = 18; // <<< Уменьшили максимальный угол поворота
 const ROTATION_SENSITIVITY = 18; // <<< Чувствительность поворота (делитель)
@@ -74,12 +73,10 @@ export const InfiniteGallery: React.FC = () => {
 	const columnRef = useRef<HTMLDivElement>(null);         // Реф для измерения ОДНОЙ колонки
 	const itemRef = useRef<HTMLDivElement>(null);           // Реф для измерения ОДНОГО элемента (.media)
 	const canvasRef = useRef<HTMLCanvasElement>(null);        // Реф для холста анимации
-	const canvasWorkerRef = useRef<Worker | null>(null); // <<< ADDED: Ref for Canvas Web Worker
 
 	// --- Refs для GSAP и других инстансов ---
 	const gsapCtx = useRef<gsap.Context | null>(null);             // Контекст GSAP для очистки
 	const observerInstance = useRef<Observer | null>(null);        // Инстанс Observer
-	const resizeObserverRef = useRef<ResizeObserver | null>(null); // Инстанс ResizeObserver
 	const scrollTriggerInstance = useRef<ScrollTrigger | null>(null); // Инстанс ScrollTrigger
 	const inertiaXTweenRef = useRef<gsap.core.Tween | null>(null); // <<< ADDED: Ref for X inertia tween
 	const inertiaYTweenRef = useRef<gsap.core.Tween | null>(null); // <<< ADDED: Ref for Y inertia tween
@@ -128,6 +125,14 @@ export const InfiniteGallery: React.FC = () => {
 	const [showScrollUpButton, setShowScrollUpButton] = useState(false); // <<< ADDED for ScrollUpButton
 
 	const { setIsGalleryPinned } = usePinState(); // <<< ADDED
+
+	// --- <<< HOOK FOR CANVAS WORKER >>> ---
+	useCanvasWorker({
+		canvasRef,
+		containerRef,
+		isTouchDevice,
+		isScrollingRef,
+	});
 
 	// Update ref whenever state changes
 	useEffect(() => {
@@ -384,6 +389,45 @@ export const InfiniteGallery: React.FC = () => {
 		));
 	}, [renderColsCount, handleImageClick, handleInteractionStart]);
 
+	// 1. Callback for resize events from our new hook
+	const handleResize = useCallback((newDims: GridDimensions) => {
+		if (gsapCtx.current && contentWrapperRef.current) {
+			// Kill running animations
+			inertiaXTweenRef.current?.kill();
+			inertiaYTweenRef.current?.kill();
+
+			// Reset positions within the GSAP context
+			gsapCtx.current.add(() => {
+				incrX.current = 0;
+				currentActualXRef.current = 0;
+				currentActualYRef.current = newDims.wrapY(currentActualYRef.current);
+				gsap.set(contentWrapperRef.current, {
+					x: newDims.wrapX(currentActualXRef.current),
+					y: currentActualYRef.current,
+				});
+
+				// Reset rotations
+				mediaAnimRefs.current.forEach((refData) => {
+					refData.rotX?.(0);
+					refData.rotY?.(0);
+				});
+			});
+		}
+		// Refresh ScrollTrigger globally after all changes
+		ScrollTrigger.refresh();
+	}, []);
+
+	// 2. Use our new hook to get calculation functions and set up the observer
+	const { calculateDimensions, calculateRenderCols } = useGridDimensions({
+		containerRef,
+		contentWrapperRef,
+		columnRef,
+		itemRef,
+		onResize: handleResize,
+		currentRenderCols: renderColsCount,
+		setRenderColsCount,
+	});
+
 	// --- Основной useLayoutEffect  ---
 	useLayoutEffect(() => {
 		const containerElement = containerRef.current;
@@ -392,86 +436,6 @@ export const InfiniteGallery: React.FC = () => {
 		if (!containerElement || !contentWrapperElement || isInitialized.current) {
 			return;
 		}
-
-		// --- Функция расчета размеров (ОБНОВЛЕНА) ---
-		const calculateDimensions = (): GridDimensions | null => {
-			const firstColumn = columnRef.current;
-			const firstItemContainer = itemRef.current;
-			const wrapperElement = contentWrapperRef.current;
-
-			if (!firstColumn || !firstItemContainer || !wrapperElement || !containerElement) {
-				console.warn("IFG: Refs not available for measurement yet.");
-				return null;
-			}
-			const computedStyleColumn = window.getComputedStyle(firstColumn);
-			const computedStyleWrapper = window.getComputedStyle(wrapperElement);
-			const viewportWidth = containerElement.clientWidth;
-			const viewportHeight = containerElement.clientHeight;
-			const colRect = firstColumn.getBoundingClientRect();
-			const itemContainerRect = firstItemContainer.getBoundingClientRect();
-			const columnWidth = colRect.width;
-			const itemHeight = itemContainerRect.height;
-			const columnGap = parseFloat(computedStyleWrapper.columnGap) || 0;
-			const rowGap = parseFloat(computedStyleColumn.rowGap) || 0;
-			const wrapperPaddingTop = parseFloat(computedStyleWrapper.paddingTop) || 0;
-			const wrapperPaddingBottom = parseFloat(computedStyleWrapper.paddingBottom) || 0;
-			const wrapperPaddingLeft = parseFloat(computedStyleWrapper.paddingLeft) || 0;
-
-			// Добавляем проверку на валидность размеров перед расчетами
-			if (!viewportWidth || !viewportHeight || !columnWidth || !itemHeight || !Number.isFinite(columnWidth) || !Number.isFinite(itemHeight) || itemHeight <= 0) {
-				console.error("IFG: Failed to get valid base dimensions.", { viewportWidth, viewportHeight, columnWidth, itemHeight });
-				return null;
-			}
-
-			const columnTotalWidth = columnWidth + columnGap; // Ширина колонки + правый отступ
-			const gridContentHeight = ROWS * itemHeight + Math.max(0, ROWS - 1) * rowGap;
-			const fullWrapperHeight = gridContentHeight + wrapperPaddingTop + wrapperPaddingBottom;
-			const totalContentLogicalWidth = COLS * columnWidth + Math.max(0, COLS - 1) * columnGap;
-			const repeatingWidth = COLS * columnTotalWidth;
-			const repeatingHeight = gridContentHeight; // Используем высоту контента без padding'ов wrapper'а
-
-			// Проверка на columnTotalWidth > 0 перед использованием в wrap
-			if (columnTotalWidth <= 0 || repeatingHeight <= 0 || !Number.isFinite(totalContentLogicalWidth) || !Number.isFinite(repeatingWidth) || !Number.isFinite(repeatingHeight)) {
-				console.error("IFG: Invalid calculated widths/heights.", { columnTotalWidth, totalContentLogicalWidth, repeatingWidth, repeatingHeight });
-				return null;
-			}
-
-
-			// ----- Используем repeatingWidth для wrapX -----
-			const wrapX = gsap.utils.wrap(-repeatingWidth, 0);
-			const wrapY = gsap.utils.wrap(-repeatingHeight, 0);
-
-
-			const newDimensions: GridDimensions = {
-				viewportWidth, viewportHeight, columnWidth, itemHeight, rowGap, columnGap,
-				columnTotalWidth,
-				totalContentLogicalWidth,
-				totalContentHeight: gridContentHeight,
-				fullWrapperHeight,
-				repeatingWidth,
-				repeatingHeight,
-				wrapX,
-				wrapY,
-				wrapperPaddingTop,
-				wrapperPaddingLeft
-			};
-			dimensionsRef.current = newDimensions;
-			return newDimensions;
-		};
-
-		// --- Функция расчета необходимого количества колонок для рендера ---
-		const calculateRenderCols = (dims: GridDimensions): number => {
-			if (!dims || dims.columnTotalWidth <= 0) {
-				console.warn("IFG: Cannot calculate render cols, invalid dimensions. Falling back to COLS.");
-				return COLS;
-			}
-			// Формула: Логическая ширина + Ширина вьюпорта, делим на ширину колонки, округляем вверх + буфер
-			const requiredCols = Math.ceil(
-				(dims.totalContentLogicalWidth + dims.viewportWidth) / dims.columnTotalWidth
-			);
-			const count = requiredCols + RENDER_COLS_BUFFER;
-			return count;
-		};
 
 		// Создаем GSAP контекст
 		gsapCtx.current = gsap.context(() => {
@@ -486,7 +450,14 @@ export const InfiniteGallery: React.FC = () => {
 				const containerElement = containerRef.current;
 				const wrapperElement = contentWrapperRef.current;
 
-				if (mapSize === 0 || isTouchDevice || !dims || !containerElement || !wrapperElement) return;
+				if (
+					mapSize === 0 ||
+					isTouchDevice ||
+					!dims ||
+					!containerElement ||
+					!wrapperElement
+				)
+					return;
 
 				if (isScrollingRef.current) {
 					return;
@@ -497,24 +468,34 @@ export const InfiniteGallery: React.FC = () => {
 
 				// --- Get container and wrapper info ONCE ---
 				const containerRect = containerElement.getBoundingClientRect();
-				const wrapperCurrentX = gsap.getProperty(wrapperElement, "x") as number;
-				const wrapperCurrentY = gsap.getProperty(wrapperElement, "y") as number;
+				const wrapperCurrentX = gsap.getProperty(wrapperElement, 'x') as number;
+				const wrapperCurrentY = gsap.getProperty(wrapperElement, 'y') as number;
 
 				currentMap.forEach((refData, _key) => {
 					if (refData.element && refData.rotX && refData.rotY) {
 						const rotXQuickTo = refData.rotX;
 						const rotYQuickTo = refData.rotY;
 
-						// --- Calculate item's approximate screen position --- 
-						const itemBaseOffsetX = (refData.visualColumnIndex * dims.columnTotalWidth) + dims.wrapperPaddingLeft;
-						const itemBaseOffsetY = (refData.visualRowIndexInColumn * (dims.itemHeight + dims.rowGap)) + dims.wrapperPaddingTop;
+						// --- Calculate item's approximate screen position ---
+						const itemBaseOffsetX =
+							refData.visualColumnIndex * dims.columnTotalWidth +
+							dims.wrapperPaddingLeft;
+						const itemBaseOffsetY =
+							refData.visualRowIndexInColumn * (dims.itemHeight + dims.rowGap) +
+							dims.wrapperPaddingTop;
 
-						const itemScreenX = containerRect.left + itemBaseOffsetX + wrapperCurrentX;
-						const itemScreenY = containerRect.top + itemBaseOffsetY + wrapperCurrentY;
+						const itemScreenX =
+							containerRect.left + itemBaseOffsetX + wrapperCurrentX;
+						const itemScreenY =
+							containerRect.top + itemBaseOffsetY + wrapperCurrentY;
 
 						// Simple visibility check (can be refined)
-						if (itemScreenY + dims.itemHeight < 0 || itemScreenY > window.innerHeight ||
-							itemScreenX + dims.columnWidth < 0 || itemScreenX > window.innerWidth) {
+						if (
+							itemScreenY + dims.itemHeight < 0 ||
+							itemScreenY > window.innerHeight ||
+							itemScreenX + dims.columnWidth < 0 ||
+							itemScreenX > window.innerWidth
+						) {
 							return;
 						}
 
@@ -523,8 +504,16 @@ export const InfiniteGallery: React.FC = () => {
 
 						const rotX = (targetMouseY - midpointY) / ROTATION_SENSITIVITY;
 						const rotY = (targetMouseX - midpointX) / ROTATION_SENSITIVITY;
-						const clampedRotX = gsap.utils.clamp(-ROTATION_CLAMP, ROTATION_CLAMP, rotX);
-						const clampedRotY = gsap.utils.clamp(-ROTATION_CLAMP, ROTATION_CLAMP, rotY);
+						const clampedRotX = gsap.utils.clamp(
+							-ROTATION_CLAMP,
+							ROTATION_CLAMP,
+							rotX
+						);
+						const clampedRotY = gsap.utils.clamp(
+							-ROTATION_CLAMP,
+							ROTATION_CLAMP,
+							rotY
+						);
 
 						const finalRotX = clampedRotX * -1;
 						const finalRotY = clampedRotY;
@@ -533,7 +522,10 @@ export const InfiniteGallery: React.FC = () => {
 						const previousRotY = refData.lastRotY || 0;
 						const threshold = 0.01; // Minimal change to trigger update
 
-						if (Math.abs(finalRotX - previousRotX) > threshold || Math.abs(finalRotY - previousRotY) > threshold) {
+						if (
+							Math.abs(finalRotX - previousRotX) > threshold ||
+							Math.abs(finalRotY - previousRotY) > threshold
+						) {
 							rotXQuickTo(finalRotX);
 							rotYQuickTo(finalRotY);
 							refData.lastRotX = finalRotX;
@@ -566,13 +558,11 @@ export const InfiniteGallery: React.FC = () => {
 						y: bounds.top + bounds.height / 2,
 					};
 				}
-				if (!isScrollingRef.current) { // If it wasn't scrolling, but now it is
+				if (!isScrollingRef.current) {
+					// If it wasn't scrolling, but now it is
 					isScrollingRef.current = true;
-					if (canvasWorkerRef.current) {
-						canvasWorkerRef.current.postMessage({ isScrolling: true, isTouchDevice: isTouchDevice });
-					}
+					// The worker is now updated automatically by the hook via isScrollingRef
 				}
-
 
 				if (!isTouchDevice) {
 					requestRotationUpdate();
@@ -584,9 +574,7 @@ export const InfiniteGallery: React.FC = () => {
 				scrollStopTimeoutRef.current = window.setTimeout(() => {
 					if (isScrollingRef.current) {
 						isScrollingRef.current = false;
-						if (canvasWorkerRef.current) {
-							canvasWorkerRef.current.postMessage({ isScrolling: false, isTouchDevice: isTouchDevice });
-						}
+						// The worker is now updated automatically by the hook via isScrollingRef
 					}
 					if (!isTouchDevice) {
 						requestRotationUpdate();
@@ -598,7 +586,7 @@ export const InfiniteGallery: React.FC = () => {
 			if (!observerInstance.current) {
 				observerInstance.current = Observer.create({
 					target: containerElement,
-					type: "wheel,touch,pointer",
+					type: 'wheel,touch,pointer',
 					preventDefault: true,
 					tolerance: 5,
 					dragMinimum: 3,
@@ -619,22 +607,29 @@ export const InfiniteGallery: React.FC = () => {
 						const dims = dimensionsRef.current;
 
 						// Пропускаем, если мы не заблокированы/не инициализированы
-						if (!isScrollLockedRef.current || !dims || !contentWrapperElement) return;
+						if (!isScrollLockedRef.current || !dims || !contentWrapperElement)
+							return;
 
 						// Для DRAG: Пропускаем, если вертикальный скролл преобладает
-						if (self.isDragging && Math.abs(self.deltaX) < Math.abs(self.deltaY)) return;
+						if (self.isDragging && Math.abs(self.deltaX) < Math.abs(self.deltaY))
+							return;
 
 						// <<< ADDED: For wheel events, only proceed if horizontal scroll is dominant
-						if (self.event.type === 'wheel' && Math.abs(self.deltaX) < Math.abs(self.deltaY)) return;
+						if (
+							self.event.type === 'wheel' &&
+							Math.abs(self.deltaX) < Math.abs(self.deltaY)
+						)
+							return;
 
 						if (self.isDragging) {
 							didDragSincePressRef.current = true;
 						}
 
-						const baseMultiplier = (self.event.type === "wheel" || !self.isDragging) ? 1 : 1.1;
+						const baseMultiplier =
+							self.event.type === 'wheel' || !self.isDragging ? 1 : 1.1;
 						const increment = self.deltaX * baseMultiplier;
 
-						if (self.event.type === "wheel") {
+						if (self.event.type === 'wheel') {
 							incrX.current -= increment;
 						} else {
 							incrX.current += increment;
@@ -645,7 +640,6 @@ export const InfiniteGallery: React.FC = () => {
 							lerpLoopIdRef.current = requestAnimationFrame(lerpStep);
 						}
 
-
 						// Determine preload direction based on content movement.
 						// A negative deltaX from the user (swipe right-to-left) moves content left, revealing items on the right.
 						if (self.deltaX < 0) {
@@ -653,23 +647,28 @@ export const InfiniteGallery: React.FC = () => {
 						} else if (self.deltaX > 0) {
 							throttledPreloadRef.current?.('left');
 						}
-
 					},
 					onChangeY: (self) => {
 						handleScrollActivity();
 						const dims = dimensionsRef.current;
 
-						if (!isScrollLockedRef.current || !dims || !contentWrapperElement) return;
-						if (self.isDragging && Math.abs(self.deltaY) < Math.abs(self.deltaX)) return;
+						if (!isScrollLockedRef.current || !dims || !contentWrapperElement)
+							return;
+						if (
+							self.isDragging &&
+							Math.abs(self.deltaY) < Math.abs(self.deltaX)
+						)
+							return;
 
 						if (self.isDragging) {
 							didDragSincePressRef.current = true;
 						}
 
-						const baseMultiplier = (self.event.type === "wheel" || !self.isDragging) ? 1 : 1.1;
+						const baseMultiplier =
+							self.event.type === 'wheel' || !self.isDragging ? 1 : 1.1;
 						const increment = self.deltaY * baseMultiplier;
 
-						if (self.event.type === "wheel") {
+						if (self.event.type === 'wheel') {
 							incrY.current -= increment;
 						} else {
 							incrY.current += increment;
@@ -686,7 +685,8 @@ export const InfiniteGallery: React.FC = () => {
 					},
 					onDragEnd: (self) => {
 						const dims = dimensionsRef.current;
-						if (!dims || !contentWrapperElement || !isScrollLockedRef.current) return;
+						if (!dims || !contentWrapperElement || !isScrollLockedRef.current)
+							return;
 
 						isLerpingActiveRef.current = false;
 						if (lerpLoopIdRef.current) {
@@ -698,7 +698,10 @@ export const InfiniteGallery: React.FC = () => {
 						inertiaYTweenRef.current?.kill();
 
 						// <<< LERPING: Inertia proxy object initialized with current actual values >>>
-						const inertiaProxy = { x: currentActualXRef.current, y: currentActualYRef.current };
+						const inertiaProxy = {
+							x: currentActualXRef.current,
+							y: currentActualYRef.current,
+						};
 
 						// Determine direction for preloading during inertia
 						const inertiaPreloadDirection = self.velocityX < 0 ? 'right' : 'left';
@@ -706,9 +709,9 @@ export const InfiniteGallery: React.FC = () => {
 						// Horizontal Inertia
 						inertiaXTweenRef.current = gsap.to(inertiaProxy, {
 							inertia: {
-								x: { velocity: self.velocityX }
+								x: { velocity: self.velocityX },
 							},
-							ease: "none",
+							ease: 'none',
 							onStart: () => {
 								// Trigger one preload at the start of inertia
 								if (Math.abs(self.velocityX) > 50) {
@@ -719,51 +722,64 @@ export const InfiniteGallery: React.FC = () => {
 								if (!dims || !contentWrapperElement) return;
 								incrX.current = inertiaProxy.x;
 								currentActualXRef.current = inertiaProxy.x;
-								gsap.set(contentWrapperElement, { x: dims.wrapX(currentActualXRef.current) });
+								gsap.set(contentWrapperElement, {
+									x: dims.wrapX(currentActualXRef.current),
+								});
 								// <<< ADDED: Continuously preload during the inertia animation >>>
 								if (Math.abs(self.velocityX) > 50) {
 									throttledPreloadRef.current?.(inertiaPreloadDirection);
 								}
 							},
 							onComplete: () => {
-								if (dims) { // Ensure dims is still valid
+								if (dims) {
+									// Ensure dims is still valid
 									incrX.current = inertiaProxy.x;
 									currentActualXRef.current = inertiaProxy.x;
 								}
-							}
+							},
 						});
 
 						// Vertical Inertia
 						inertiaYTweenRef.current = gsap.to(inertiaProxy, {
 							inertia: {
-								y: { velocity: self.velocityY }
+								y: { velocity: self.velocityY },
 							},
-							ease: "none",
+							ease: 'none',
 							onUpdate: function () {
 								if (!dims || !contentWrapperElement) return;
 								incrY.current = inertiaProxy.y;
 								currentActualYRef.current = inertiaProxy.y;
-								gsap.set(contentWrapperElement, { y: dims.wrapY(currentActualYRef.current) });
+								gsap.set(contentWrapperElement, {
+									y: dims.wrapY(currentActualYRef.current),
+								});
 								throttledCheckFooterVisibilityRef.current?.();
 							},
 							onComplete: () => {
-								if (dims) { // Ensure dims is still valid
+								if (dims) {
+									// Ensure dims is still valid
 									incrY.current = inertiaProxy.y;
 									currentActualYRef.current = inertiaProxy.y;
 								}
 								throttledCheckFooterVisibilityRef.current?.();
-							}
+							},
 						});
-					}
+					},
 				});
 				observerInstance.current.disable(); // Начинаем в выключенном состоянии
 			}
 
 			// --- Создание throttled-функции для ПРЕДЗАГРУЗКИ ---
-			throttledPreloadRef.current = throttle(performPreload, PRELOAD_THROTTLE_MS, { leading: false, trailing: true });
+			throttledPreloadRef.current = throttle(performPreload, PRELOAD_THROTTLE_MS, {
+				leading: false,
+				trailing: true,
+			});
 
 			const FOOTER_VISIBILITY_THROTTLE_MS = 250;
-			throttledCheckFooterVisibilityRef.current = throttle(checkFooterVisibility, FOOTER_VISIBILITY_THROTTLE_MS, { leading: false, trailing: true });
+			throttledCheckFooterVisibilityRef.current = throttle(
+				checkFooterVisibility,
+				FOOTER_VISIBILITY_THROTTLE_MS,
+				{ leading: false, trailing: true }
+			);
 
 			// --- Добавляем слушатель движения мыши ---
 			window.addEventListener('mousemove', handleMouseMove);
@@ -772,8 +788,8 @@ export const InfiniteGallery: React.FC = () => {
 			if (!scrollTriggerInstance.current) {
 				scrollTriggerInstance.current = ScrollTrigger.create({
 					trigger: containerElement,
-					start: "top top",
-					end: "+=30000", // Используем ОЧЕНЬ большое значение для "бесконечного" пиннинга вниз
+					start: 'top top',
+					end: '+=30000', // Используем ОЧЕНЬ большое значение для "бесконечного" пиннинга вниз
 					pin: true,
 					pinSpacing: true,
 					anticipatePin: 0,
@@ -785,58 +801,20 @@ export const InfiniteGallery: React.FC = () => {
 				});
 			}
 
-			// --- Инициализация ResizeObserver ---
-			const debouncedResizeHandler = debounce(() => {
-				// 1. Пересчитываем базовые размеры
-				const newDims = calculateDimensions();
-
-				// Добавляем проверку contentWrapperElement для безопасности
-				if (newDims && gsapCtx.current && contentWrapperElement) {
-					// 2. Пересчитываем количество колонок на основе новых размеров
-					const newRenderCols = calculateRenderCols(newDims);
-
-					inertiaXTweenRef.current?.kill();
-					inertiaYTweenRef.current?.kill();
-
-					// 3. Обновляем GSAP и позицию ВНУТРИ контекста
-					gsapCtx.current.add(() => {
-						incrX.current = 0;
-						currentActualXRef.current = 0; // <<< LERPING: Reset actual as well
-						currentActualYRef.current = newDims.wrapY(currentActualYRef.current); // <<< LERPING: And wrap actual Y
-						gsap.set(contentWrapperElement, {
-							x: newDims.wrapX(currentActualXRef.current), // Use wrapped actual
-							y: currentActualYRef.current // <<< FIX: Preserve Y position on resize
-						});
-
-						// <<< Сброс вращений при ресайзе (опционально) >>>
-						mediaAnimRefs.current.forEach(refData => {
-							refData.rotX?.(0);
-							refData.rotY?.(0);
-						});
-					});
-
-					// 4. Обновляем state количества колонок, ЕСЛИ изменилось
-					if (newRenderCols !== renderColsCount) {
-						mediaAnimRefs.current.clear();
-						setRenderColsCount(newRenderCols);
-					}
-				}
-				ScrollTrigger.refresh(); // Обновляем ScrollTrigger после всех изменений
-
-			}, DEBOUNCE_RESIZE_MS);
-
-			resizeObserverRef.current = new ResizeObserver(debouncedResizeHandler);
-			resizeObserverRef.current.observe(containerElement); // Наблюдаем за ИЗМЕНЕНИЕМ РАЗМЕРА контейнера
-
 			// --- Первоначальный расчет и настройка ---
 			const initialDims = calculateDimensions();
 
 			if (initialDims) {
+				dimensionsRef.current = initialDims; // Save initial dimensions
 				const initialRenderCols = calculateRenderCols(initialDims);
-				setRenderColsCount(initialRenderCols);
+				if (renderColsCount !== initialRenderCols) {
+					setRenderColsCount(initialRenderCols);
+				}
 
 				// <<< Проактивная предзагрузка начальных изображений >>>
-				const visibleColsApprox = Math.ceil(initialDims.viewportWidth / initialDims.columnTotalWidth);
+				const visibleColsApprox = Math.ceil(
+					initialDims.viewportWidth / initialDims.columnTotalWidth
+				);
 				const isMobile = initialDims.viewportWidth <= MOBILE_BREAKPOINT_PX;
 				const preloadBuffer = isMobile ? 8 : 5; // Use a larger buffer for mobile
 
@@ -851,7 +829,7 @@ export const InfiniteGallery: React.FC = () => {
 				currentActualYRef.current = 0; // <<< LERPING: Initialize actual
 				gsap.set(contentWrapperElement, {
 					x: initialDims.wrapX(currentActualXRef.current), // Keep wrapX for horizontal start
-					y: 0 // Directly set initial Y to 0 to prevent upward shift from wrapY(0)
+					y: 0, // Directly set initial Y to 0 to prevent upward shift from wrapY(0)
 				});
 				isInitialized.current = true; // Ставим флаг, что инициализация прошла
 
@@ -864,9 +842,10 @@ export const InfiniteGallery: React.FC = () => {
 						setScrollLocked(scrollTriggerInstance.current.isActive);
 					}
 				}, 0);
-
 			} else {
-				console.error("IFG: Failed to get initial dimensions. Component might not work.");
+				console.error(
+					'IFG: Failed to get initial dimensions. Component might not work.'
+				);
 				setRenderColsCount(COLS);
 			}
 
@@ -886,14 +865,12 @@ export const InfiniteGallery: React.FC = () => {
 				}
 				isLerpingActiveRef.current = false;
 			};
-
 		}, containerRef);
 
 		const currentMediaAnimRefs = mediaAnimRefs.current;
 
 		// --- Функция очистки для useLayoutEffect (вне контекста GSAP) ---
 		return () => {
-			resizeObserverRef.current?.disconnect();
 			throttledPreloadRef.current?.cancel();
 			throttledCheckFooterVisibilityRef.current?.cancel();
 
@@ -902,14 +879,12 @@ export const InfiniteGallery: React.FC = () => {
 			scrollTriggerInstance.current = null;
 			setIsGalleryPinned(false);
 
-
 			gsapCtx.current?.revert(); // Это должно убить Observer и quickTo, созданные внутри контекста
 
 			document.body.classList.remove('ifg-locked');
 			currentMediaAnimRefs.clear();
 
 			// Сброс рефов
-			resizeObserverRef.current = null;
 			observerInstance.current = null;
 			gsapCtx.current = null;
 			throttledPreloadRef.current = null;
@@ -924,81 +899,23 @@ export const InfiniteGallery: React.FC = () => {
 			}
 			isLerpingActiveRef.current = false;
 
-
 			inertiaXTweenRef.current?.kill();
 			inertiaYTweenRef.current?.kill();
 		};
-	}, [setScrollLocked, renderColsCount, performPreload, lerpStep, checkFooterVisibility, isTouchDevice, setIsGalleryPinned]);
+	}, [
+		setScrollLocked,
+		renderColsCount,
+		performPreload,
+		lerpStep,
+		checkFooterVisibility,
+		isTouchDevice,
+		setIsGalleryPinned,
+		calculateDimensions,
+		calculateRenderCols,
+		handleResize,
+	]);
 
 	// --- useEffect for Background Canvas Animation (REPLACED with Web Worker setup) ---
-	useEffect(() => {
-		const canvasElement = canvasRef.current;
-		const containerElement = containerRef.current; // Used for initial dimensions
-
-		if (!canvasElement || !containerElement || !window.Worker) {
-			console.warn("InfiniteGallery: Canvas, container, or Worker not available.");
-			return;
-		}
-
-		// Ensure worker is only created once or handled if HMR causes re-runs
-		if (canvasWorkerRef.current) {
-			canvasWorkerRef.current.terminate();
-		}
-
-		const worker = new Worker(new URL('./canvas.worker.ts', import.meta.url), { type: 'module' });
-		canvasWorkerRef.current = worker;
-
-		// Transfer OffscreenCanvas to the worker
-		const offscreenCanvas = canvasElement.transferControlToOffscreen();
-		worker.postMessage({ canvas: offscreenCanvas }, [offscreenCanvas]);
-
-		// Function to send updates to the worker
-		const updateWorker = () => {
-			if (!canvasWorkerRef.current || !containerElement) return;
-
-			const rect = containerElement.getBoundingClientRect();
-			const dpr = window.devicePixelRatio || 1;
-			let themeTextColor = '#808080'; // Default fallback
-			if (typeof window !== 'undefined') {
-				themeTextColor = getComputedStyle(document.documentElement).getPropertyValue('--text-color').trim();
-			}
-
-			canvasWorkerRef.current.postMessage({
-				width: rect.width,
-				height: rect.height,
-				dpr: dpr,
-				themeTextColor: themeTextColor,
-				isScrolling: isScrollingRef.current, // Send current scroll state
-				isTouchDevice: isTouchDevice // <<< ADDED: Send touch device status
-			});
-		};
-
-		// Initial update
-		updateWorker();
-
-		// Observe container resize to update worker
-		const resizeObserver = new ResizeObserver(updateWorker);
-		resizeObserver.observe(containerElement);
-
-		const sendScrollState = () => {
-			if (canvasWorkerRef.current) {
-				canvasWorkerRef.current.postMessage({ isScrolling: isScrollingRef.current, isTouchDevice: isTouchDevice });
-			}
-		};
-
-		const throttledSendScrollState = throttle(sendScrollState, 100);
-
-
-		return () => {
-			resizeObserver.disconnect();
-			if (canvasWorkerRef.current) {
-				canvasWorkerRef.current.terminate();
-				canvasWorkerRef.current = null;
-			}
-			throttledSendScrollState.cancel();
-		};
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, []); // Run once on mount. Dependencies like isScrollingRef.current are handled via direct calls.
 
 	// --- Memoize placeholder source for ImageModal (Readability) ---
 	const placeholderSrc = useMemo(() => {
