@@ -7,6 +7,12 @@
 	background-repeat: no-repeat;
 	pointer-events: none; // Ensures the cursor doesn't block interactions with elements underneath
 	z-index: 9999; // Keeps the cursor on top of other elements
+	opacity: 0; // Start fully transparent
+	transition: opacity 0.2s ease-in-out; // Smooth transition for visibility
+
+	&.visible {
+		opacity: 1; // Make it visible when the class is added
+	}
 }
 
 /* Hide default system cursor globally */

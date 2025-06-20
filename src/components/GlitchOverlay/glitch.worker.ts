@@ -10,7 +10,6 @@ let dpr = 1
 
 // Animation loop state
 let animationFrameId: number | null = null
-let lastFrameTime = 0
 const TARGET_FPS = 10
 const frameInterval = 1000 / TARGET_FPS
 
@@ -111,28 +110,27 @@ const drawGlitch = (
 }
 
 // --- ANIMATION LOOP ---
-const renderLoop = (timestamp: number) => {
-	animationFrameId = self.requestAnimationFrame(renderLoop)
-	const elapsed = timestamp - lastFrameTime
+const renderLoop = () => {
+	// Schedule the next frame first
+	animationFrameId = self.setTimeout(renderLoop, frameInterval)
 
-	if (elapsed > frameInterval) {
-		lastFrameTime = timestamp - (elapsed % frameInterval)
-		if (ctx) {
-			drawGlitch(ctx, canvasLogicalWidth, canvasLogicalHeight)
-		}
+	// Then draw
+	if (ctx) {
+		// No need for timestamp or delta logic anymore
+		drawGlitch(ctx, canvasLogicalWidth, canvasLogicalHeight)
 	}
 }
 
 const start = () => {
 	if (!animationFrameId) {
-		lastFrameTime = self.performance.now()
-		animationFrameId = self.requestAnimationFrame(renderLoop)
+		// No need for lastFrameTime with setTimeout
+		renderLoop() // Start the loop
 	}
 }
 
 const stop = () => {
 	if (animationFrameId) {
-		self.cancelAnimationFrame(animationFrameId)
+		self.clearTimeout(animationFrameId) // Use clearTimeout
 		animationFrameId = null
 	}
 	if (ctx) {

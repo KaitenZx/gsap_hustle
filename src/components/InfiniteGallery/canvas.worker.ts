@@ -31,7 +31,6 @@ const sinMultiplier = 20
 let cols = 0
 let rows = 0
 let animationFrameId: number | null = null
-let lastFrameTime = 0
 const TARGET_CANVAS_FPS = 15
 const frameInterval = 1000 / TARGET_CANVAS_FPS
 let canvasInternalTime = 0
@@ -143,43 +142,29 @@ function drawBackground(
 	}
 }
 
-function animate(currentTime: number) {
-	// Lerp optimization parameters
+function animate() {
+	// Lerp optimization parameters towards their targets
 	currentSparsity += (targetSparsity - currentSparsity) * sparsityLerpFactor
 	currentSinMultiplier +=
 		(targetSinMultiplier - currentSinMultiplier) * sinMultiplierLerpFactor
 
-	// Prevent overshooting for very small differences to settle values
+	// Prevent overshooting for very small differences to settle values to prevent jitter
 	if (Math.abs(targetSparsity - currentSparsity) < 0.001) {
-		// Adjusted threshold for sparsity
 		currentSparsity = targetSparsity
 	}
 	if (Math.abs(targetSinMultiplier - currentSinMultiplier) < 0.01) {
 		currentSinMultiplier = targetSinMultiplier
 	}
 
-	if (!lastFrameTime) {
-		// Initial call or after a pause due to scrolling on touch
-		lastFrameTime = currentTime
-	}
-	const elapsedSinceLastRAF = currentTime - lastFrameTime
+	// Update internal time and draw the frame. The timing is now handled by setTimeout.
+	canvasInternalTime += frameInterval
+	drawBackground(canvasInternalTime, currentSparsity, currentSinMultiplier)
 
-	if (elapsedSinceLastRAF >= frameInterval) {
-		// Ensure frameInterval is respected
-		lastFrameTime = currentTime - (elapsedSinceLastRAF % frameInterval)
-		// Always animate if an animationFrame is requested by the browser,
-		// but apply optimizations (sparsity, sinMultiplier) based on scroll state.
-		// The isScrolling check for pausing animation is removed as per earlier discussion.
-		// Use frameInterval for stable time progression, not elapsedSinceLastRAF
-		canvasInternalTime += frameInterval
-		drawBackground(canvasInternalTime, currentSparsity, currentSinMultiplier)
-	}
-
-	// Schedule the next frame ONLY if not paused (i.e., not on a touch device AND scrolling)
+	// Reschedule the next frame ONLY if not paused (touch device AND scrolling).
+	// This is the key change: setTimeout replaces requestAnimationFrame.
 	if (!(isTouchDeviceWorker && isScrolling)) {
-		animationFrameId = requestAnimationFrame(animate)
+		animationFrameId = self.setTimeout(animate, frameInterval)
 	} else {
-		// If paused, ensure animationFrameId is null so it can be restarted.
 		animationFrameId = null
 	}
 }
@@ -212,15 +197,14 @@ self.onmessage = (e: MessageEvent<CanvasWorkerData>) => {
 			// Start animation loop if not already started and canvas is ready
 			if (!animationFrameId && data.width > 0 && data.height > 0) {
 				canvasInternalTime = 0 // Reset time on new init/resize
-				lastFrameTime = 0
 				// The animate function itself will check isTouchDeviceWorker && isScrolling
 				// and might not schedule the *next* frame if those conditions are met.
 				// But the first frame will be attempted.
-				animate(performance.now())
+				animate()
 			} else if (animationFrameId && (data.width === 0 || data.height === 0)) {
 				// If canvas becomes 0 size, stop animation
 				if (animationFrameId) {
-					cancelAnimationFrame(animationFrameId)
+					clearTimeout(animationFrameId)
 					animationFrameId = null
 				}
 			}
@@ -270,7 +254,7 @@ self.onmessage = (e: MessageEvent<CanvasWorkerData>) => {
 			// If scrolling starts on a touch device and animation is running, cancel it.
 			// The animate() function will then not schedule new frames.
 			if (isTouchDeviceWorker && animationFrameId !== null) {
-				cancelAnimationFrame(animationFrameId)
+				clearTimeout(animationFrameId)
 				animationFrameId = null
 			}
 		} else {
@@ -282,9 +266,8 @@ self.onmessage = (e: MessageEvent<CanvasWorkerData>) => {
 
 			// If scrolling stopped on a touch device, and animation was paused (animationFrameId is null), restart it.
 			if (isTouchDeviceWorker && oldIsScrolling && animationFrameId === null) {
-				lastFrameTime = 0 // Reset lastFrameTime to resync timing smoothly
 				// canvasInternalTime continues, to not reset the pattern completely.
-				animate(performance.now())
+				animate()
 			}
 		}
 	}

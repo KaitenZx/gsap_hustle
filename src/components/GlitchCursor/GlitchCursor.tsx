@@ -1,4 +1,6 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+
+import throttle from 'lodash/throttle';
 
 import styles from './GlitchCursor.module.scss';
 
@@ -46,6 +48,7 @@ const _glitchCursorPreloadedUrls = new Set<string>();
 
 const GlitchCursor: React.FC = () => {
 	const [isClientTouchDevice, setIsClientTouchDevice] = useState(false);
+	const cursorRef = useRef<HTMLDivElement>(null); // Ref for direct DOM manipulation
 
 	// --- Determine if it's a touch device on client-side --- 
 	useEffect(() => {
@@ -75,26 +78,38 @@ const GlitchCursor: React.FC = () => {
 		});
 	}, []); // Run once on mount
 
-	const [position, setPosition] = useState({ x: -100, y: -100 }); // Start off-screen
+	const [position, setPosition] = useState({ x: -100, y: -100 }); // Keep for initial position and leaving
 	const [currentFrame, setCurrentFrame] = useState(0);
 	const [cursorType, setCursorType] = useState(CURSOR_TYPES.DEFAULT);
-	const [isVisible, setIsVisible] = useState(false); // Start hidden until first mouse move
+	const [isVisible, setIsVisible] = useState(false);
 
-	const requestRef = useRef<number | null>(null);
-	const previousTimeRef = useRef<number | null>(null);
+	const animationIntervalRef = useRef<number | null>(null);
 	const currentSprite = SPRITES[cursorType];
 
-	// Mouse move handler
-	const handleMouseMove = useCallback((event: MouseEvent) => {
-		if (!isVisible) setIsVisible(true);
-		setPosition({ x: event.clientX, y: event.clientY });
+	// Mouse move handler - throttled for performance
+	const handleMouseMove = useMemo(
+		() =>
+			throttle(
+				(event: MouseEvent) => {
+					if (!cursorRef.current) return;
+					// Update position directly via ref, avoiding React re-renders
+					cursorRef.current.style.transform = `translate3d(${event.clientX + CURSOR_OFFSET.X
+						}px, ${event.clientY + CURSOR_OFFSET.Y}px, 0)`;
 
-		const target = event.target as HTMLElement;
-		// Check for the data-attribute on the target or its ancestors
-		const isInteractive = target.closest('[data-interactive-cursor="true"]') !== null;
+					if (!isVisible) setIsVisible(true);
 
-		setCursorType(isInteractive ? CURSOR_TYPES.POINTER : CURSOR_TYPES.DEFAULT);
-	}, [isVisible]);
+					const target = event.target as HTMLElement;
+					const isInteractive =
+						target.closest('[data-interactive-cursor="true"]') !== null;
+					setCursorType(
+						isInteractive ? CURSOR_TYPES.POINTER : CURSOR_TYPES.DEFAULT
+					);
+				},
+				16,
+				{ leading: true, trailing: false } // More responsive for cursor
+			),
+		[isVisible] // Dependency for setIsVisible closure
+	);
 
 	// Mouse enter/leave viewport
 	const handleMouseEnter = useCallback(() => {
@@ -103,55 +118,42 @@ const GlitchCursor: React.FC = () => {
 
 	const handleMouseLeave = useCallback(() => {
 		setIsVisible(false);
-		setPosition({ x: -100, y: -100 }); // Move off-screen when mouse leaves
+		setPosition({ x: -100, y: -100 }); // Use state to move it off-screen, triggering a re-render
 	}, []);
 
-	// Animation loop
-	const animate = useCallback((time: number) => {
-		if (previousTimeRef.current !== null) {
-			const deltaTime = time - previousTimeRef.current;
-			if (deltaTime > currentSprite.animationSpeed) { // Use currentSprite directly
-				setCurrentFrame((prevFrame) => (prevFrame + 1) % currentSprite.frames);
-				previousTimeRef.current = time; // Reset the timer
-			}
-		} else {
-			previousTimeRef.current = time; // Initialize timer on first call
-		}
-		requestRef.current = requestAnimationFrame(animate);
-	}, [currentSprite.animationSpeed, currentSprite.frames]); // Add dependencies
-
+	// Animation loop using setInterval for fixed timing
 	useEffect(() => {
-		// This effect handles the animation restart logic when cursorType changes
-		setCurrentFrame(0);
-		previousTimeRef.current = null; // Reset timer for new animation speed and ensure it re-initializes
-
-		// If an animation frame was requested, cancel it before starting a new one or when component unmounts
-		if (requestRef.current) {
-			cancelAnimationFrame(requestRef.current);
+		// Cleanup previous interval when cursor type changes
+		if (animationIntervalRef.current) {
+			clearInterval(animationIntervalRef.current);
 		}
-		// Restart the animation loop with potentially new sprite data
-		requestRef.current = requestAnimationFrame(animate);
 
-		// Cleanup function for this effect
+		// Reset frame to 0 for the new sprite
+		setCurrentFrame(0);
+
+		// Start a new interval for the current sprite
+		animationIntervalRef.current = window.setInterval(() => {
+			setCurrentFrame((prevFrame) => (prevFrame + 1) % currentSprite.frames);
+		}, currentSprite.animationSpeed);
+
+		// Cleanup on component unmount or before the next effect run
 		return () => {
-			if (requestRef.current) {
-				cancelAnimationFrame(requestRef.current);
+			if (animationIntervalRef.current) {
+				clearInterval(animationIntervalRef.current);
 			}
 		};
-	}, [cursorType, animate, currentSprite.animationSpeed]); // animate is stable, currentSprite.animationSpeed ensures re-run if speed changes
+	}, [cursorType, currentSprite.frames, currentSprite.animationSpeed]);
 
 	useEffect(() => {
 		document.addEventListener('mousemove', handleMouseMove);
 		document.documentElement.addEventListener('mouseenter', handleMouseEnter);
 		document.documentElement.addEventListener('mouseleave', handleMouseLeave);
 
-		// Initial call to start animation is now handled by the effect above, specific to cursorType changes
-
 		return () => {
+			handleMouseMove.cancel(); // Cancel any pending throttled calls
 			document.removeEventListener('mousemove', handleMouseMove);
 			document.documentElement.removeEventListener('mouseenter', handleMouseEnter);
 			document.documentElement.removeEventListener('mouseleave', handleMouseLeave);
-			// Animation cleanup is handled by the other useEffect
 		};
 	}, [handleMouseMove, handleMouseEnter, handleMouseLeave]);
 
@@ -160,17 +162,17 @@ const GlitchCursor: React.FC = () => {
 		return null; // Don't render anything for touch devices
 	}
 
-	if (!isVisible) {
-		return null;
-	}
-
 	const backgroundPositionX = -currentFrame * currentSprite.frameWidth;
+
+	// Use initial position from state, but subsequent updates are via ref
+	const initialTransform = `translate3d(${position.x + CURSOR_OFFSET.X}px, ${position.y + CURSOR_OFFSET.Y}px, 0)`;
 
 	return (
 		<div
-			className={styles.glitchCursor}
+			ref={cursorRef}
+			className={`${styles.glitchCursor} ${isVisible ? styles.visible : ''}`}
 			style={{
-				transform: `translate3d(${position.x + CURSOR_OFFSET.X}px, ${position.y + CURSOR_OFFSET.Y}px, 0)`,
+				transform: initialTransform, // Set initial transform
 				backgroundImage: `url(${currentSprite.url})`,
 				backgroundPosition: `${backgroundPositionX}px 0px`,
 				width: `${currentSprite.frameWidth}px`,

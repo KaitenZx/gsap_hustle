@@ -111,6 +111,52 @@ const getIsTouchDevice = () => {
 	return 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 };
 
+// <<< ADDED: A robust image component to handle cached images correctly >>>
+const FadingImage = ({ src, alt }: { src: string; alt: string }) => {
+	const imgRef = useRef<HTMLImageElement>(null);
+
+	// Use useLayoutEffect to handle cached images, which might be 'complete'
+	// before a useEffect callback would run.
+	useLayoutEffect(() => {
+		const imgNode = imgRef.current;
+		if (!imgNode) return;
+
+		const handleLoad = () => {
+			// Check if node still exists before adding the class
+			if (imgRef.current) {
+				imgRef.current.classList.add(styles.imageLoaded);
+			}
+		};
+
+		// If the browser has already finished loading the image (e.g., from cache),
+		// the 'load' event might have already fired. The 'complete' property
+		// will be true in this case.
+		if (imgNode.complete) {
+			handleLoad();
+		} else {
+			// Otherwise, add the event listener as usual.
+			imgNode.addEventListener('load', handleLoad);
+		}
+
+		// Cleanup: remove the event listener when the component unmounts or src changes.
+		return () => {
+			if (imgNode) {
+				imgNode.removeEventListener('load', handleLoad);
+			}
+		};
+	}, [src]); // Re-run this effect if the image src changes.
+
+	return (
+		<img
+			ref={imgRef}
+			src={src}
+			alt={alt}
+			decoding="async"
+			style={{ pointerEvents: 'none' }}
+		/>
+	);
+};
+
 // --- Компонент ---
 export const InfiniteGallery: React.FC = () => {
 	// --- Refs для DOM элементов ---
@@ -444,13 +490,7 @@ export const InfiniteGallery: React.FC = () => {
 							pointerEvents: 'auto'
 						}}
 					>
-						<img
-							src={item.previewSrc}
-							alt={item.alt}
-							decoding="async"
-							onLoad={e => e.currentTarget.classList.add(styles.imageLoaded)}
-							style={{ pointerEvents: 'none' }}
-						/>
+						<FadingImage src={item.previewSrc} alt={item.alt} />
 					</div>
 				);
 			} else {
