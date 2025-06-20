@@ -19,22 +19,23 @@ export const FadingImage: React.FC<FadingImageProps> = ({
 		const imgNode = imgRef.current;
 		if (!imgNode) return;
 
+		let isMounted = true;
+
 		const handleLoad = () => {
-			if (imgRef.current) {
+			if (imgRef.current && isMounted) {
 				imgRef.current.classList.add(styles.imageLoaded);
 			}
 		};
 
 		if (imgNode.complete) {
 			handleLoad();
-		} else {
-			imgNode.addEventListener('load', handleLoad);
 		}
 
+		imgNode.addEventListener('load', handleLoad);
+
 		return () => {
-			if (imgNode) {
-				imgNode.removeEventListener('load', handleLoad);
-			}
+			isMounted = false;
+			imgNode.removeEventListener('load', handleLoad);
 		};
 	}, [src]);
 

@@ -30,10 +30,15 @@ import { InternalFooter } from './InternalFooter';
 import {
 	COLS,
 	GalleryItem,
-	getColumnPreviewImageUrls,
 	preloadImage,
 } from './lib/galleryData';
 import { GridDimensions, MediaAnimData } from './lib/types';
+import {
+	calculateUrlsToPreloadOnScroll,
+	getInitialPreloadUrls,
+	getIsTouchDevice,
+	preloadFullImage,
+} from './lib/utils';
 
 const lqipMap: Record<string, string> = lqipMapData;
 gsap.registerPlugin(Observer, ScrollTrigger, InertiaPlugin);
@@ -45,20 +50,8 @@ const FOOTER_HYSTERESIS = 500;
 const MOBILE_BREAKPOINT_PX = 768;
 const PRELOAD_COLS_COUNT_DESKTOP = 8;
 const PRELOAD_COLS_COUNT_MOBILE = 12;
-
-const _preloadedFullUrls = new Set<string>();
-const preloadFullImage = (url: string) => {
-	if (!_preloadedFullUrls.has(url)) {
-		_preloadedFullUrls.add(url);
-		const img = new Image();
-		img.src = url;
-	}
-};
-
-const getIsTouchDevice = () => {
-	if (typeof window === 'undefined') return false;
-	return 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-};
+const INITIAL_PRELOAD_BUFFER_DESKTOP = 5;
+const INITIAL_PRELOAD_BUFFER_MOBILE = 8;
 
 export const InfiniteGallery: React.FC = () => {
 	const containerRef = useRef<HTMLDivElement>(null);
@@ -198,32 +191,17 @@ export const InfiniteGallery: React.FC = () => {
 
 	const performPreload = useCallback((scrollDirection: 'left' | 'right') => {
 		const dims = dimensionsRef.current;
-		if (dims && dims.columnTotalWidth > 0) {
-			const currentWrappedX = dims.wrapX(currentActualXRef.current);
-			const currentApproxFirstVisibleColIndex = Math.floor(
-				-currentWrappedX / dims.columnTotalWidth
-			);
-			const preloadColsCount =
-				dims.viewportWidth <= MOBILE_BREAKPOINT_PX
-					? PRELOAD_COLS_COUNT_MOBILE
-					: PRELOAD_COLS_COUNT_DESKTOP;
-			let firstColToPreload: number;
-			if (scrollDirection === 'left') {
-				firstColToPreload =
-					currentApproxFirstVisibleColIndex - preloadColsCount;
-			} else {
-				const visibleColsApprox = Math.ceil(
-					dims.viewportWidth / dims.columnTotalWidth
-				);
-				firstColToPreload =
-					currentApproxFirstVisibleColIndex + visibleColsApprox;
-			}
-			for (let i = 0; i < preloadColsCount; i++) {
-				const colIndexToPreload = firstColToPreload + i;
-				const urlsToPreload = getColumnPreviewImageUrls(colIndexToPreload);
-				urlsToPreload.forEach(preloadImage);
-			}
-		}
+		if (!dims) return;
+
+		const urls = calculateUrlsToPreloadOnScroll(
+			scrollDirection,
+			dims,
+			currentActualXRef.current,
+			MOBILE_BREAKPOINT_PX,
+			PRELOAD_COLS_COUNT_DESKTOP,
+			PRELOAD_COLS_COUNT_MOBILE
+		);
+		urls.forEach(preloadImage);
 	}, []);
 
 	const onScrollForPreload = useCallback(
@@ -355,18 +333,15 @@ export const InfiniteGallery: React.FC = () => {
 				const initialRenderCols = calculateRenderCols(initialDims);
 				if (renderColsCount !== initialRenderCols)
 					setRenderColsCount(initialRenderCols);
-				const visibleColsApprox = Math.ceil(
-					initialDims.viewportWidth / initialDims.columnTotalWidth
+
+				const urlsToPreload = getInitialPreloadUrls(
+					initialDims,
+					MOBILE_BREAKPOINT_PX,
+					INITIAL_PRELOAD_BUFFER_DESKTOP,
+					INITIAL_PRELOAD_BUFFER_MOBILE
 				);
-				const preloadBuffer =
-					initialDims.viewportWidth <= MOBILE_BREAKPOINT_PX ? 8 : 5;
-				for (
-					let i = -preloadBuffer;
-					i < visibleColsApprox + preloadBuffer;
-					i++
-				) {
-					getColumnPreviewImageUrls(i).forEach(preloadImage);
-				}
+				urlsToPreload.forEach(preloadImage);
+
 				incrX.current = 0;
 				incrY.current = 0;
 				currentActualXRef.current = 0;
