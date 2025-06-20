@@ -14,6 +14,7 @@ export const useCanvasWorker = ({
 	isScrollingRef,
 }: UseCanvasWorkerProps) => {
 	const workerRef = useRef<Worker | null>(null)
+	const isControlTransferredRef = useRef(false)
 
 	useEffect(() => {
 		const canvasElement = canvasRef.current
@@ -26,22 +27,23 @@ export const useCanvasWorker = ({
 			return
 		}
 
-		// Ensure worker is only created once or handled if HMR causes re-runs
-		if (workerRef.current) {
-			workerRef.current.terminate()
+		if (!workerRef.current) {
+			const worker = new Worker(
+				new URL('../lib/canvas.worker.ts', import.meta.url),
+				{
+					type: 'module',
+				}
+			)
+			workerRef.current = worker
 		}
 
-		const worker = new Worker(
-			new URL('../lib/canvas.worker.ts', import.meta.url),
-			{
-				type: 'module',
-			}
-		)
-		workerRef.current = worker
-
-		// Transfer OffscreenCanvas to the worker
-		const offscreenCanvas = canvasElement.transferControlToOffscreen()
-		worker.postMessage({ canvas: offscreenCanvas }, [offscreenCanvas])
+		if (!isControlTransferredRef.current) {
+			const offscreenCanvas = canvasElement.transferControlToOffscreen()
+			workerRef.current.postMessage({ canvas: offscreenCanvas }, [
+				offscreenCanvas,
+			])
+			isControlTransferredRef.current = true
+		}
 
 		// Function to send updates to the worker
 		const updateWorker = () => {
@@ -75,10 +77,24 @@ export const useCanvasWorker = ({
 
 		return () => {
 			resizeObserver.disconnect()
-			if (workerRef.current) {
-				workerRef.current.terminate()
-				workerRef.current = null
-			}
+			// In React StrictMode, useEffect cleanup runs, but the component state (refs) is preserved.
+			// Terminating the worker here and setting it to null causes a new worker
+			// to be created on the second effect run, leading to an attempt to transfer
+			// canvas control again, which fails.
+			// By not terminating the worker here, we prevent this issue in development.
+			// The worker will be terminated when the component truly unmounts.
+			// A more robust solution might be needed if the component can unmount and remount
+			// with the same canvas instance in production, but this handles the StrictMode case.
 		}
 	}, [canvasRef, containerRef, isTouchDevice, isScrollingRef])
+
+	// Real cleanup effect when the component unmounts for good
+	useEffect(() => {
+		const worker = workerRef.current
+		return () => {
+			if (worker) {
+				worker.terminate()
+			}
+		}
+	}, [])
 }

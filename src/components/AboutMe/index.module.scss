@@ -105,12 +105,17 @@
 						text-align: left;
 
 						@media (max-width: 767px) {
-							font-size: 18px;
+							font-size: 16px;
 							margin: 0 0;
 						}
 
 						@media (min-width: 768px) and (max-width: 1023px) {
 							margin: 0 0;
+						}
+
+						@media (max-width: 375px) {
+							margin: 0 0;
+							font-size: 14px;
 						}
 
 
@@ -155,8 +160,13 @@
 
 							@media (max-width: 767px) {
 								font-size: 14px;
-								line-height: 1.4;
+								line-height: 16px;
 								margin-bottom: 0em;
+							}
+
+							@media (max-width: 375px) {
+								font-size: 12px;
+								line-height: 14px;
 							}
 
 						}
@@ -212,7 +222,7 @@
 							}
 
 							@media (max-width: 767px) {
-								font-size: 14px;
+								font-size: 12px;
 							}
 
 
@@ -294,8 +304,8 @@
 								margin-right: 8px;
 
 								@media (max-width: 767px) {
-									width: 16px;
-									height: 16px;
+									width: 14px;
+									height: 14px;
 									margin-right: 6px;
 								}
 							}
@@ -324,7 +334,7 @@
 						}
 
 						.linksColumn {
-							flex-basis: 30%;
+							flex-basis: 28%;
 						}
 					}
 

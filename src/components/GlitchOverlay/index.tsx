@@ -9,16 +9,17 @@ export const GlitchOverlay: React.FC = memo(() => {
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const workerRef = useRef<Worker | null>(null);
 	const { isOverlayActive } = usePinState();
+	const isInitializedRef = useRef(false);
 
 	useEffect(() => {
-		if (!canvasRef.current) return;
+		if (isInitializedRef.current || !canvasRef.current) return;
 
+		const canvas = canvasRef.current;
 		const worker = new Worker(new URL('./glitch.worker.ts', import.meta.url), {
 			type: 'module',
 		});
 		workerRef.current = worker;
 
-		const canvas = canvasRef.current;
 		const dpr = window.devicePixelRatio || 1;
 		const rect = canvas.getBoundingClientRect();
 
@@ -40,9 +41,7 @@ export const GlitchOverlay: React.FC = memo(() => {
 			[offscreenCanvas]
 		);
 
-		return () => {
-			worker.terminate();
-		};
+		isInitializedRef.current = true;
 	}, []);
 
 	useEffect(() => {
@@ -78,6 +77,16 @@ export const GlitchOverlay: React.FC = memo(() => {
 			window.removeEventListener('resize', handleResize);
 		};
 	}, []); // Empty dependency array, functions inside have access to refs
+
+	// Cleanup effect
+	useEffect(
+		() => () => {
+			if (workerRef.current) {
+				workerRef.current.terminate();
+			}
+		},
+		[]
+	);
 
 	return (
 		<canvas

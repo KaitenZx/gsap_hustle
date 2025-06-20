@@ -87,181 +87,167 @@ export const useTextPinningAnimation = ({
 			return
 		}
 
-		let masterTimeline: gsap.core.Timeline | null = null
-		let canvasPinScrollTrigger: ScrollTrigger | null = null
-		let ditherScrollTrigger: ScrollTrigger | null = null
-		let textPinScrollTrigger: ScrollTrigger | null = null
-		let unpinFadeInScrollTrigger: ScrollTrigger | null = null
+		// Using gsap.context for cleanup
+		const ctx = gsap.context(() => {
+			let masterTimeline: gsap.core.Timeline | null = null
 
-		ditherScrollTrigger = ScrollTrigger.create({
-			trigger: pinHeightEl,
-			start: 'top top',
-			end: `+=${DITHER_FADE_VH}vh`,
-			scrub: true,
-			onUpdate: (self) => {
-				ditherStrength.current = 1 - self.progress
-				const targetOpacity = 1 - self.progress * (1 - 0.4)
-				currentCanvasElement.style.opacity = targetOpacity.toFixed(2)
-			},
-		})
-
-		const initTextAnimation = () => {
-			if (!pinnedTextContainerEl || !pinHeightEl) return
-
-			const elementsToWrap = Array.from(
-				pinnedTextContainerEl.querySelectorAll(
-					`.${styles.aboutColumn} h2, .${styles.aboutColumn} p,` +
-						`.${styles.exposColumn} h2, .${styles.exposColumn} .${styles.animatableText},` +
-						`.${styles.linksColumn} h2, .${styles.linksColumn} .${styles.animatableText}`
-				)
-			).filter((el): el is HTMLElement => el instanceof HTMLElement)
-
-			if (elementsToWrap.length > 0) {
-				wrapWordsInSpans(elementsToWrap)
-			}
-
-			const words = Array.from(
-				pinnedTextContainerEl.querySelectorAll(`.${styles.word}`)
-			).filter((el): el is HTMLElement => el instanceof HTMLElement)
-
-			if (words.length === 0) {
-				console.warn('[AboutMe GSAP] No words found to animate.')
-				return
-			}
-
-			gsap.set(words, { autoAlpha: 0, x: '100vw' })
-			gsap.set(pinnedTextContainerEl, { opacity: 1 })
-
-			textPinScrollTrigger = ScrollTrigger.create({
+			ScrollTrigger.create({
 				trigger: pinHeightEl,
-				pin: pinnedTextContainerEl,
-				start: `top top-=${DITHER_FADE_VH}vh`,
-				end: 'bottom bottom',
-				pinSpacing: false,
-				onToggle: (self) => setIsAboutMePinned(self.isActive),
-			})
-
-			canvasPinScrollTrigger = ScrollTrigger.create({
-				trigger: pinHeightEl,
-				pin: currentCanvasElement,
 				start: 'top top',
-				end: 'bottom bottom',
-				pinSpacing: false,
+				end: `+=${DITHER_FADE_VH}vh`,
+				scrub: true,
+				onUpdate: (self) => {
+					ditherStrength.current = 1 - self.progress
+					const targetOpacity = 1 - self.progress * (1 - 0.4)
+					currentCanvasElement.style.opacity = targetOpacity.toFixed(2)
+				},
 			})
 
-			masterTimeline = gsap.timeline({
-				scrollTrigger: {
+			const initTextAnimation = () => {
+				if (!pinnedTextContainerEl || !pinHeightEl) return
+
+				const elementsToWrap = Array.from(
+					pinnedTextContainerEl.querySelectorAll(
+						`.${styles.aboutColumn} h2, .${styles.aboutColumn} p,` +
+							`.${styles.exposColumn} h2, .${styles.exposColumn} .${styles.animatableText},` +
+							`.${styles.linksColumn} h2, .${styles.linksColumn} .${styles.animatableText}`
+					)
+				).filter((el): el is HTMLElement => el instanceof HTMLElement)
+
+				// Save original HTML to revert on cleanup
+				const originalHTMLs = new Map<HTMLElement, string>()
+				elementsToWrap.forEach((el) => {
+					originalHTMLs.set(el, el.innerHTML)
+				})
+
+				if (elementsToWrap.length > 0) {
+					wrapWordsInSpans(elementsToWrap)
+				}
+
+				const words = Array.from(
+					pinnedTextContainerEl.querySelectorAll(`.${styles.word}`)
+				).filter((el): el is HTMLElement => el instanceof HTMLElement)
+
+				if (words.length === 0) {
+					console.warn('[AboutMe GSAP] No words found to animate.')
+					return
+				}
+
+				gsap.set(words, { autoAlpha: 0, x: '100vw' })
+				gsap.set(pinnedTextContainerEl, { opacity: 1 })
+
+				ScrollTrigger.create({
 					trigger: pinHeightEl,
-					scrub: true,
+					pin: pinnedTextContainerEl,
 					start: `top top-=${DITHER_FADE_VH}vh`,
-					end: `bottom bottom-=${DITHER_FADE_VH}vh`,
+					end: 'bottom bottom',
+					pinSpacing: false,
+					onToggle: (self) => setIsAboutMePinned(self.isActive),
+				})
+
+				ScrollTrigger.create({
+					trigger: pinHeightEl,
+					pin: currentCanvasElement,
+					start: 'top top',
+					end: 'bottom bottom',
+					pinSpacing: false,
+				})
+
+				masterTimeline = gsap.timeline({
+					scrollTrigger: {
+						trigger: pinHeightEl,
+						scrub: true,
+						start: `top top-=${DITHER_FADE_VH}vh`,
+						end: `bottom bottom-=${DITHER_FADE_VH}vh`,
+					},
+				})
+
+				const aboutWords = Array.from(
+					pinnedTextContainerEl.querySelectorAll(
+						`.${styles.aboutColumn} .${styles.word}`
+					)
+				).filter((el): el is HTMLElement => el instanceof HTMLElement)
+				const exposAndLinksWords = Array.from(
+					pinnedTextContainerEl.querySelectorAll(
+						`.${styles.exposLinksWrapper} .${styles.word}`
+					)
+				).filter((el): el is HTMLElement => el instanceof HTMLElement)
+
+				const aboutLines = groupWordsByLines(aboutWords)
+				const exposAndLinksLines = groupWordsByLines(exposAndLinksWords)
+
+				const commonTweenVars = {
+					autoAlpha: 1,
+					x: 0,
+					ease: 'power1.inOut',
+					stagger: {
+						each: 0.05,
+						onStart: function (this: gsap.core.Tween) {
+							const link = (this.targets()[0] as HTMLElement).closest('a')
+							if (link) link.style.pointerEvents = 'auto'
+						},
+						onReverseComplete: function (this: gsap.core.Tween) {
+							const link = (this.targets()[0] as HTMLElement).closest('a')
+							if (link) link.style.pointerEvents = 'none'
+						},
+					},
+				}
+
+				aboutLines.forEach((line) => {
+					masterTimeline?.to(line, commonTweenVars, '<')
+				})
+				exposAndLinksLines.forEach((line) => {
+					masterTimeline?.to(line, commonTweenVars, '<')
+				})
+
+				const animationDuration = masterTimeline.duration()
+				if (TEXT_ANIM_SCROLL_DISTANCE_VH > 0.01 && animationDuration > 0) {
+					const pauseDuration =
+						animationDuration *
+						(PAUSE_SCROLL_DISTANCE_VH / TEXT_ANIM_SCROLL_DISTANCE_VH)
+					masterTimeline.to({}, { duration: pauseDuration })
+				}
+
+				if (masterTimeline.duration() === 0) {
+					masterTimeline.to({}, { duration: 0.01 })
+				}
+			}
+
+			document.fonts.ready
+				.then(() => {
+					initTextAnimation()
+				})
+				.catch((error) => {
+					console.error(
+						'Font loading failed, initializing animation with fallback fonts:',
+						error
+					)
+					initTextAnimation()
+				})
+
+			ScrollTrigger.create({
+				trigger: pinHeightEl,
+				start: 'bottom bottom',
+				scrub: false,
+				onEnter: () => {
+					ditherStrength.current = 0.3
+					if (currentCanvasElement) {
+						currentCanvasElement.style.opacity = '1.0'
+					}
+				},
+				onLeaveBack: () => {
+					const initialOpacity = 0.1
+					ditherStrength.current = 0.0
+					if (currentCanvasElement) {
+						currentCanvasElement.style.opacity = initialOpacity.toFixed(2)
+					}
 				},
 			})
-
-			const aboutWords = Array.from(
-				pinnedTextContainerEl.querySelectorAll(
-					`.${styles.aboutColumn} .${styles.word}`
-				)
-			).filter((el): el is HTMLElement => el instanceof HTMLElement)
-			const exposAndLinksWords = Array.from(
-				pinnedTextContainerEl.querySelectorAll(
-					`.${styles.exposLinksWrapper} .${styles.word}`
-				)
-			).filter((el): el is HTMLElement => el instanceof HTMLElement)
-
-			const aboutLines = groupWordsByLines(aboutWords)
-			const exposAndLinksLines = groupWordsByLines(exposAndLinksWords)
-
-			const commonTweenVars = {
-				autoAlpha: 1,
-				x: 0,
-				ease: 'power1.inOut',
-				stagger: {
-					each: 0.05,
-					onStart: function (this: gsap.core.Tween) {
-						const link = (this.targets()[0] as HTMLElement).closest('a')
-						if (link) link.style.pointerEvents = 'auto'
-					},
-					onReverseComplete: function (this: gsap.core.Tween) {
-						const link = (this.targets()[0] as HTMLElement).closest('a')
-						if (link) link.style.pointerEvents = 'none'
-					},
-				},
-			}
-
-			aboutLines.forEach((line) => {
-				masterTimeline?.to(line, commonTweenVars, '<')
-			})
-			exposAndLinksLines.forEach((line) => {
-				masterTimeline?.to(line, commonTweenVars, '<')
-			})
-
-			const animationDuration = masterTimeline.duration()
-			if (TEXT_ANIM_SCROLL_DISTANCE_VH > 0.01 && animationDuration > 0) {
-				const pauseDuration =
-					animationDuration *
-					(PAUSE_SCROLL_DISTANCE_VH / TEXT_ANIM_SCROLL_DISTANCE_VH)
-				masterTimeline.to({}, { duration: pauseDuration })
-			}
-
-			if (masterTimeline.duration() === 0) {
-				masterTimeline.to({}, { duration: 0.01 })
-			}
-		}
-
-		document.fonts.ready
-			.then(() => {
-				initTextAnimation()
-			})
-			.catch((error) => {
-				console.error(
-					'Font loading failed, initializing animation with fallback fonts:',
-					error
-				)
-				initTextAnimation()
-			})
-
-		unpinFadeInScrollTrigger = ScrollTrigger.create({
-			trigger: pinHeightEl,
-			start: 'bottom bottom',
-			scrub: false,
-			onEnter: () => {
-				ditherStrength.current = 0.3
-				if (currentCanvasElement) {
-					currentCanvasElement.style.opacity = '1.0'
-				}
-			},
-			onLeaveBack: () => {
-				const initialOpacity = 0.1
-				ditherStrength.current = 0.0
-				if (currentCanvasElement) {
-					currentCanvasElement.style.opacity = initialOpacity.toFixed(2)
-				}
-			},
-		})
+		}, aboutMeContainerEl) // scope for the context
 
 		return () => {
-			if (masterTimeline) {
-				const st = masterTimeline.scrollTrigger
-				if (st) {
-					st.kill()
-				}
-				masterTimeline.kill()
-			}
-			if (canvasPinScrollTrigger) {
-				canvasPinScrollTrigger.kill()
-			}
-			if (ditherScrollTrigger) {
-				ditherScrollTrigger.kill()
-			}
-			if (textPinScrollTrigger) {
-				textPinScrollTrigger.kill()
-			}
-			if (unpinFadeInScrollTrigger) {
-				unpinFadeInScrollTrigger.kill()
-			}
-			setIsAboutMePinned(false)
 			console.log('[AboutMe GSAP] Timelines and ScrollTriggers cleaned up.')
+			ctx.revert()
 		}
 	}, [
 		pinHeightRef,
