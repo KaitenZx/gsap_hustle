@@ -233,7 +233,7 @@
 								display: block;
 								padding: 0.5em 0;
 								color: var(--text-color);
-								pointer-events: auto;
+								pointer-events: none;
 								text-decoration: none;
 
 								&:hover {
