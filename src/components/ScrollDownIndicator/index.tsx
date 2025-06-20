@@ -3,9 +3,9 @@ import React, { useState, useEffect } from 'react';
 import { gsap } from 'gsap';
 import { ScrollToPlugin } from 'gsap/ScrollToPlugin';
 
-import styles from './ScrollDownIndicator.module.scss';
+import styles from './index.module.scss';
 
-const ScrollDownIndicator: React.FC = () => {
+export const ScrollDownIndicator: React.FC = () => {
 	const [isVisible, setIsVisible] = useState(false);
 
 	useEffect(() => {
@@ -77,5 +77,3 @@ const ScrollDownIndicator: React.FC = () => {
 		</div>
 	);
 };
-
-export default ScrollDownIndicator; 

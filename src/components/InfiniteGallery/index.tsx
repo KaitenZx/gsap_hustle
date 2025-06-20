@@ -19,27 +19,26 @@ import { ImageModal } from '../ImageModal';
 import { ScrollUpButton } from '../ScrollUpButton';
 
 import { GalleryColumn } from './GalleryColumn';
+import { useCanvasWorker } from './hooks/useCanvasWorker';
+import { useGridDimensions } from './hooks/useGridDimensions';
+import { useItemRotation } from './hooks/useItemRotation';
+import { useLerpAnimation } from './hooks/useLerpAnimation';
+import { useScrollHandling } from './hooks/useScrollHandling';
+import { useScrollTriggerPinning } from './hooks/useScrollTriggerPinning';
+import styles from './index.module.scss';
+import { InternalFooter } from './InternalFooter';
 import {
 	COLS,
 	GalleryItem,
 	getColumnPreviewImageUrls,
 	preloadImage,
-} from './galleryData';
-import { useCanvasWorker } from './hooks/useCanvasWorker';
-import { useGridDimensions } from './hooks/useGridDimensions';
-import { useScrollHandling } from './hooks/useScrollHandling';
-import { useScrollTriggerPinning } from './hooks/useScrollTriggerPinning';
-import styles from './index.module.scss';
-import { InternalFooter } from './InternalFooter';
-import { GridDimensions, MediaAnimData } from './types';
+} from './lib/galleryData';
+import { GridDimensions, MediaAnimData } from './lib/types';
 
 const lqipMap: Record<string, string> = lqipMapData;
 gsap.registerPlugin(Observer, ScrollTrigger, InertiaPlugin);
 
 const PRELOAD_THROTTLE_MS = 150;
-const ROTATION_CLAMP = 18;
-const ROTATION_SENSITIVITY = 18;
-const LERP_FACTOR = 0.7;
 const DESKTOP_FOOTER_THRESHOLD = -3000;
 const MOBILE_FOOTER_THRESHOLD = -1500;
 const FOOTER_HYSTERESIS = 500;
@@ -81,16 +80,9 @@ export const InfiniteGallery: React.FC = () => {
 
 	const currentActualXRef = useRef(0);
 	const currentActualYRef = useRef(0);
-	const lerpLoopIdRef = useRef<number | null>(null);
-	const isLerpingActiveRef = useRef(false);
 
 	const mediaAnimRefs = useRef(new Map<string, MediaAnimData>());
-	const mousePos = useRef({ x: 0, y: 0 });
 	const isScrollingRef = useRef(false);
-	const containerCenterRef = useRef({ x: 0, y: 0 });
-	const scrollStopTimeoutRef = useRef<number | null>(null);
-	const requestRotationUpdateRef = useRef<(() => void) | null>(null);
-
 	const isTouchDevice = useMemo(() => getIsTouchDevice(), []);
 
 	const isScrollLockedRef = useRef(false);
@@ -114,77 +106,15 @@ export const InfiniteGallery: React.FC = () => {
 		showInternalFooterRef.current = showInternalFooter;
 	}, [showInternalFooter]);
 
-	const lerpStep = useCallback(() => {
-		if (
-			!isInitialized.current ||
-			!dimensionsRef.current ||
-			!contentWrapperRef.current
-		) {
-			if (isLerpingActiveRef.current) {
-				lerpLoopIdRef.current = requestAnimationFrame(lerpStep);
-			} else {
-				lerpLoopIdRef.current = null;
-			}
-			return;
-		}
-
-		const dims = dimensionsRef.current;
-		const targetX = incrX.current;
-		const targetY = incrY.current;
-
-		let newActualX =
-			currentActualXRef.current +
-			(targetX - currentActualXRef.current) * LERP_FACTOR;
-		let newActualY =
-			currentActualYRef.current +
-			(targetY - currentActualYRef.current) * LERP_FACTOR;
-
-		const deltaThreshold = 0.01;
-
-		if (Math.abs(targetX - newActualX) < deltaThreshold) newActualX = targetX;
-		if (Math.abs(targetY - newActualY) < deltaThreshold) newActualY = targetY;
-
-		if (
-			currentActualXRef.current !== newActualX ||
-			currentActualYRef.current !== newActualY
-		) {
-			currentActualXRef.current = newActualX;
-			currentActualYRef.current = newActualY;
-
-			gsap.set(contentWrapperRef.current, {
-				x: dims.wrapX(currentActualXRef.current),
-				y: dims.wrapY(currentActualYRef.current),
-			});
-		}
-
-		if (isLerpingActiveRef.current) {
-			if (
-				currentActualXRef.current !== targetX ||
-				currentActualYRef.current !== targetY
-			) {
-				lerpLoopIdRef.current = requestAnimationFrame(lerpStep);
-			} else {
-				lerpLoopIdRef.current = null;
-			}
-		} else {
-			lerpLoopIdRef.current = null;
-		}
-	}, []);
-
-	useEffect(() => {
-		if (isLerpingActiveRef.current && !lerpLoopIdRef.current) {
-			lerpLoopIdRef.current = requestAnimationFrame(lerpStep);
-		} else if (!isLerpingActiveRef.current && lerpLoopIdRef.current) {
-			cancelAnimationFrame(lerpLoopIdRef.current);
-			lerpLoopIdRef.current = null;
-		}
-		return () => {
-			if (lerpLoopIdRef.current) {
-				cancelAnimationFrame(lerpLoopIdRef.current);
-				lerpLoopIdRef.current = null;
-			}
-		};
-	}, [lerpStep]);
+	const { startLerp, stopLerp } = useLerpAnimation({
+		isInitializedRef: isInitialized,
+		dimensionsRef,
+		contentWrapperRef,
+		incrX,
+		incrY,
+		currentActualXRef,
+		currentActualYRef,
+	});
 
 	const checkFooterVisibility = useCallback(() => {
 		const yScrolled = incrY.current;
@@ -296,25 +226,6 @@ export const InfiniteGallery: React.FC = () => {
 		}
 	}, []);
 
-	const handleScrollActivity = useCallback(() => {
-		if (!containerRef.current) return;
-		if (!isTouchDevice && !isScrollingRef.current) {
-			const bounds = containerRef.current.getBoundingClientRect();
-			containerCenterRef.current = {
-				x: bounds.left + bounds.width / 2,
-				y: bounds.top + bounds.height / 2,
-			};
-		}
-		if (!isScrollingRef.current) isScrollingRef.current = true;
-		if (!isTouchDevice) requestRotationUpdateRef.current?.();
-		if (scrollStopTimeoutRef.current)
-			clearTimeout(scrollStopTimeoutRef.current);
-		scrollStopTimeoutRef.current = window.setTimeout(() => {
-			if (isScrollingRef.current) isScrollingRef.current = false;
-			if (!isTouchDevice) requestRotationUpdateRef.current?.();
-		}, 150);
-	}, [isTouchDevice]);
-
 	const onScrollForPreload = useCallback(
 		(direction: 'left' | 'right') => {
 			throttledPreloadRef.current?.(direction);
@@ -322,24 +233,18 @@ export const InfiniteGallery: React.FC = () => {
 		[]
 	);
 
-	const onLerpStart = useCallback(() => {
-		isLerpingActiveRef.current = true;
-		if (!lerpLoopIdRef.current) {
-			lerpLoopIdRef.current = requestAnimationFrame(lerpStep);
-		}
-	}, [lerpStep]);
-
-	const onLerpStop = useCallback(() => {
-		isLerpingActiveRef.current = false;
-		if (lerpLoopIdRef.current) {
-			cancelAnimationFrame(lerpLoopIdRef.current);
-			lerpLoopIdRef.current = null;
-		}
-	}, []);
-
 	const onThrottledFooterCheck = useCallback(() => {
 		throttledCheckFooterVisibilityRef.current?.();
 	}, []);
+
+	const { handleScrollActivity } = useItemRotation({
+		containerRef,
+		contentWrapperRef,
+		dimensionsRef,
+		mediaAnimRefs,
+		isTouchDevice,
+		isScrollingRef,
+	});
 
 	const observerInstanceRef = useScrollHandling({
 		containerRef,
@@ -354,8 +259,8 @@ export const InfiniteGallery: React.FC = () => {
 		onScroll: onScrollForPreload,
 		onScrollActivity: handleScrollActivity,
 		checkFooterVisibility: onThrottledFooterCheck,
-		onLerpStart,
-		onLerpStop,
+		onLerpStart: startLerp,
+		onLerpStop: stopLerp,
 	});
 
 	const setScrollLocked = useCallback(
@@ -387,10 +292,7 @@ export const InfiniteGallery: React.FC = () => {
 	});
 
 	const handleScrollUpRequest = useCallback(() => {
-		isLerpingActiveRef.current = true;
-		if (!lerpLoopIdRef.current) {
-			lerpLoopIdRef.current = requestAnimationFrame(lerpStep);
-		}
+		startLerp();
 		const scrollTriggerInstance = scrollTriggerInstanceRef.current;
 		if (
 			scrollTriggerInstance &&
@@ -427,106 +329,15 @@ export const InfiniteGallery: React.FC = () => {
 				},
 			});
 		}
-	}, [scrollTriggerInstanceRef, lerpStep]);
+	}, [scrollTriggerInstanceRef, startLerp]);
 
 	useLayoutEffect(() => {
-		const containerElement = containerRef.current;
 		const contentWrapperElement = contentWrapperRef.current;
-		if (!containerElement || !contentWrapperElement || isInitialized.current) {
+		if (!contentWrapperElement || isInitialized.current) {
 			return;
 		}
 
 		gsapCtx.current = gsap.context(() => {
-			let updateRotationsRequest: number | null = null;
-			const updateRotations = () => {
-				updateRotationsRequest = null;
-				const currentMap = mediaAnimRefs.current;
-				const dims = dimensionsRef.current;
-				const wrapperElement = contentWrapperRef.current;
-				if (
-					currentMap.size === 0 ||
-					isTouchDevice ||
-					!dims ||
-					!containerElement ||
-					!wrapperElement ||
-					isScrollingRef.current
-				)
-					return;
-
-				const targetMouseX = mousePos.current.x;
-				const targetMouseY = mousePos.current.y;
-				const containerRect = containerElement.getBoundingClientRect();
-				const wrapperCurrentX = gsap.getProperty(wrapperElement, 'x') as number;
-				const wrapperCurrentY = gsap.getProperty(wrapperElement, 'y') as number;
-
-				currentMap.forEach((refData) => {
-					if (refData.element && refData.rotX && refData.rotY) {
-						const itemBaseOffsetX =
-							refData.visualColumnIndex * dims.columnTotalWidth +
-							dims.wrapperPaddingLeft;
-						const itemBaseOffsetY =
-							refData.visualRowIndexInColumn * (dims.itemHeight + dims.rowGap) +
-							dims.wrapperPaddingTop;
-						const itemScreenX =
-							containerRect.left + itemBaseOffsetX + wrapperCurrentX;
-						const itemScreenY =
-							containerRect.top + itemBaseOffsetY + wrapperCurrentY;
-
-						if (
-							itemScreenY + dims.itemHeight < 0 ||
-							itemScreenY > window.innerHeight ||
-							itemScreenX + dims.columnWidth < 0 ||
-							itemScreenX > window.innerWidth
-						) {
-							return;
-						}
-
-						const midpointX = itemScreenX + dims.columnWidth / 2;
-						const midpointY = itemScreenY + dims.itemHeight / 2;
-						const rotX = (targetMouseY - midpointY) / ROTATION_SENSITIVITY;
-						const rotY = (targetMouseX - midpointX) / ROTATION_SENSITIVITY;
-						const clampedRotX = gsap.utils.clamp(
-							-ROTATION_CLAMP,
-							ROTATION_CLAMP,
-							rotX
-						);
-						const clampedRotY = gsap.utils.clamp(
-							-ROTATION_CLAMP,
-							ROTATION_CLAMP,
-							rotY
-						);
-						const finalRotX = clampedRotX * -1;
-						const finalRotY = clampedRotY;
-						const previousRotX = refData.lastRotX || 0;
-						const previousRotY = refData.lastRotY || 0;
-
-						if (
-							Math.abs(finalRotX - previousRotX) > 0.01 ||
-							Math.abs(finalRotY - previousRotY) > 0.01
-						) {
-							refData.rotX(finalRotX);
-							refData.rotY(finalRotY);
-							refData.lastRotX = finalRotX;
-							refData.lastRotY = finalRotY;
-						}
-					}
-				});
-			};
-
-			const requestRotationUpdate = () => {
-				if (!updateRotationsRequest) {
-					updateRotationsRequest = requestAnimationFrame(updateRotations);
-				}
-			};
-
-			requestRotationUpdateRef.current = requestRotationUpdate;
-
-			const handleMouseMove = (event: MouseEvent) => {
-				if (isTouchDevice) return;
-				mousePos.current = { x: event.clientX, y: event.clientY };
-				requestRotationUpdate();
-			};
-
 			throttledPreloadRef.current = throttle(performPreload, PRELOAD_THROTTLE_MS, {
 				leading: false,
 				trailing: true,
@@ -537,7 +348,6 @@ export const InfiniteGallery: React.FC = () => {
 				{ leading: false, trailing: true }
 			);
 
-			window.addEventListener('mousemove', handleMouseMove);
 			const initialDims = calculateDimensions();
 
 			if (initialDims) {
@@ -574,22 +384,10 @@ export const InfiniteGallery: React.FC = () => {
 				);
 				setRenderColsCount(COLS);
 			}
-
-			return () => {
-				window.removeEventListener('mousemove', handleMouseMove);
-				if (updateRotationsRequest)
-					cancelAnimationFrame(updateRotationsRequest);
-				if (scrollStopTimeoutRef.current)
-					clearTimeout(scrollStopTimeoutRef.current);
-				if (lerpLoopIdRef.current) {
-					cancelAnimationFrame(lerpLoopIdRef.current);
-					lerpLoopIdRef.current = null;
-				}
-				isLerpingActiveRef.current = false;
-			};
 		}, containerRef);
 
 		const currentMediaAnimRefs = mediaAnimRefs.current;
+
 		return () => {
 			throttledPreloadRef.current?.cancel();
 			throttledCheckFooterVisibilityRef.current?.cancel();
@@ -603,11 +401,6 @@ export const InfiniteGallery: React.FC = () => {
 			dimensionsRef.current = null;
 			isInitialized.current = false;
 			isScrollLockedRef.current = false;
-			if (lerpLoopIdRef.current) {
-				cancelAnimationFrame(lerpLoopIdRef.current);
-				lerpLoopIdRef.current = null;
-			}
-			isLerpingActiveRef.current = false;
 		};
 	}, [
 		calculateDimensions,
@@ -615,7 +408,6 @@ export const InfiniteGallery: React.FC = () => {
 		checkFooterVisibility,
 		handleResize,
 		isTouchDevice,
-		lerpStep,
 		performPreload,
 		renderColsCount,
 		setIsGalleryPinned,

@@ -2,10 +2,17 @@ import React from 'react';
 
 import { gsap } from 'gsap';
 
-import { FadingImage } from './FadingImage';
-import styles from './GalleryColumn.module.scss';
-import { ITEMS, COLS, GalleryItem, RENDER_ROWS_BUFFER, ROWS } from './galleryData';
-import { MediaAnimData } from './types';
+import { FadingImage } from '../FadingImage';
+import {
+	ITEMS,
+	COLS,
+	GalleryItem,
+	RENDER_ROWS_BUFFER,
+	ROWS,
+} from '../lib/galleryData';
+import { MediaAnimData } from '../lib/types';
+
+import styles from './index.module.scss';
 
 interface GalleryColumnProps {
 	columnIndex: number;

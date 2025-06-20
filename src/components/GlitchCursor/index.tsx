@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 
 import throttle from 'lodash/throttle';
 
-import styles from './GlitchCursor.module.scss';
+import styles from './index.module.scss';
 
 // Helper to check for touch devices
 const isTouchDevice = () => {
@@ -46,7 +46,7 @@ const SPRITES = {
 // Set to track preloaded sprite URLs
 const _glitchCursorPreloadedUrls = new Set<string>();
 
-const GlitchCursor: React.FC = () => {
+export const GlitchCursor: React.FC = () => {
 	const [isClientTouchDevice, setIsClientTouchDevice] = useState(false);
 	const cursorRef = useRef<HTMLDivElement>(null); // Ref for direct DOM manipulation
 
@@ -181,5 +181,3 @@ const GlitchCursor: React.FC = () => {
 		/>
 	);
 };
-
-export default GlitchCursor; 

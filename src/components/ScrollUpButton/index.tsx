@@ -1,7 +1,7 @@
 import React from 'react';
 // Removed useState, useEffect, gsap, ScrollToPlugin as they are not needed for the base button yet
 
-import styles from './ScrollUpButton.module.scss';
+import styles from './index.module.scss';
 
 // Define props interface
 interface ScrollUpButtonProps {
@@ -9,7 +9,7 @@ interface ScrollUpButtonProps {
 	onClick?: () => void;
 }
 
-const ScrollUpButton: React.FC<ScrollUpButtonProps> = ({ isVisible, onClick }) => {
+export const ScrollUpButton: React.FC<ScrollUpButtonProps> = ({ isVisible, onClick }) => {
 	// Removed isVisible state and useEffect logic
 
 	const handleButtonClick = () => {
@@ -50,5 +50,3 @@ const ScrollUpButton: React.FC<ScrollUpButtonProps> = ({ isVisible, onClick }) =
 		</div>
 	);
 };
-
-export default ScrollUpButton; 

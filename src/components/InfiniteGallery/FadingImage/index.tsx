@@ -1,6 +1,6 @@
 import React, { useRef, useLayoutEffect } from 'react';
 
-import styles from './FadingImage.module.scss';
+import styles from './index.module.scss';
 
 interface FadingImageProps {
 	src: string;
@@ -8,7 +8,11 @@ interface FadingImageProps {
 	className?: string;
 }
 
-export const FadingImage: React.FC<FadingImageProps> = ({ src, alt, className }) => {
+export const FadingImage: React.FC<FadingImageProps> = ({
+	src,
+	alt,
+	className,
+}) => {
 	const imgRef = useRef<HTMLImageElement>(null);
 
 	useLayoutEffect(() => {

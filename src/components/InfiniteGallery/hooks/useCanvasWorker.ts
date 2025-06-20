@@ -31,9 +31,12 @@ export const useCanvasWorker = ({
 			workerRef.current.terminate()
 		}
 
-		const worker = new Worker(new URL('../canvas.worker.ts', import.meta.url), {
-			type: 'module',
-		})
+		const worker = new Worker(
+			new URL('../lib/canvas.worker.ts', import.meta.url),
+			{
+				type: 'module',
+			}
+		)
 		workerRef.current = worker
 
 		// Transfer OffscreenCanvas to the worker

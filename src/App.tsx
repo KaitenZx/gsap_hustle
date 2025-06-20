@@ -11,7 +11,7 @@ import { AboutMe } from './components/AboutMe';
 import { GlitchCursor } from './components/GlitchCursor';
 import { GlitchOverlay } from './components/GlitchOverlay';
 import { InfiniteGallery } from './components/InfiniteGallery';
-import { getColumnPreviewImageUrls, preloadImage } from './components/InfiniteGallery/galleryData';
+import { getColumnPreviewImageUrls, preloadImage } from './components/InfiniteGallery/lib/galleryData';
 import 'lenis/dist/lenis.css'; // Раскомментируйте, если используете npm-пакет
 import './styles/theme.css'; // Import theme styles
 import { PinStateProvider } from './context/PinStateContext';

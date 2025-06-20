@@ -4,7 +4,7 @@ import { gsap } from 'gsap'
 import { InertiaPlugin } from 'gsap/InertiaPlugin'
 import { Observer } from 'gsap/Observer'
 
-import { GridDimensions } from '../types'
+import { GridDimensions } from '../lib/types'
 
 gsap.registerPlugin(Observer, InertiaPlugin)
 

@@ -12,7 +12,7 @@ import TheHugIcon from '../../assets/icons/thehug_icon.svg?react';
 import TwitterIcon from '../../assets/icons/twitter_icon.svg?react';
 import { usePinState } from '../../context/PinStateContext';
 import { ScrollDownIndicator } from '../ScrollDownIndicator';
-import { ThemeToggleButton } from '../ThemeToggleButton/ThemeToggleButton';
+import { ThemeToggleButton } from '../ThemeToggleButton';
 
 import styles from './index.module.scss';
 import { sdCircle, opSmoothUnion } from './utils/sdf';

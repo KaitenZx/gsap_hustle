@@ -3,8 +3,8 @@ import { useLayoutEffect, useCallback } from 'react'
 import { gsap } from 'gsap'
 import { debounce } from 'lodash'
 
-import { COLS, ROWS } from '../galleryData'
-import { GridDimensions } from '../types'
+import { COLS, ROWS } from '../lib/galleryData'
+import { GridDimensions } from '../lib/types'
 
 const DEBOUNCE_RESIZE_MS = 150
 const RENDER_COLS_BUFFER = 4
