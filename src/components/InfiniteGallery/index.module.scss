@@ -1,8 +1,4 @@
-// --- Переменные для настройки ---
-$item-height: 18vw;
-$column-width: 17vw;
-$row-gap: 2vw;
-$column-gap: 2vw;
+@use 'variables';
 
 .mwg_effect {
 	height: 100vh;
@@ -12,7 +8,6 @@ $column-gap: 2vw;
 	background-color: var(--background-color);
 	box-sizing: border-box;
 	perspective: 400vh;
-	// contain: layout paint; /* <<< REMOVED to prevent rendering glitches */
 	user-select: none;
 }
 
@@ -26,60 +21,10 @@ $column-gap: 2vw;
 	width: max-content;
 	height: auto;
 	will-change: transform;
-	gap: $column-gap;
-	padding: $row-gap 0;
+	gap: variables.$column-gap;
+	padding: variables.$row-gap 0;
 	box-sizing: border-box;
 	pointer-events: none;
-}
-
-.column {
-	width: $column-width;
-	display: grid;
-	grid-template-columns: 1fr;
-	grid-auto-rows: $item-height;
-	gap: $row-gap;
-	box-sizing: border-box;
-	pointer-events: none;
-	// contain: layout style; /* <<< REMOVED to prevent rendering glitches */
-}
-
-.media {
-	height: $item-height; // Контейнер задает высоту
-	width: 100%; // Контейнер задает ширину
-	border-radius: 8px; // Оставляем скругление на контейнере
-	user-select: none;
-	box-sizing: border-box;
-	pointer-events: none; // События отключены на контейнере
-	overflow: hidden; // Важно для object-fit: cover/contain, если изображение больше/меньше
-	will-change: transform;
-	// <<< ADDED: Styles for LQIP background >>>
-	background-size: cover;
-	background-position: center;
-	// <<< NEW: Pixelation effect for LQIP >>>
-	image-rendering: -moz-crisp-edges;
-	/* Firefox */
-	image-rendering: -webkit-crisp-edges;
-	/* Webkit (Chrome, Safari) */
-	image-rendering: pixelated;
-	/* Standard */
-
-	// Стили для вложенного изображения
-	img {
-		display: block; // Убирает лишний отступ снизу
-		width: 100%; // Заполняет контейнер по ширине
-		height: 100%; // Заполняет контейнер по высоте
-		object-fit: cover; // Масштабирует с сохранением пропорций, обрезая лишнее. Можно заменить на 'contain', если нужно видеть все изображение.
-		pointer-events: none; // Убедимся, что и само изображение не ловит события
-		// border-radius: inherit; // Можно наследовать скругление, если нужно
-
-		// <<< ADDED: Fade-in animation styles >>>
-		opacity: 0;
-		transition: opacity 0.4s ease-in-out;
-
-		&.imageLoaded {
-			opacity: 1;
-		}
-	}
 }
 
 .backgroundCanvas {
@@ -91,133 +36,20 @@ $column-gap: 2vw;
 	z-index: 0; // Place behind contentWrapper
 	pointer-events: none; // Ignore mouse events
 	opacity: 0.6; // Make it subtle
-	// background-color: #111; // Match container background
 	background-color: transparent; // Canvas will draw its own background
 	contain: strict;
 }
 
-// --- Internal Gallery Footer Styles ---
-.internalGalleryFooter {
-	position: absolute;
-	bottom: 0;
-	left: 0;
-	width: 100vw;
-	padding: 20px;
-	background-color: var(--background-color);
-	box-shadow: 0 0 20px 20px var(--background-color); // Simulate opaque bg with shadow spread
-	color: var(--text-color);
-	z-index: 20; // Ensure it's above background canvas and gallery items, but potentially below modal
-	display: flex; // Added for layout
-	justify-content: space-evenly; // Added for layout
-	align-items: center; // Added for layout
-
-	a {
-		color: var(--text-color); // Make links same color as text, perhaps with underline
-		opacity: 0.7; // Make them slightly less prominent than main text
-		text-decoration: none;
-		margin: 0 10px;
-
-		&:hover {
-			// color: #fff;
-			color: var(--text-color); // Keep same color on hover
-			opacity: 1; // Full opacity on hover
-			text-decoration: underline;
-		}
-	}
-}
-
-.footerLinkContainer {
-	flex: 1;
-	display: flex;
-	justify-content: center;
-	align-items: center;
-	height: 100%;
-	padding: 0 8px;
-
-	&:not(:last-child) {
-		border-right: 1px solid var(--text-color); // Add a separator line
-	}
-
-	a {
-		margin: 0;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 100%;
-		height: 100%;
-		padding: 10px 0;
-
-		// <<< ADDED: Styles for icon within the link >>>
-		.footerLinkIcon {
-			width: 16px; // Adjust size as needed
-			height: 16px; // Adjust size as needed
-			margin-right: 8px; // Space between icon and text
-			fill: currentColor; // Icon color inherits from text color
-		}
-	}
-}
-
 @media (max-width: 768px) {
-	// Новые значения для мобильных
-	$mobile-item-height: 45vw;
-	$mobile-column-width: 30vw; // Делаем колонки шире, возможно, одна колонка будет видна за раз
-	$mobile-row-gap: 4vw;
-	$mobile-column-gap: 4vw;
-
 	.contentWrapper {
-		gap: $mobile-column-gap;
-		padding: $mobile-row-gap 0;
-	}
-
-	.column {
-		width: $mobile-column-width;
-		grid-auto-rows: $mobile-item-height;
-		gap: $mobile-row-gap;
-	}
-
-	.media {
-		height: $mobile-item-height;
-	}
-
-	.internalGalleryFooter {
-		font-size: 10px;
-		padding: 8px 0;
-
-		a {
-			padding: 0 4px;
-		}
-
-		.footerLinkContainer {
-			a {
-				.footerLinkIcon {
-					width: 12px;
-					height: 12px;
-					margin-right: 4px;
-				}
-			}
-		}
+		gap: variables.$mobile-column-gap;
+		padding: variables.$mobile-row-gap 0;
 	}
 }
 
 @media (min-width: 768px) and (max-width: 1023px) {
-	// Новые значения для планшетов
-	$tablet-item-height: 30vw;
-	$tablet-column-width: 25vw;
-	$tablet-row-gap: 3vw;
-	$tablet-column-gap: 3vw;
-
 	.contentWrapper {
-		gap: $tablet-column-gap;
-		padding: $tablet-row-gap 0;
-	}
-
-	.column {
-		width: $tablet-column-width;
-		grid-auto-rows: $tablet-item-height;
-		gap: $tablet-row-gap;
-	}
-
-	.media {
-		height: $tablet-item-height;
+		gap: variables.$tablet-column-gap;
+		padding: variables.$tablet-row-gap 0;
 	}
 }

@@ -1,0 +1,46 @@
+import React, { useRef, useLayoutEffect } from 'react';
+
+import styles from './FadingImage.module.scss';
+
+interface FadingImageProps {
+	src: string;
+	alt: string;
+	className?: string;
+}
+
+export const FadingImage: React.FC<FadingImageProps> = ({ src, alt, className }) => {
+	const imgRef = useRef<HTMLImageElement>(null);
+
+	useLayoutEffect(() => {
+		const imgNode = imgRef.current;
+		if (!imgNode) return;
+
+		const handleLoad = () => {
+			if (imgRef.current) {
+				imgRef.current.classList.add(styles.imageLoaded);
+			}
+		};
+
+		if (imgNode.complete) {
+			handleLoad();
+		} else {
+			imgNode.addEventListener('load', handleLoad);
+		}
+
+		return () => {
+			if (imgNode) {
+				imgNode.removeEventListener('load', handleLoad);
+			}
+		};
+	}, [src]);
+
+	return (
+		<img
+			ref={imgRef}
+			src={src}
+			alt={alt}
+			decoding="async"
+			className={`${styles.image} ${className || ''}`}
+		/>
+	);
+}; 

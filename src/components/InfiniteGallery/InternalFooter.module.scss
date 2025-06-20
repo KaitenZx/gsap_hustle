@@ -1,0 +1,81 @@
+// --- Internal Gallery Footer Styles ---
+.internalGalleryFooter {
+	position: absolute;
+	bottom: 0;
+	left: 0;
+	width: 100vw;
+	padding: 20px;
+	background-color: var(--background-color);
+	box-shadow: 0 0 20px 20px var(--background-color); // Simulate opaque bg with shadow spread
+	color: var(--text-color);
+	z-index: 20; // Ensure it's above background canvas and gallery items, but potentially below modal
+	display: flex; // Added for layout
+	justify-content: space-evenly; // Added for layout
+	align-items: center; // Added for layout
+
+	a {
+		color: var(--text-color); // Make links same color as text, perhaps with underline
+		opacity: 0.7; // Make them slightly less prominent than main text
+		text-decoration: none;
+		margin: 0 10px;
+
+		&:hover {
+			// color: #fff;
+			color: var(--text-color); // Keep same color on hover
+			opacity: 1; // Full opacity on hover
+			text-decoration: underline;
+		}
+	}
+}
+
+.footerLinkContainer {
+	flex: 1;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	height: 100%;
+	padding: 0 8px;
+
+	&:not(:last-child) {
+		border-right: 1px solid var(--text-color); // Add a separator line
+	}
+
+	a {
+		margin: 0;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 100%;
+		height: 100%;
+		padding: 10px 0;
+
+		// <<< ADDED: Styles for icon within the link >>>
+		.footerLinkIcon {
+			width: 16px; // Adjust size as needed
+			height: 16px; // Adjust size as needed
+			margin-right: 8px; // Space between icon and text
+			fill: currentColor; // Icon color inherits from text color
+		}
+	}
+}
+
+@media (max-width: 768px) {
+	.internalGalleryFooter {
+		font-size: 10px;
+		padding: 8px 0;
+
+		a {
+			padding: 0 4px;
+		}
+
+		.footerLinkContainer {
+			a {
+				.footerLinkIcon {
+					width: 12px;
+					height: 12px;
+					margin-right: 4px;
+				}
+			}
+		}
+	}
+}

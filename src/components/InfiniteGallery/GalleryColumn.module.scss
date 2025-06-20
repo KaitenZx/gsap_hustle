@@ -1,0 +1,57 @@
+@use 'variables';
+
+.column {
+	width: variables.$column-width;
+	display: grid;
+	grid-template-columns: 1fr;
+	grid-auto-rows: variables.$item-height;
+	gap: variables.$row-gap;
+	box-sizing: border-box;
+	pointer-events: none;
+	// contain: layout style; /* <<< REMOVED to prevent rendering glitches */
+}
+
+.media {
+	height: variables.$item-height; // Контейнер задает высоту
+	width: 100%; // Контейнер задает ширину
+	border-radius: 8px; // Оставляем скругление на контейнере
+	user-select: none;
+	box-sizing: border-box;
+	pointer-events: none; // События отключены на контейнере
+	overflow: hidden; // Важно для object-fit: cover/contain, если изображение больше/меньше
+	will-change: transform;
+	// <<< ADDED: Styles for LQIP background >>>
+	background-size: cover;
+	background-position: center;
+	// <<< NEW: Pixelation effect for LQIP >>>
+	image-rendering: -moz-crisp-edges;
+	/* Firefox */
+	image-rendering: -webkit-crisp-edges;
+	/* Webkit (Chrome, Safari) */
+	image-rendering: pixelated;
+	/* Standard */
+}
+
+@media (max-width: 768px) {
+	.column {
+		width: variables.$mobile-column-width;
+		grid-auto-rows: variables.$mobile-item-height;
+		gap: variables.$mobile-row-gap;
+	}
+
+	.media {
+		height: variables.$mobile-item-height;
+	}
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+	.column {
+		width: variables.$tablet-column-width;
+		grid-auto-rows: variables.$tablet-item-height;
+		gap: variables.$tablet-row-gap;
+	}
+
+	.media {
+		height: variables.$tablet-item-height;
+	}
+}

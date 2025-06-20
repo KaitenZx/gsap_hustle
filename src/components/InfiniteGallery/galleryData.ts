@@ -52,6 +52,7 @@ export type GalleryItem = {
 export const ROWS = 7 // Количество строк в логической сетке
 export const COLS = 28 // Количество КОЛОНОК в ЛОГИЧЕСКОЙ сетке (определяет wrap)
 export const TOTAL_ITEMS = ROWS * COLS
+export const RENDER_ROWS_BUFFER = 4 // Сколько доп. строк рендерить снизу
 
 // --- Генерация данных ---
 // Убедимся, что берем ровно TOTAL_ITEMS, если их достаточно
