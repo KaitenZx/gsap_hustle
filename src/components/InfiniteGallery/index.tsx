@@ -27,6 +27,7 @@ import {
 } from './galleryData';
 import { useCanvasWorker } from './hooks/useCanvasWorker';
 import { useGridDimensions } from './hooks/useGridDimensions';
+import { useScrollHandling } from './hooks/useScrollHandling';
 import { useScrollTriggerPinning } from './hooks/useScrollTriggerPinning';
 import styles from './index.module.scss';
 import { InternalFooter } from './InternalFooter';
@@ -68,9 +69,6 @@ export const InfiniteGallery: React.FC = () => {
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 
 	const gsapCtx = useRef<gsap.Context | null>(null);
-	const observerInstance = useRef<Observer | null>(null);
-	const inertiaXTweenRef = useRef<gsap.core.Tween | null>(null);
-	const inertiaYTweenRef = useRef<gsap.core.Tween | null>(null);
 
 	const incrX = useRef(0);
 	const incrY = useRef(0);
@@ -91,6 +89,7 @@ export const InfiniteGallery: React.FC = () => {
 	const isScrollingRef = useRef(false);
 	const containerCenterRef = useRef({ x: 0, y: 0 });
 	const scrollStopTimeoutRef = useRef<number | null>(null);
+	const requestRotationUpdateRef = useRef<(() => void) | null>(null);
 
 	const isTouchDevice = useMemo(() => getIsTouchDevice(), []);
 
@@ -239,9 +238,6 @@ export const InfiniteGallery: React.FC = () => {
 
 	const handleResize = useCallback((newDims: GridDimensions) => {
 		if (gsapCtx.current && contentWrapperRef.current) {
-			inertiaXTweenRef.current?.kill();
-			inertiaYTweenRef.current?.kill();
-
 			gsapCtx.current.add(() => {
 				incrX.current = 0;
 				currentActualXRef.current = 0;
@@ -270,6 +266,98 @@ export const InfiniteGallery: React.FC = () => {
 		setRenderColsCount,
 	});
 
+	const performPreload = useCallback((scrollDirection: 'left' | 'right') => {
+		const dims = dimensionsRef.current;
+		if (dims && dims.columnTotalWidth > 0) {
+			const currentWrappedX = dims.wrapX(currentActualXRef.current);
+			const currentApproxFirstVisibleColIndex = Math.floor(
+				-currentWrappedX / dims.columnTotalWidth
+			);
+			const preloadColsCount =
+				dims.viewportWidth <= MOBILE_BREAKPOINT_PX
+					? PRELOAD_COLS_COUNT_MOBILE
+					: PRELOAD_COLS_COUNT_DESKTOP;
+			let firstColToPreload: number;
+			if (scrollDirection === 'left') {
+				firstColToPreload =
+					currentApproxFirstVisibleColIndex - preloadColsCount;
+			} else {
+				const visibleColsApprox = Math.ceil(
+					dims.viewportWidth / dims.columnTotalWidth
+				);
+				firstColToPreload =
+					currentApproxFirstVisibleColIndex + visibleColsApprox;
+			}
+			for (let i = 0; i < preloadColsCount; i++) {
+				const colIndexToPreload = firstColToPreload + i;
+				const urlsToPreload = getColumnPreviewImageUrls(colIndexToPreload);
+				urlsToPreload.forEach(preloadImage);
+			}
+		}
+	}, []);
+
+	const handleScrollActivity = useCallback(() => {
+		if (!containerRef.current) return;
+		if (!isTouchDevice && !isScrollingRef.current) {
+			const bounds = containerRef.current.getBoundingClientRect();
+			containerCenterRef.current = {
+				x: bounds.left + bounds.width / 2,
+				y: bounds.top + bounds.height / 2,
+			};
+		}
+		if (!isScrollingRef.current) isScrollingRef.current = true;
+		if (!isTouchDevice) requestRotationUpdateRef.current?.();
+		if (scrollStopTimeoutRef.current)
+			clearTimeout(scrollStopTimeoutRef.current);
+		scrollStopTimeoutRef.current = window.setTimeout(() => {
+			if (isScrollingRef.current) isScrollingRef.current = false;
+			if (!isTouchDevice) requestRotationUpdateRef.current?.();
+		}, 150);
+	}, [isTouchDevice]);
+
+	const onScrollForPreload = useCallback(
+		(direction: 'left' | 'right') => {
+			throttledPreloadRef.current?.(direction);
+		},
+		[]
+	);
+
+	const onLerpStart = useCallback(() => {
+		isLerpingActiveRef.current = true;
+		if (!lerpLoopIdRef.current) {
+			lerpLoopIdRef.current = requestAnimationFrame(lerpStep);
+		}
+	}, [lerpStep]);
+
+	const onLerpStop = useCallback(() => {
+		isLerpingActiveRef.current = false;
+		if (lerpLoopIdRef.current) {
+			cancelAnimationFrame(lerpLoopIdRef.current);
+			lerpLoopIdRef.current = null;
+		}
+	}, []);
+
+	const onThrottledFooterCheck = useCallback(() => {
+		throttledCheckFooterVisibilityRef.current?.();
+	}, []);
+
+	const observerInstanceRef = useScrollHandling({
+		containerRef,
+		contentWrapperRef,
+		isScrollLockedRef,
+		dimensionsRef,
+		incrX,
+		incrY,
+		currentActualXRef,
+		currentActualYRef,
+		didDragSincePressRef,
+		onScroll: onScrollForPreload,
+		onScrollActivity: handleScrollActivity,
+		checkFooterVisibility: onThrottledFooterCheck,
+		onLerpStart,
+		onLerpStop,
+	});
+
 	const setScrollLocked = useCallback(
 		(locked: boolean) => {
 			if (isScrollLockedRef.current !== locked) {
@@ -277,18 +365,19 @@ export const InfiniteGallery: React.FC = () => {
 				setIsLockedState(locked);
 				setIsGalleryPinned(locked);
 
+				const observer = observerInstanceRef.current;
 				if (containerRef.current) {
 					containerRef.current.style.touchAction = locked ? 'none' : 'auto';
-					if (locked) observerInstance.current?.enable();
-					else observerInstance.current?.disable();
+					if (locked) observer?.enable();
+					else observer?.disable();
 				} else {
-					if (locked) observerInstance.current?.enable();
-					else observerInstance.current?.disable();
+					if (locked) observer?.enable();
+					else observer?.disable();
 				}
 				document.body.classList.toggle('ifg-locked', locked);
 			}
 		},
-		[setIsGalleryPinned]
+		[setIsGalleryPinned, observerInstanceRef]
 	);
 
 	const scrollTriggerInstanceRef = useScrollTriggerPinning({
@@ -309,7 +398,10 @@ export const InfiniteGallery: React.FC = () => {
 		) {
 			const galleryPinStartScrollY = scrollTriggerInstance.start;
 			const twentyVhInPixels = window.innerHeight * 0.2;
-			let targetScrollY = Math.max(0, galleryPinStartScrollY - twentyVhInPixels - 1);
+			let targetScrollY = Math.max(
+				0,
+				galleryPinStartScrollY - twentyVhInPixels - 1
+			);
 
 			gsap.to(incrY, { current: 0, duration: 1.5, ease: 'none' });
 			gsap.to(window, {
@@ -336,35 +428,6 @@ export const InfiniteGallery: React.FC = () => {
 			});
 		}
 	}, [scrollTriggerInstanceRef, lerpStep]);
-
-	const performPreload = useCallback((scrollDirection: 'left' | 'right') => {
-		const dims = dimensionsRef.current;
-		if (dims && dims.columnTotalWidth > 0) {
-			const currentWrappedX = dims.wrapX(currentActualXRef.current);
-			const currentApproxFirstVisibleColIndex = Math.floor(
-				-currentWrappedX / dims.columnTotalWidth
-			);
-			const preloadColsCount =
-				dims.viewportWidth <= MOBILE_BREAKPOINT_PX
-					? PRELOAD_COLS_COUNT_MOBILE
-					: PRELOAD_COLS_COUNT_DESKTOP;
-			let firstColToPreload: number;
-			if (scrollDirection === 'left') {
-				firstColToPreload = currentApproxFirstVisibleColIndex - preloadColsCount;
-			} else {
-				const visibleColsApprox = Math.ceil(
-					dims.viewportWidth / dims.columnTotalWidth
-				);
-				firstColToPreload =
-					currentApproxFirstVisibleColIndex + visibleColsApprox;
-			}
-			for (let i = 0; i < preloadColsCount; i++) {
-				const colIndexToPreload = firstColToPreload + i;
-				const urlsToPreload = getColumnPreviewImageUrls(colIndexToPreload);
-				urlsToPreload.forEach(preloadImage);
-			}
-		}
-	}, []);
 
 	useLayoutEffect(() => {
 		const containerElement = containerRef.current;
@@ -456,131 +519,13 @@ export const InfiniteGallery: React.FC = () => {
 				}
 			};
 
+			requestRotationUpdateRef.current = requestRotationUpdate;
+
 			const handleMouseMove = (event: MouseEvent) => {
 				if (isTouchDevice) return;
 				mousePos.current = { x: event.clientX, y: event.clientY };
 				requestRotationUpdate();
 			};
-
-			const handleScrollActivity = () => {
-				if (!containerElement) return;
-				if (!isTouchDevice && !isScrollingRef.current) {
-					const bounds = containerElement.getBoundingClientRect();
-					containerCenterRef.current = {
-						x: bounds.left + bounds.width / 2,
-						y: bounds.top + bounds.height / 2,
-					};
-				}
-				if (!isScrollingRef.current) isScrollingRef.current = true;
-				if (!isTouchDevice) requestRotationUpdate();
-				if (scrollStopTimeoutRef.current)
-					clearTimeout(scrollStopTimeoutRef.current);
-				scrollStopTimeoutRef.current = window.setTimeout(() => {
-					if (isScrollingRef.current) isScrollingRef.current = false;
-					if (!isTouchDevice) requestRotationUpdate();
-				}, 150);
-			};
-
-			if (!observerInstance.current) {
-				observerInstance.current = Observer.create({
-					target: containerElement,
-					type: 'wheel,touch,pointer',
-					preventDefault: true,
-					tolerance: 5,
-					dragMinimum: 3,
-					onPress: () => {
-						inertiaXTweenRef.current?.kill();
-						inertiaYTweenRef.current?.kill();
-						currentActualXRef.current = incrX.current;
-						currentActualYRef.current = incrY.current;
-						isLerpingActiveRef.current = true;
-						if (!lerpLoopIdRef.current) {
-							lerpLoopIdRef.current = requestAnimationFrame(lerpStep);
-						}
-						didDragSincePressRef.current = false;
-					},
-					onChangeX: (self) => {
-						handleScrollActivity();
-						const dims = dimensionsRef.current;
-						if (!isScrollLockedRef.current || !dims || !contentWrapperElement) return;
-						if (self.isDragging && Math.abs(self.deltaX) < Math.abs(self.deltaY)) return;
-						if (self.event.type === 'wheel' && Math.abs(self.deltaX) < Math.abs(self.deltaY)) return;
-						if (self.isDragging) didDragSincePressRef.current = true;
-						const increment = self.deltaX * (self.event.type === 'wheel' || !self.isDragging ? 1 : 1.1);
-						if (self.event.type === 'wheel') incrX.current -= increment;
-						else incrX.current += increment;
-						isLerpingActiveRef.current = true;
-						if (!lerpLoopIdRef.current) lerpLoopIdRef.current = requestAnimationFrame(lerpStep);
-						if (self.deltaX < 0) throttledPreloadRef.current?.('right');
-						else if (self.deltaX > 0) throttledPreloadRef.current?.('left');
-					},
-					onChangeY: (self) => {
-						handleScrollActivity();
-						const dims = dimensionsRef.current;
-						if (!isScrollLockedRef.current || !dims || !contentWrapperElement) return;
-						if (self.isDragging && Math.abs(self.deltaY) < Math.abs(self.deltaX)) return;
-						if (self.isDragging) didDragSincePressRef.current = true;
-						const increment = self.deltaY * (self.event.type === 'wheel' || !self.isDragging ? 1 : 1.1);
-						if (self.event.type === 'wheel') incrY.current -= increment;
-						else incrY.current += increment;
-						isLerpingActiveRef.current = true;
-						if (!lerpLoopIdRef.current) lerpLoopIdRef.current = requestAnimationFrame(lerpStep);
-						throttledCheckFooterVisibilityRef.current?.();
-					},
-					onDragEnd: (self) => {
-						const dims = dimensionsRef.current;
-						if (!dims || !contentWrapperElement || !isScrollLockedRef.current) return;
-						isLerpingActiveRef.current = false;
-						if (lerpLoopIdRef.current) {
-							cancelAnimationFrame(lerpLoopIdRef.current);
-							lerpLoopIdRef.current = null;
-						}
-						inertiaXTweenRef.current?.kill();
-						inertiaYTweenRef.current?.kill();
-						const inertiaProxy = { x: currentActualXRef.current, y: currentActualYRef.current };
-						const inertiaPreloadDirection = self.velocityX < 0 ? 'right' : 'left';
-						inertiaXTweenRef.current = gsap.to(inertiaProxy, {
-							inertia: { x: { velocity: self.velocityX } },
-							ease: 'none',
-							onStart: () => {
-								if (Math.abs(self.velocityX) > 50) throttledPreloadRef.current?.(inertiaPreloadDirection);
-							},
-							onUpdate: function () {
-								if (!dims || !contentWrapperElement) return;
-								incrX.current = inertiaProxy.x;
-								currentActualXRef.current = inertiaProxy.x;
-								gsap.set(contentWrapperElement, { x: dims.wrapX(currentActualXRef.current) });
-								if (Math.abs(self.velocityX) > 50) throttledPreloadRef.current?.(inertiaPreloadDirection);
-							},
-							onComplete: () => {
-								if (dims) {
-									incrX.current = inertiaProxy.x;
-									currentActualXRef.current = inertiaProxy.x;
-								}
-							},
-						});
-						inertiaYTweenRef.current = gsap.to(inertiaProxy, {
-							inertia: { y: { velocity: self.velocityY } },
-							ease: 'none',
-							onUpdate: function () {
-								if (!dims || !contentWrapperElement) return;
-								incrY.current = inertiaProxy.y;
-								currentActualYRef.current = inertiaProxy.y;
-								gsap.set(contentWrapperElement, { y: dims.wrapY(currentActualYRef.current) });
-								throttledCheckFooterVisibilityRef.current?.();
-							},
-							onComplete: () => {
-								if (dims) {
-									incrY.current = inertiaProxy.y;
-									currentActualYRef.current = inertiaProxy.y;
-								}
-								throttledCheckFooterVisibilityRef.current?.();
-							},
-						});
-					},
-				});
-				observerInstance.current.disable();
-			}
 
 			throttledPreloadRef.current = throttle(performPreload, PRELOAD_THROTTLE_MS, {
 				leading: false,
@@ -598,10 +543,18 @@ export const InfiniteGallery: React.FC = () => {
 			if (initialDims) {
 				dimensionsRef.current = initialDims;
 				const initialRenderCols = calculateRenderCols(initialDims);
-				if (renderColsCount !== initialRenderCols) setRenderColsCount(initialRenderCols);
-				const visibleColsApprox = Math.ceil(initialDims.viewportWidth / initialDims.columnTotalWidth);
-				const preloadBuffer = initialDims.viewportWidth <= MOBILE_BREAKPOINT_PX ? 8 : 5;
-				for (let i = -preloadBuffer; i < visibleColsApprox + preloadBuffer; i++) {
+				if (renderColsCount !== initialRenderCols)
+					setRenderColsCount(initialRenderCols);
+				const visibleColsApprox = Math.ceil(
+					initialDims.viewportWidth / initialDims.columnTotalWidth
+				);
+				const preloadBuffer =
+					initialDims.viewportWidth <= MOBILE_BREAKPOINT_PX ? 8 : 5;
+				for (
+					let i = -preloadBuffer;
+					i < visibleColsApprox + preloadBuffer;
+					i++
+				) {
 					getColumnPreviewImageUrls(i).forEach(preloadImage);
 				}
 				incrX.current = 0;
@@ -616,14 +569,18 @@ export const InfiniteGallery: React.FC = () => {
 				setIsReadyForPinning(true);
 				ScrollTrigger.refresh();
 			} else {
-				console.error('IFG: Failed to get initial dimensions. Component might not work.');
+				console.error(
+					'IFG: Failed to get initial dimensions. Component might not work.'
+				);
 				setRenderColsCount(COLS);
 			}
 
 			return () => {
 				window.removeEventListener('mousemove', handleMouseMove);
-				if (updateRotationsRequest) cancelAnimationFrame(updateRotationsRequest);
-				if (scrollStopTimeoutRef.current) clearTimeout(scrollStopTimeoutRef.current);
+				if (updateRotationsRequest)
+					cancelAnimationFrame(updateRotationsRequest);
+				if (scrollStopTimeoutRef.current)
+					clearTimeout(scrollStopTimeoutRef.current);
 				if (lerpLoopIdRef.current) {
 					cancelAnimationFrame(lerpLoopIdRef.current);
 					lerpLoopIdRef.current = null;
@@ -633,7 +590,6 @@ export const InfiniteGallery: React.FC = () => {
 		}, containerRef);
 
 		const currentMediaAnimRefs = mediaAnimRefs.current;
-
 		return () => {
 			throttledPreloadRef.current?.cancel();
 			throttledCheckFooterVisibilityRef.current?.cancel();
@@ -641,7 +597,6 @@ export const InfiniteGallery: React.FC = () => {
 			gsapCtx.current?.revert();
 			document.body.classList.remove('ifg-locked');
 			currentMediaAnimRefs.clear();
-			observerInstance.current = null;
 			gsapCtx.current = null;
 			throttledPreloadRef.current = null;
 			throttledCheckFooterVisibilityRef.current = null;
@@ -653,8 +608,6 @@ export const InfiniteGallery: React.FC = () => {
 				lerpLoopIdRef.current = null;
 			}
 			isLerpingActiveRef.current = false;
-			inertiaXTweenRef.current?.kill();
-			inertiaYTweenRef.current?.kill();
 		};
 	}, [
 		calculateDimensions,
@@ -665,7 +618,6 @@ export const InfiniteGallery: React.FC = () => {
 		lerpStep,
 		performPreload,
 		renderColsCount,
-		setScrollLocked,
 		setIsGalleryPinned,
 	]);
 
