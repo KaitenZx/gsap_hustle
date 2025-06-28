@@ -67,7 +67,8 @@ function drawBackground(
 	sparsity: number,
 	activeSinMultiplier: number
 ) {
-	if (!ctx || !canvas || cols <= 0 || rows <= 0) return
+	const currentCtx = ctx
+	if (!currentCtx || !canvas || cols <= 0 || rows <= 0) return
 
 	const currentWidth = canvas.width / devicePixelRatio
 	const currentHeight = canvas.height / devicePixelRatio
@@ -78,68 +79,51 @@ function drawBackground(
 	const centerCol = cols / 2
 	const centerRow = rows / 2
 
-	ctx.clearRect(0, 0, currentWidth, currentHeight)
-	ctx.fillStyle = themeTextColor
+	currentCtx.clearRect(0, 0, currentWidth, currentHeight)
+	currentCtx.fillStyle = themeTextColor
 
-	if (weights.length > 0) {
-		ctx.font = `${weights[0]} ${fontSize}px 'Alpha Lyrae', monospace`
-		for (let y = 0; y < rows; y++) {
-			for (let x = 0; x < cols; x++) {
-				const c_index_for_style =
-					(Math.floor(x * 0.5) + Math.floor(y * 0.5)) % 2
-				if (c_index_for_style === 0) {
-					const relX = x - centerCol
-					const relY = y - centerRow
-					const o =
-						Math.sin(relX * relY * xyCoordFactor + relY * yCoordFactor + t) *
-						activeSinMultiplier
-					const i = Math.floor(
-						Math.abs(relX * xCoordFactor + relY * yCoordFactor + o)
-					)
-					const currentPattern = pattern[c_index_for_style] || pattern[0] || ''
-					const char = currentPattern[i % currentPattern.length] ?? ' '
-					const drawX = x * cellWidth + cellWidth / 2
-					const drawY = y * cellHeight + cellHeight / 2
+	if (weights.length === 0) return
 
-					// Apply sparsity
-					if (sparsity > 0 && Math.random() < sparsity) {
-						continue // Skip drawing this character
-					}
-					ctx.fillText(char, drawX, drawY)
-				}
+	const charsToDraw: Record<number, { char: string; x: number; y: number }[]> =
+		{}
+	weights.forEach((_, i) => (charsToDraw[i] = []))
+
+	for (let y = 0; y < rows; y++) {
+		for (let x = 0; x < cols; x++) {
+			const c_index_for_style = (Math.floor(x * 0.5) + Math.floor(y * 0.5)) % 2
+
+			if (sparsity > 0 && Math.random() < sparsity) {
+				continue
+			}
+
+			const relX = x - centerCol
+			const relY = y - centerRow
+			const o =
+				Math.sin(relX * relY * xyCoordFactor + relY * yCoordFactor + t) *
+				activeSinMultiplier
+			const i = Math.floor(
+				Math.abs(relX * xCoordFactor + relY * yCoordFactor + o)
+			)
+			const currentPattern = pattern[c_index_for_style] || pattern[0] || ''
+			const char = currentPattern[i % currentPattern.length] ?? ' '
+			const drawX = x * cellWidth + cellWidth / 2
+			const drawY = y * cellHeight + cellHeight / 2
+
+			if (charsToDraw[c_index_for_style]) {
+				charsToDraw[c_index_for_style].push({ char, x: drawX, y: drawY })
 			}
 		}
 	}
 
-	if (weights.length > 1) {
-		ctx.font = `${weights[1]} ${fontSize}px 'Alpha Lyrae', monospace`
-		for (let y = 0; y < rows; y++) {
-			for (let x = 0; x < cols; x++) {
-				const c_index_for_style =
-					(Math.floor(x * 0.5) + Math.floor(y * 0.5)) % 2
-				if (c_index_for_style === 1) {
-					const relX = x - centerCol
-					const relY = y - centerRow
-					const o =
-						Math.sin(relX * relY * xyCoordFactor + relY * yCoordFactor + t) *
-						activeSinMultiplier
-					const i = Math.floor(
-						Math.abs(relX * xCoordFactor + relY * yCoordFactor + o)
-					)
-					const currentPattern = pattern[c_index_for_style] || pattern[1] || ''
-					const char = currentPattern[i % currentPattern.length] ?? ' '
-					const drawX = x * cellWidth + cellWidth / 2
-					const drawY = y * cellHeight + cellHeight / 2
-
-					// Apply sparsity
-					if (sparsity > 0 && Math.random() < sparsity) {
-						continue // Skip drawing this character
-					}
-					ctx.fillText(char, drawX, drawY)
-				}
-			}
+	weights.forEach((weight, index) => {
+		const itemsToDraw = charsToDraw[index]
+		if (itemsToDraw && itemsToDraw.length > 0) {
+			currentCtx.font = `${weight} ${fontSize}px 'Alpha Lyrae', monospace`
+			itemsToDraw.forEach((item) => {
+				currentCtx.fillText(item.char, item.x, item.y)
+			})
 		}
-	}
+	})
 }
 
 function animate() {
@@ -183,8 +167,6 @@ self.onmessage = (e: MessageEvent<CanvasWorkerData>) => {
 			console.error('Canvas worker: Failed to get OffscreenCanvas context.')
 			return
 		}
-		// Initial setup will be triggered by a subsequent 'resize' message
-		// that includes width and height.
 	}
 
 	if (typeof data.dpr === 'number') {
@@ -272,12 +254,5 @@ self.onmessage = (e: MessageEvent<CanvasWorkerData>) => {
 		}
 	}
 }
-
-// Optional: Handle worker termination if needed, though usually managed by main thread.
-// self.onclose = () => {
-//   if (animationFrameId) {
-//     cancelAnimationFrame(animationFrameId);
-//   }
-// };
 
 export {} // Make this a module

@@ -2,10 +2,6 @@ import React, { createContext, useState, useEffect, ReactNode } from 'react';
 
 type Theme = 'light' | 'dark';
 
-// interface ThemeContextType {
-//   theme: Theme;
-//   toggleTheme: () => void;
-// }
 type ThemeContextType = {
 	theme: Theme;
 	toggleTheme: () => void;
@@ -14,9 +10,7 @@ type ThemeContextType = {
 export const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 export type { ThemeContextType };
 
-// interface ThemeProviderProps {
-//   children: ReactNode;
-// }
+
 type ThemeProviderProps = {
 	children: ReactNode;
 };

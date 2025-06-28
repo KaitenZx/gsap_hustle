@@ -10,11 +10,8 @@ interface ScrollUpButtonProps {
 }
 
 export const ScrollUpButton: React.FC<ScrollUpButtonProps> = ({ isVisible, onClick }) => {
-	// Removed isVisible state and useEffect logic
 
 	const handleButtonClick = () => {
-		// Click logic will be added later
-		console.log('ScrollUpButton clicked');
 		onClick?.();
 	};
 
@@ -24,7 +21,6 @@ export const ScrollUpButton: React.FC<ScrollUpButtonProps> = ({ isVisible, onCli
 		}
 	};
 
-	// Conditionally render based on isVisible prop
 	if (!isVisible) {
 		return null;
 	}
@@ -32,7 +28,6 @@ export const ScrollUpButton: React.FC<ScrollUpButtonProps> = ({ isVisible, onCli
 	return (
 		<div
 			data-interactive-cursor="true"
-			// Apply visible class based on prop
 			className={`${styles.scrollUpButtonContainer} ${isVisible ? styles.visible : ''}`}
 			onClick={handleButtonClick}
 			style={{ cursor: 'pointer' }}
@@ -40,7 +35,6 @@ export const ScrollUpButton: React.FC<ScrollUpButtonProps> = ({ isVisible, onCli
 			tabIndex={0}
 			onKeyDown={handleKeyDown}
 		>
-			{/* Changed class name from arrowOne to arrowUp */}
 			<span className={styles.arrowUp}>
 				<svg width="800px" height="800px" viewBox="0 0 16 16" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlnsXlink="http://www.w3.org/1999/xlink">
 					<rect width="16" height="16" id="icon-bound" fill="none" />
