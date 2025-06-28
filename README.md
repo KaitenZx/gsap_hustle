@@ -1,54 +1,66 @@
-# React + TypeScript + Vite
+# ✨ Glitchy Pixels Interactive Portfolio ✨
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+This project is my deep-dive into the world of high-performance, animation-driven web experiences. It's a playground where I've pushed the boundaries of creative coding to build a portfolio that's as visually compelling as the art it showcases.
 
-Currently, two official plugins are available:
+[![React 19](https://img.shields.io/badge/React-19-blue?style=flat-square&logo=react)](https://react.dev/) [![TypeScript](https://img.shields.io/badge/TypeScript-Strict-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/) [![GSAP](https://img.shields.io/badge/GSAP-Club-green?style=flat-square&logo=greensock)](https://gsap.com/) [![Vite](https://img.shields.io/badge/Vite-6-purple?style=flat-square&logo=vite)](https://vitejs.dev/) [![SCSS Modules](https://img.shields.io/badge/SCSS-Modules-pink?style=flat-square&logo=sass)](https://sass-lang.com/)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+**➡️ Explore the live experience:** **[https://glitchypixels.me](https://glitchypixels.me)**
 
-## Expanding the ESLint configuration
+---
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## 🛠️ Tech Choices & Architectural Philosophy
 
-```js
-export default tseslint.config({
-  extends: [
-    // Remove ...tseslint.configs.recommended and replace with this
-    ...tseslint.configs.recommendedTypeChecked,
-    // Alternatively, use this for stricter rules
-    ...tseslint.configs.strictTypeChecked,
-    // Optionally, add this for stylistic rules
-    ...tseslint.configs.stylisticTypeChecked,
-  ],
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
-```
+This project was built with a specific philosophy: to blend artistic expression with robust, performance-first engineering. Here are the key architectural patterns and technologies that brought it to life.
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### Key Architectural Patterns
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+- **The "Conductor-Orchestra" Hook Model:** Instead of monolithic components, all complex logic is deconstructed into specialized, single-responsibility custom hooks. Main components like `InfiniteGallery` act as "conductors," orchestrating these hooks. This keeps the component's JSX clean and declarative while isolating complex state management and side effects.
 
-export default tseslint.config({
-  plugins: {
-    // Add the react-x and react-dom plugins
-    'react-x': reactX,
-    'react-dom': reactDom,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended typescript rules
-    ...reactX.configs['recommended-typescript'].rules,
-    ...reactDom.configs.recommended.rules,
-  },
-})
-```
+- **Custom Physics-Based Interaction:** I threw out native browser scrolling for the gallery. Instead, a custom interaction model built with **`GSAP Observer`** and **`InertiaPlugin`** provides a fluid, physics-based experience. This gives me absolute control over the feel of the scroll and enables a seamless, looping 2D grid.
+
+- **Performance-First Rendering:** Every animation is built with performance as a core requirement.
+
+  - **Main-Thread Offloading:** Heavy procedural animations are exiled to **Web Workers** with **`OffscreenCanvas`**, ensuring the main thread stays buttery smooth for user interactions.
+  - **Adaptive Animation:** The background canvas animations are "smart." They self-throttle their own FPS and dynamically reduce their complexity (a technique I call "sparsity") during heavy user interaction, freeing up CPU resources when they're needed most.
+
+- **Procedural Visuals with SDF:** The ASCII background effect in the "About Me" section isn't a video or a GIF. It's generated in real-time using **Signed Distance Fields (SDF)**, a mathematical technique that allows for creating and manipulating complex, organic shapes with code, producing a unique visual on every visit.
+
+### Core Technologies
+
+- **React 19:** The project is built on React 19. While the codebase currently employs manual memoization (`useCallback`, `useMemo`) typical of React 18 paradigms, it is fully configured with the **new React Compiler**. This makes the project forward-compatible and primes the complex, hook-heavy architecture for significant simplification in future refactoring.
+
+- **GSAP (GreenSock Animation Platform):** GSAP is the heart of all motion on the site. It's used for everything from orchestrating complex, scroll-based timelines with `ScrollTrigger` to implementing the custom physics model.
+
+- **TypeScript:** End-to-end type safety for a more reliable and maintainable codebase.
+
+- **Vite & SCSS Modules:** A fast, modern build setup with component-scoped styling to keep the CSS manageable and conflict-free.
+
+---
+
+## 🚀 Run Locally
+
+**Prerequisites:** Node.js (v20+), pnpm (v10+), Git.
+
+1.  **Clone & Install:**
+
+    ```bash
+    git clone https://github.com/KaitenZx/gsap_hustle.git
+    cd gsap_hustle
+    pnpm install
+    ```
+
+2.  **Run the Development Server:**
+    ```bash
+    pnpm dev
+    ```
+    The project will be available at `http://localhost:5173`.
+
+---
+
+## 👋 Connect
+
+Yura Shakhov
+
+- LinkedIn: [https://www.linkedin.com/in/yura-sh](https://www.linkedin.com/in/yura-sh)
+- GitHub: [https://github.com/KaitenZx](https://github.com/KaitenZx)
+- Telegram: `@KTNNTN`
