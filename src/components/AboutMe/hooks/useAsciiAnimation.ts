@@ -9,10 +9,9 @@ import { vec2, sub, Vec2, copy } from '../utils/vec2'
 const DENSITY_ORIGINAL = '#gLitCh?*:pxls×+=-· '
 const DITHER_FADE_VH = 100
 
-// --- Constants for Glitch Effect ---
-const MAX_SYMBOL_GLITCH_PROB = 0.15 // Max probability (at strength=1) of replacing a symbol
-const MAX_GLITCH_OFFSET_X_FACTOR = 0.6 // Max X offset as a factor of char width
-const MAX_GLITCH_OFFSET_Y_FACTOR = 0.3 // Max Y offset as a factor of char height
+const MAX_SYMBOL_GLITCH_PROB = 0.15
+const MAX_GLITCH_OFFSET_X_FACTOR = 0.6
+const MAX_GLITCH_OFFSET_Y_FACTOR = 0.3
 
 interface UseAsciiAnimationProps {
 	canvasRef: React.RefObject<HTMLCanvasElement | null>
@@ -36,7 +35,6 @@ export const useAsciiAnimation = ({
 	const isTouchDeviceRef = useRef<boolean>(false)
 	const mobileAnimationStopperRef = useRef<ScrollTrigger | null>(null)
 
-	// 1. Grouped metrics into a single ref
 	const metricsRef = useRef({
 		cols: 80,
 		rows: 40,
@@ -52,14 +50,13 @@ export const useAsciiAnimation = ({
 		fixedPointerGridCoords: vec2(0, 0),
 	})
 
-	// Reusable vectors (stable, no need for deps)
+	// Reusable vectors
 	const reusableCoord = useRef(vec2(0, 0)).current
 	const reusableSt = useRef(vec2(0, 0)).current
 	const reusablePointerInGridCoords = useRef(vec2(0, 0)).current
 	const reusablePointerNormalized = useRef(vec2(0, 0)).current
 	const reusableSubResult = useRef(vec2(0, 0)).current
 
-	// 2. Moved functions outside of useEffect
 	const updateAndApplyCanvasStyles = useCallback(() => {
 		const ctx = ctxRef.current
 		if (!ctx) return

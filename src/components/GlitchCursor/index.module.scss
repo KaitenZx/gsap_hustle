@@ -2,22 +2,21 @@
 	position: fixed;
 	left: 0;
 	top: 0;
-	width: 32px; // Corresponds to assumed frame width
-	height: 32px; // Corresponds to frame height
+	width: 32px;
+	height: 32px;
 	background-repeat: no-repeat;
-	pointer-events: none; // Ensures the cursor doesn't block interactions with elements underneath
-	z-index: 9999; // Keeps the cursor on top of other elements
-	opacity: 0; // Start fully transparent
-	transition: opacity 0.2s ease-in-out; // Smooth transition for visibility
+	pointer-events: none;
+	z-index: 9999;
+	opacity: 0;
+	transition: opacity 0.2s ease-in-out;
 
 	&.visible {
-		opacity: 1; // Make it visible when the class is added
+		opacity: 1;
 	}
 }
 
 /* Hide default system cursor globally */
 :global(body.no-system-cursor),
 :global(body.no-system-cursor *) {
-	// Apply to all elements to ensure complete override only when no-system-cursor class is present
 	cursor: none !important;
 }

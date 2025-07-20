@@ -87,10 +87,10 @@ export const useTextPinningAnimation = ({
 			return
 		}
 
-		// Using gsap.context for cleanup
 		const ctx = gsap.context(() => {
 			let masterTimeline: gsap.core.Timeline | null = null
 
+			// Dither animation
 			ScrollTrigger.create({
 				trigger: pinHeightEl,
 				start: 'top top',
@@ -103,6 +103,7 @@ export const useTextPinningAnimation = ({
 				},
 			})
 
+			// Text animation
 			const initTextAnimation = () => {
 				if (!pinnedTextContainerEl || !pinHeightEl) return
 
@@ -181,7 +182,7 @@ export const useTextPinningAnimation = ({
 					x: 0,
 					ease: 'power1.inOut',
 					stagger: {
-						each: 0.05,
+						each: 0.06,
 						onStart: function (this: gsap.core.Tween) {
 							const link = (this.targets()[0] as HTMLElement).closest('a')
 							if (link) link.style.pointerEvents = 'auto'
@@ -200,6 +201,7 @@ export const useTextPinningAnimation = ({
 					masterTimeline?.to(line, commonTweenVars, '<')
 				})
 
+				// Pause animation
 				const animationDuration = masterTimeline.duration()
 				if (TEXT_ANIM_SCROLL_DISTANCE_VH > 0.01 && animationDuration > 0) {
 					const pauseDuration =

@@ -9,7 +9,7 @@ export const ScrollDownIndicator: React.FC = () => {
 	const [isVisible, setIsVisible] = useState(false);
 
 	useEffect(() => {
-		gsap.registerPlugin(ScrollToPlugin); // Register the plugin
+		gsap.registerPlugin(ScrollToPlugin);
 
 		const appearTimer = setTimeout(() => {
 			setIsVisible(true);
@@ -19,7 +19,7 @@ export const ScrollDownIndicator: React.FC = () => {
 			if (window.scrollY > 200) {
 				setIsVisible(false);
 				window.removeEventListener('scroll', handleScroll);
-				clearTimeout(appearTimer); // Clear the timer if scroll happens before 5s
+				clearTimeout(appearTimer);
 			}
 		};
 
@@ -41,11 +41,11 @@ export const ScrollDownIndicator: React.FC = () => {
 
 		gsap.to(window, {
 			scrollTo: targetScrollY,
-			duration: 4, // "very slow"
+			duration: 4,
 			ease: 'expo.inOut',
 		});
 
-		setIsVisible(false); // Hide indicator after click
+		setIsVisible(false);
 	};
 
 	const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {

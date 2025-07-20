@@ -17,7 +17,6 @@ export const useScrollTriggerPinning = ({
 
 	useLayoutEffect(() => {
 		const container = containerRef.current
-		// Do not proceed if not ready, or if the instance already exists
 		if (!container || !isReady || scrollTriggerInstanceRef.current) {
 			return
 		}
@@ -29,11 +28,10 @@ export const useScrollTriggerPinning = ({
 			pin: true,
 			pinSpacing: true,
 			anticipatePin: 0,
-			invalidateOnRefresh: true, // Recalculate on refresh
+			invalidateOnRefresh: true,
 			onToggle: (self) => onToggle(self.isActive),
 		})
 
-		// A short delay to ensure onToggle fires correctly on initial load
 		setTimeout(() => {
 			if (scrollTriggerInstanceRef.current) {
 				onToggle(scrollTriggerInstanceRef.current.isActive)
@@ -41,12 +39,11 @@ export const useScrollTriggerPinning = ({
 		}, 10)
 
 		const instance = scrollTriggerInstanceRef.current
-		// Cleanup function for when the component unmounts or dependencies change
 		return () => {
 			instance?.kill()
 			scrollTriggerInstanceRef.current = null
 		}
 	}, [containerRef, onToggle, isReady])
 
-	return scrollTriggerInstanceRef // Return the ref for external use
+	return scrollTriggerInstanceRef
 }

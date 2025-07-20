@@ -1,16 +1,13 @@
 .scrollUpButtonContainer {
 	position: fixed;
-	/* Adjust position as needed, for now, let's place it somewhere else */
 	bottom: 100px;
 	left: 50%;
-	/* Removed to use right positioning */
 	width: 60px;
 	height: 60px;
 	transform: translateX(-50%);
 	z-index: 1000;
 	pointer-events: auto;
 	opacity: 0;
-	/* Start fully transparent */
 	transition: opacity 0.5s ease-in-out;
 	z-index: 500;
 
@@ -57,19 +54,14 @@
 	}
 }
 
-/* Renamed from .arrowOne to .arrowUp */
 .arrowUp {
 	@extend .arrow;
-	/* bottom: 20px; */
-	/* Removed, default position from .arrow is fine */
 	animation-delay: 0.3s;
 }
 
 
-/* Reusing the same animation as it's direction-agnostic */
 @keyframes digital-glitch-arrow {
 
-	/* Adapted from digital-glitch-icon and combined with pulse */
 	0%,
 	15.1%,
 	50.1%,

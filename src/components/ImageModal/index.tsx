@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import styles from './index.module.scss';
 type ImageModalProps = {
 	src: string;
-	placeholderSrc?: string; // Плейсхолдер теперь обязателен для этой стратегии
+	placeholderSrc?: string;
 	alt?: string;
 	onClose: () => void;
 }
@@ -12,10 +12,9 @@ export const ImageModal: React.FC<ImageModalProps> = ({ src, placeholderSrc, alt
 
 	const [isLoaded, setIsLoaded] = useState(false);
 
-	// --- Эффект предзагрузки основного изображения ---
 	useEffect(() => {
 		setIsLoaded(false);
-		if (!src) return; // Не грузить, если нет src
+		if (!src) return;
 
 		let isMounted = true;
 		const img = new Image();
@@ -27,8 +26,6 @@ export const ImageModal: React.FC<ImageModalProps> = ({ src, placeholderSrc, alt
 		img.onerror = () => {
 			if (isMounted) {
 				console.error(`Failed to load image: ${src}`);
-				// В случае ошибки, все равно считаем "загруженным", чтобы скрыть плейсхолдер
-				// и показать сломанное изображение или alt текст
 				setIsLoaded(true);
 			}
 		}
@@ -39,7 +36,6 @@ export const ImageModal: React.FC<ImageModalProps> = ({ src, placeholderSrc, alt
 		};
 	}, [src]);
 
-	// --- Эффект для блокировки скролла body и обработки Escape ---
 	useEffect(() => {
 		const originalOverflow = document.body.style.overflow;
 		document.body.style.overflow = 'hidden';
@@ -55,7 +51,6 @@ export const ImageModal: React.FC<ImageModalProps> = ({ src, placeholderSrc, alt
 		};
 	}, [onClose]);
 
-	// Обработчик нажатия Enter/Space на оверлее
 	const handleOverlayKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
 		if (event.key === 'Enter' || event.key === ' ') {
 			event.preventDefault();
@@ -79,29 +74,23 @@ export const ImageModal: React.FC<ImageModalProps> = ({ src, placeholderSrc, alt
 				role="dialog"
 				aria-modal="true"
 				aria-label={alt}
-			// Убираем старый style для backgroundImage
 			>
-				{/* Плейсхолдер */}
 				{placeholderSrc && (
 					<img
 						src={placeholderSrc}
-						alt="Loading..." // Alt для плейсхолдера
+						alt="Loading..."
 						className={`${styles.placeholderImage} ${isLoaded ? styles.mainLoaded : ''}`}
-						aria-hidden="true" // Скрываем от скринридеров, т.к. есть основное изображение
+						aria-hidden="true"
 					/>
 				)}
 
-				{/* Основное изображение */}
 				<img
 					src={src}
 					alt={alt}
 					className={`${styles.modalImage} ${isLoaded ? styles.loaded : ''}`}
-					// Можно добавить onError для отображения fallback UI, если src не загрузился
 					onError={(e) => {
-						// Например, скрыть img или показать иконку ошибки
-						// (Хотя isLoaded все равно будет true из-за useEffect)
 						console.error("Image failed to render:", src);
-						(e.target as HTMLImageElement).style.opacity = '0'; // Скрыть сломанное изображение
+						(e.target as HTMLImageElement).style.opacity = '0';
 					}}
 				/>
 			</div>

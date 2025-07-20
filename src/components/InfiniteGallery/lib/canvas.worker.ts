@@ -1,5 +1,3 @@
-// canvas.worker.ts
-
 type CanvasWorkerData = {
 	canvas?: OffscreenCanvas
 	width?: number
@@ -17,7 +15,7 @@ let isScrolling = false
 let devicePixelRatio = 1
 let isTouchDeviceWorker = false // Default to false
 
-// --- Animation Settings (Copied from InfiniteGallery/index.tsx) ---
+// --- Animation Settings  ---
 const pattern = [' _&+glitchy+&_ ', '*.+pixels+#!      ']
 const weights = ['normal', 'bold']
 const fontSize = 14
@@ -50,9 +48,6 @@ function setupCanvas(width: number, height: number) {
 
 	canvas.width = width * devicePixelRatio
 	canvas.height = height * devicePixelRatio
-	// OffscreenCanvas does not have a style property
-	// canvas.style.width = `${width}px`;
-	// canvas.style.height = `${height}px`;
 	ctx.scale(devicePixelRatio, devicePixelRatio)
 
 	cols = Math.floor(width / (fontSize * 0.6))
@@ -144,8 +139,6 @@ function animate() {
 	canvasInternalTime += frameInterval
 	drawBackground(canvasInternalTime, currentSparsity, currentSinMultiplier)
 
-	// Reschedule the next frame ONLY if not paused (touch device AND scrolling).
-	// This is the key change: setTimeout replaces requestAnimationFrame.
 	if (!(isTouchDeviceWorker && isScrolling)) {
 		animationFrameId = self.setTimeout(animate, frameInterval)
 	} else {
@@ -179,12 +172,8 @@ self.onmessage = (e: MessageEvent<CanvasWorkerData>) => {
 			// Start animation loop if not already started and canvas is ready
 			if (!animationFrameId && data.width > 0 && data.height > 0) {
 				canvasInternalTime = 0 // Reset time on new init/resize
-				// The animate function itself will check isTouchDeviceWorker && isScrolling
-				// and might not schedule the *next* frame if those conditions are met.
-				// But the first frame will be attempted.
 				animate()
 			} else if (animationFrameId && (data.width === 0 || data.height === 0)) {
-				// If canvas becomes 0 size, stop animation
 				if (animationFrameId) {
 					clearTimeout(animationFrameId)
 					animationFrameId = null
@@ -194,19 +183,13 @@ self.onmessage = (e: MessageEvent<CanvasWorkerData>) => {
 	}
 
 	if (data.themeTextColor) {
-		// Add a small opacity to the theme text color for the background
-		// This is a simple way to make it less prominent.
-		// Assuming themeTextColor is a hex or rgb string.
-		// This logic might need to be more robust if colors can be in other formats.
 		try {
 			if (/^#([0-9A-F]{3}){1,2}$/i.test(data.themeTextColor)) {
-				// Hex
 				const r = parseInt(data.themeTextColor.slice(1, 3), 16)
 				const g = parseInt(data.themeTextColor.slice(3, 5), 16)
 				const b = parseInt(data.themeTextColor.slice(5, 7), 16)
 				themeTextColor = `rgba(${r}, ${g}, ${b}, 0.3)` // Apply 30% opacity
 			} else if (data.themeTextColor.startsWith('rgb')) {
-				// rgb or rgba
 				themeTextColor = data.themeTextColor
 					.replace(/rgb\(([^)]+)\)/, 'rgba($1, 0.3)')
 					.replace(/rgba\(([^,]+,\s*[^,]+,\s*[^,]+),[^)]+\)/, 'rgba($1, 0.3)')
@@ -229,24 +212,17 @@ self.onmessage = (e: MessageEvent<CanvasWorkerData>) => {
 		if (isScrolling) {
 			targetSparsity = 0.7 // Skip 70% of characters
 			targetSinMultiplier = scrollingSinMultiplier
-			// Apply scroll optimizations immediately
 			currentSparsity = targetSparsity
 			currentSinMultiplier = targetSinMultiplier
 
-			// If scrolling starts on a touch device and animation is running, cancel it.
-			// The animate() function will then not schedule new frames.
 			if (isTouchDeviceWorker && animationFrameId !== null) {
 				clearTimeout(animationFrameId)
 				animationFrameId = null
 			}
 		} else {
-			// Not scrolling
-			// Targets for smooth restoration to full quality
 			targetSparsity = 0
-			targetSinMultiplier = sinMultiplier // Restore original full value
-			// Lerping will handle the smooth transition back for sparsity/sinMultiplier.
+			targetSinMultiplier = sinMultiplier
 
-			// If scrolling stopped on a touch device, and animation was paused (animationFrameId is null), restart it.
 			if (isTouchDeviceWorker && oldIsScrolling && animationFrameId === null) {
 				// canvasInternalTime continues, to not reset the pattern completely.
 				animate()
@@ -255,4 +231,4 @@ self.onmessage = (e: MessageEvent<CanvasWorkerData>) => {
 	}
 }
 
-export {} // Make this a module
+export {}

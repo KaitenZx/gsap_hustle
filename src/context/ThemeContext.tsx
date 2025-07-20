@@ -18,14 +18,13 @@ type ThemeProviderProps = {
 export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
 	const [theme, setTheme] = useState<Theme>(() => {
 		const storedTheme = localStorage.getItem('theme') as Theme | null;
-		// Default to dark theme if no preference is stored or if system prefers dark
 		if (storedTheme) {
 			return storedTheme;
 		}
 		if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
 			return 'dark';
 		}
-		return 'dark'; // Default to dark
+		return 'dark';
 	});
 
 	useEffect(() => {

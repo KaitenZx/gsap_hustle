@@ -8,28 +8,22 @@
 	gap: variables.$row-gap;
 	box-sizing: border-box;
 	pointer-events: none;
-	// contain: layout style; /* <<< REMOVED to prevent rendering glitches */
 }
 
 .media {
-	height: variables.$item-height; // Контейнер задает высоту
-	width: 100%; // Контейнер задает ширину
-	border-radius: 8px; // Оставляем скругление на контейнере
+	height: variables.$item-height;
+	width: 100%;
+	border-radius: 8px;
 	user-select: none;
 	box-sizing: border-box;
-	pointer-events: none; // События отключены на контейнере
-	overflow: hidden; // Важно для object-fit: cover/contain, если изображение больше/меньше
+	pointer-events: none;
+	overflow: hidden;
 	will-change: transform;
-	// <<< ADDED: Styles for LQIP background >>>
 	background-size: cover;
 	background-position: center;
-	// <<< NEW: Pixelation effect for LQIP >>>
 	image-rendering: -moz-crisp-edges;
-	/* Firefox */
 	image-rendering: -webkit-crisp-edges;
-	/* Webkit (Chrome, Safari) */
 	image-rendering: pixelated;
-	/* Standard */
 }
 
 @media (max-width: 768px) {

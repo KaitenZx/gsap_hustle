@@ -71,20 +71,12 @@ export const useCanvasWorker = ({
 		// Initial update
 		updateWorker()
 
-		// Observe container resize to update worker
 		const resizeObserver = new ResizeObserver(updateWorker)
 		resizeObserver.observe(containerElement)
 
 		return () => {
 			resizeObserver.disconnect()
-			// In React StrictMode, useEffect cleanup runs, but the component state (refs) is preserved.
-			// Terminating the worker here and setting it to null causes a new worker
-			// to be created on the second effect run, leading to an attempt to transfer
-			// canvas control again, which fails.
-			// By not terminating the worker here, we prevent this issue in development.
 			// The worker will be terminated when the component truly unmounts.
-			// A more robust solution might be needed if the component can unmount and remount
-			// with the same canvas instance in production, but this handles the StrictMode case.
 		}
 	}, [canvasRef, containerRef, isTouchDevice, isScrollingRef])
 

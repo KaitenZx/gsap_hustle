@@ -5,14 +5,11 @@
 .app {
 	width: 100%;
 	display: flex;
-	/* Можно использовать flex для выравнивания дочерних элементов */
 	flex-direction: column;
 	align-items: center;
-	/* Пример: центрирует блоки по горизонтали */
 	background-color: var(--background-color);
 	color: var(--text-color);
 	min-height: 100vh;
-	/* Add other global styles here, using theme variables as needed */
 }
 
 
@@ -20,10 +17,8 @@
 
 html {
 	box-sizing: border-box;
-	/* Лучше установить здесь */
 	font-family: 'IBM Plex Mono', monospace;
 	scroll-behavior: smooth;
-	/* Приятный бонус - плавный скролл страницы */
 }
 
 body {

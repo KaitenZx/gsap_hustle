@@ -1,9 +1,7 @@
 import React from 'react';
-// Removed useState, useEffect, gsap, ScrollToPlugin as they are not needed for the base button yet
 
 import styles from './index.module.scss';
 
-// Define props interface
 interface ScrollUpButtonProps {
 	isVisible: boolean;
 	onClick?: () => void;

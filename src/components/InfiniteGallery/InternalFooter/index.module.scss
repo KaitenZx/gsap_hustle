@@ -1,4 +1,3 @@
-// --- Internal Gallery Footer Styles ---
 .internalGalleryFooter {
 	position: absolute;
 	bottom: 0;
@@ -6,23 +5,22 @@
 	width: 100vw;
 	padding: 20px;
 	background-color: var(--background-color);
-	box-shadow: 0 0 20px 20px var(--background-color); // Simulate opaque bg with shadow spread
+	box-shadow: 0 0 20px 20px var(--background-color);
 	color: var(--text-color);
-	z-index: 20; // Ensure it's above background canvas and gallery items, but potentially below modal
-	display: flex; // Added for layout
-	justify-content: space-evenly; // Added for layout
-	align-items: center; // Added for layout
+	z-index: 20;
+	display: flex;
+	justify-content: space-evenly;
+	align-items: center;
 
 	a {
-		color: var(--text-color); // Make links same color as text, perhaps with underline
-		opacity: 0.7; // Make them slightly less prominent than main text
+		color: var(--text-color);
+		opacity: 0.7;
 		text-decoration: none;
 		margin: 0 10px;
 
 		&:hover {
-			// color: #fff;
-			color: var(--text-color); // Keep same color on hover
-			opacity: 1; // Full opacity on hover
+			color: var(--text-color);
+			opacity: 1;
 			text-decoration: underline;
 		}
 	}

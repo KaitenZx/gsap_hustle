@@ -4,7 +4,6 @@ import throttle from 'lodash/throttle';
 
 import styles from './index.module.scss';
 
-// Helper to check for touch devices
 const isTouchDevice = () => {
 	if (typeof window === 'undefined') return false;
 	return (
@@ -20,8 +19,8 @@ const CURSOR_TYPES = {
 };
 
 const CURSOR_OFFSET = {
-	X: -9, // px, negative to move left, positive to move right
-	Y: -5,   // px, negative to move up, positive to move down
+	X: -9,
+	Y: -5,
 };
 
 const SPRITES = {
@@ -43,14 +42,12 @@ const SPRITES = {
 	},
 };
 
-// Set to track preloaded sprite URLs
 const _glitchCursorPreloadedUrls = new Set<string>();
 
 export const GlitchCursor: React.FC = () => {
 	const [isClientTouchDevice, setIsClientTouchDevice] = useState(false);
-	const cursorRef = useRef<HTMLDivElement>(null); // Ref for direct DOM manipulation
+	const cursorRef = useRef<HTMLDivElement>(null);
 
-	// --- Determine if it's a touch device on client-side --- 
 	useEffect(() => {
 		const touchCheck = isTouchDevice();
 		setIsClientTouchDevice(touchCheck);
@@ -60,12 +57,11 @@ export const GlitchCursor: React.FC = () => {
 		}
 
 		return () => {
-			// Cleanup: remove class if component unmounts, though typically it won't for an app-wide cursor
 			if (!touchCheck) {
 				document.body.classList.remove('no-system-cursor');
 			}
 		};
-	}, []); // Empty dependency array means this runs once on mount and cleanup on unmount
+	}, []);
 
 	// --- Preload cursor sprites ---
 	useEffect(() => {
@@ -76,9 +72,9 @@ export const GlitchCursor: React.FC = () => {
 				img.src = sprite.url;
 			}
 		});
-	}, []); // Run once on mount
+	}, []);
 
-	const [position, setPosition] = useState({ x: -100, y: -100 }); // Keep for initial position and leaving
+	const [position, setPosition] = useState({ x: -100, y: -100 });
 	const [currentFrame, setCurrentFrame] = useState(0);
 	const [cursorType, setCursorType] = useState(CURSOR_TYPES.DEFAULT);
 	const [isVisible, setIsVisible] = useState(false);
@@ -86,13 +82,12 @@ export const GlitchCursor: React.FC = () => {
 	const animationIntervalRef = useRef<number | null>(null);
 	const currentSprite = SPRITES[cursorType];
 
-	// Mouse move handler - throttled for performance
+
 	const handleMouseMove = useMemo(
 		() =>
 			throttle(
 				(event: MouseEvent) => {
 					if (!cursorRef.current) return;
-					// Update position directly via ref, avoiding React re-renders
 					cursorRef.current.style.transform = `translate3d(${event.clientX + CURSOR_OFFSET.X
 						}px, ${event.clientY + CURSOR_OFFSET.Y}px, 0)`;
 
@@ -108,17 +103,16 @@ export const GlitchCursor: React.FC = () => {
 				16,
 				{ leading: true, trailing: false } // More responsive for cursor
 			),
-		[isVisible] // Dependency for setIsVisible closure
+		[isVisible]
 	);
 
-	// Mouse enter/leave viewport
 	const handleMouseEnter = useCallback(() => {
 		setIsVisible(true);
 	}, []);
 
 	const handleMouseLeave = useCallback(() => {
 		setIsVisible(false);
-		setPosition({ x: -100, y: -100 }); // Use state to move it off-screen, triggering a re-render
+		setPosition({ x: -100, y: -100 });
 	}, []);
 
 	// Animation loop using setInterval for fixed timing
@@ -128,7 +122,6 @@ export const GlitchCursor: React.FC = () => {
 			clearInterval(animationIntervalRef.current);
 		}
 
-		// Reset frame to 0 for the new sprite
 		setCurrentFrame(0);
 
 		// Start a new interval for the current sprite
@@ -136,7 +129,6 @@ export const GlitchCursor: React.FC = () => {
 			setCurrentFrame((prevFrame) => (prevFrame + 1) % currentSprite.frames);
 		}, currentSprite.animationSpeed);
 
-		// Cleanup on component unmount or before the next effect run
 		return () => {
 			if (animationIntervalRef.current) {
 				clearInterval(animationIntervalRef.current);
@@ -157,9 +149,9 @@ export const GlitchCursor: React.FC = () => {
 		};
 	}, [handleMouseMove, handleMouseEnter, handleMouseLeave]);
 
-	// --- Conditional Rendering for Touch Devices ---
+
 	if (isClientTouchDevice) {
-		return null; // Don't render anything for touch devices
+		return null;
 	}
 
 	const backgroundPositionX = -currentFrame * currentSprite.frameWidth;
@@ -172,7 +164,7 @@ export const GlitchCursor: React.FC = () => {
 			ref={cursorRef}
 			className={`${styles.glitchCursor} ${isVisible ? styles.visible : ''}`}
 			style={{
-				transform: initialTransform, // Set initial transform
+				transform: initialTransform,
 				backgroundImage: `url(${currentSprite.url})`,
 				backgroundPosition: `${backgroundPositionX}px 0px`,
 				width: `${currentSprite.frameWidth}px`,

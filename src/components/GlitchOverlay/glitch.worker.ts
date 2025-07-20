@@ -1,6 +1,3 @@
-// This file is a Web Worker, so it runs in a separate thread.
-// It's responsible for all the canvas drawing logic to free up the main thread.
-
 // --- STATE ---
 let canvas: OffscreenCanvas | null = null
 let ctx: OffscreenCanvasRenderingContext2D | null = null
@@ -13,7 +10,7 @@ let animationFrameId: number | null = null
 const TARGET_FPS = 10
 const frameInterval = 1000 / TARGET_FPS
 
-// --- DRAWING LOGIC (copied from original component) ---
+// --- DRAWING LOGIC ---
 const GLITCH_COLORS = [
 	'rgba(255, 0, 0, 0.3)', // Red
 	'rgba(0, 255, 0, 0.3)', // Green
@@ -111,26 +108,22 @@ const drawGlitch = (
 
 // --- ANIMATION LOOP ---
 const renderLoop = () => {
-	// Schedule the next frame first
 	animationFrameId = self.setTimeout(renderLoop, frameInterval)
 
-	// Then draw
 	if (ctx) {
-		// No need for timestamp or delta logic anymore
 		drawGlitch(ctx, canvasLogicalWidth, canvasLogicalHeight)
 	}
 }
 
 const start = () => {
 	if (!animationFrameId) {
-		// No need for lastFrameTime with setTimeout
-		renderLoop() // Start the loop
+		renderLoop()
 	}
 }
 
 const stop = () => {
 	if (animationFrameId) {
-		self.clearTimeout(animationFrameId) // Use clearTimeout
+		self.clearTimeout(animationFrameId)
 		animationFrameId = null
 	}
 	if (ctx) {
@@ -157,20 +150,18 @@ type WorkerMessage =
 	| { type: 'stop'; payload?: never }
 	| { type: 'resize'; payload: ResizePayload }
 
-// --- MESSAGE HANDLER (Interface with Main Thread) ---
+// --- MESSAGE HANDLER ---
 self.onmessage = (e: MessageEvent<WorkerMessage>) => {
 	const { type, payload } = e.data
 
 	switch (type) {
 		case 'init': {
-			// Save all necessary initial data from the main thread
 			canvas = payload.canvas
 			canvasLogicalWidth = payload.logicalWidth
 			canvasLogicalHeight = payload.logicalHeight
 			dpr = payload.dpr
 			ctx = canvas.getContext('2d')
 			if (ctx) {
-				// This scaling needs to be re-applied after every resize
 				ctx.scale(dpr, dpr)
 			}
 			break
@@ -184,18 +175,14 @@ self.onmessage = (e: MessageEvent<WorkerMessage>) => {
 			break
 		}
 		case 'resize': {
-			// CRITICAL FIX: The worker must handle resizing the OffscreenCanvas.
 			if (!canvas || !ctx) break
 
-			// Update logical dimensions
 			canvasLogicalWidth = payload.logicalWidth
 			canvasLogicalHeight = payload.logicalHeight
 
-			// Update physical dimensions of the OffscreenCanvas
 			canvas.width = canvasLogicalWidth * dpr
 			canvas.height = canvasLogicalHeight * dpr
 
-			// After resizing, the context is reset, so we must re-apply the scale
 			ctx.scale(dpr, dpr)
 
 			// If the animation is running, draw one frame immediately

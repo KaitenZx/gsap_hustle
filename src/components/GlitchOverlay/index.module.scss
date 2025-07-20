@@ -5,16 +5,12 @@
 	width: 100vw;
 	height: 100vh;
 	pointer-events: none;
-	/* Allows clicks to pass through */
 	z-index: 9998;
-	/* High, but below GlitchCursor (9999) if it exists */
 	opacity: 0;
 	transition: opacity 0.5s ease-in-out;
 	background-color: transparent;
 	contain: strict;
-	/* Canvas will handle its own background or transparency */
 	will-change: opacity;
-	/* Performance hint for the browser */
 }
 
 .glitchOverlayCanvas.active {

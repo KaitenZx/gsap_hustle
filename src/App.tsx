@@ -11,10 +11,10 @@ import { GlitchCursor } from './components/GlitchCursor';
 import { GlitchOverlay } from './components/GlitchOverlay';
 import { InfiniteGallery } from './components/InfiniteGallery';
 import { getColumnPreviewImageUrls, preloadImage } from './components/InfiniteGallery/lib/galleryData';
-import 'lenis/dist/lenis.css'; // Раскомментируйте, если используете npm-пакет
-import './styles/theme.css'; // Import theme styles
+import 'lenis/dist/lenis.css';
+import './styles/theme.css';
 import { PinStateProvider } from './context/PinStateContext';
-import { ThemeProvider } from './context/ThemeContext'; // Import ThemeProvider
+import { ThemeProvider } from './context/ThemeContext';
 import { useLenis } from './hooks/useLenis';
 
 
@@ -43,18 +43,17 @@ function AppContent() {
         const visualVh = window.visualViewport.height * 0.01;
         document.documentElement.style.setProperty('--visual-vh', `${visualVh}px`);
       } else {
-        // Fallback для браузеров без поддержки visualViewport
         const fallbackVh = window.innerHeight * 0.01;
         document.documentElement.style.setProperty('--visual-vh', `${fallbackVh}px`);
       }
     };
 
     const debouncedRefresh = debounce(() => {
-      setVisualViewportHeight(); // Установим --visual-vh перед refresh
+      setVisualViewportHeight();
       ScrollTrigger.refresh();
     }, 150);
 
-    setVisualViewportHeight(); // Первоначальная установка
+    setVisualViewportHeight();
 
 
     window.addEventListener('resize', debouncedRefresh);
@@ -78,7 +77,6 @@ function AppContent() {
   )
 }
 
-// Wrap AppContent with ThemeProvider and PinStateProvider
 function App() {
   return (
     <ThemeProvider>

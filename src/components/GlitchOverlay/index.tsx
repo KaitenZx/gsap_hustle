@@ -76,9 +76,8 @@ export const GlitchOverlay: React.FC = memo(() => {
 		return () => {
 			window.removeEventListener('resize', handleResize);
 		};
-	}, []); // Empty dependency array, functions inside have access to refs
+	}, []);
 
-	// Cleanup effect
 	useEffect(
 		() => () => {
 			if (workerRef.current) {

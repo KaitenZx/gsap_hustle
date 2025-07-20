@@ -6,19 +6,14 @@
 	height: 60px;
 	transform: translateX(-50%);
 	z-index: 1000;
-	/* High enough to be on top of most content */
 	pointer-events: auto;
-	/* Allow clicks to pass through */
 	opacity: 0;
-	/* Start fully transparent */
 	transition: opacity 0.5s ease-in-out;
-	/* Smooth fade transition */
 	z-index: 500;
 }
 
 .scrollIndicatorContainer.visible {
 	opacity: 1;
-	/* Fade in when visible */
 }
 
 .arrow {
@@ -34,9 +29,7 @@
 
 		path {
 			fill: var(--text-color);
-			/* Theme-aware color */
 			transition: fill 0.3s ease;
-			/* Smooth color transition for theme changes */
 		}
 	}
 
@@ -46,81 +39,63 @@
 .arrowOne {
 	@extend .arrow;
 	bottom: 20px;
-	/* Positioned higher */
-	/* Initial opacity is set by the animation's 90%-100% state if animation starts immediately */
-	/* Or, if relying on animation to define opacity, ensure keyframes cover initial state */
 	animation-delay: 0.3s;
 }
 
 
 @keyframes digital-glitch-arrow {
 
-	/* Adapted from digital-glitch-icon and combined with pulse */
 	0%,
 	15.1%,
 	50.1%,
 	80.1% {
 		transform: translate(0, 0) skewX(0);
-		/* Base position */
 		opacity: 1;
 		filter: none;
 	}
 
 	5% {
-		/* Initial downward push + glitch */
 		transform: translate(2px, 10px) skewX(-3deg);
-		/* Moved down by 10px */
 		opacity: 0.8;
 		filter: drop-shadow(-2px 0 0 fuchsia) drop-shadow(2px 0 0 red);
 	}
 
 	10% {
-		/* Glitch + slight recovery upwards */
 		transform: translate(-2px, 4px) skewX(3deg);
-		/* Still slightly down */
 		opacity: 0.6;
 		filter: drop-shadow(2px 0 0 fuchsia) drop-shadow(-5px 0 0 yellow);
 	}
 
 	15% {
-		/* Return to base vertical before full reset at 15.1% */
 		transform: translate(0, 0) skewX(0);
 		opacity: 0.5;
 		filter: none;
 	}
 
 	52% {
-		/* Jitter with downward indication */
 		transform: translate(1px, 8px) skewX(0);
-		/* Moved down by 8px, removed y-glitch to emphasize downward motion */
 		opacity: 0.7;
 		filter: drop-shadow(-3px 3px 0 red) drop-shadow(3px -3px 0 rgb(7, 193, 255));
 	}
 
 	54% {
-		/* Jitter back, return to near base */
 		transform: translate(-1px, 2px) skewX(0);
-		/* Back to base y, removed y-glitch */
 		opacity: 0.9;
 		filter: drop-shadow(2px -2px 0 fuchsia) drop-shadow(-5px 2px 0 orange);
 	}
 
 	83% {
-		/* Flicker + final downward push */
 		transform: translate(0, 12px) skewX(1deg);
-		/* Moved down by 12px */
 		opacity: 0.4;
 		filter: drop-shadow(0 -2px 0 fuchsia) drop-shadow(0 2px 0 red);
 	}
 
 	86% {
-		/* Recover to base vertical */
 		transform: translate(0, 0) skewX(0);
 		opacity: 0.3;
 		filter: none;
 	}
 
-	/* Ensure it ends at the desired pulse opacity and base position */
 	90% {
 		opacity: 0.3;
 		transform: translate(0, 0) skewX(0);
@@ -128,7 +103,6 @@
 	}
 
 	100% {
-		/* End of animation cycle, hold minimum opacity and base position */
 		opacity: 0.3;
 		transform: translate(0, 0) skewX(0);
 		filter: none;
