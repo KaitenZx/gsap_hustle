@@ -239,12 +239,12 @@
 
 							// New style for the link block itself
 							&>a.expoLinkBlock {
-								display: block; // Ensure it still behaves as a block
+								display: block;
+								padding: 0 0 6px 0;
 							}
 
 							a {
 								display: block;
-								padding: 0.5em 0;
 								color: var(--text-color);
 								pointer-events: none;
 								text-decoration: none;
