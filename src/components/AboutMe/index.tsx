@@ -118,26 +118,28 @@ export const AboutMe = () => {
 							<h2>ABOUT ME</h2>
 							<div className={styles.aboutParagraphsRow}>
 								<p className={styles.paragraph}>
-									As{'\u00A0'}a glitch artist and{'\u00A0'}multidisciplinary designer from{'\u00A0'}Russia,
+									As{'\u00A0'}a{'\u00A0'}glitch artist and{'\u00A0'}multidisciplinary designer from{'\u00A0'}Russia,
 									currently based in{'\u00A0'}Cyprus, I{'\u00A0'}explore the{'\u00A0'}intersection of{'\u00A0'}digital
-									aesthetics and{'\u00A0'}human experience. My journey into glitch art began in{'\u00A0'}2022,
+									aesthetics and{'\u00A0'}human experience.
+									<br />
+									My journey into glitch art began in{'\u00A0'}2022,
 									when{'\u00A0'}I discovered how digital distortions could express
 									deeper truths about memory and{'\u00A0'}perception.
 								</p>
 								<p className={styles.paragraph}>
 									Growing up during the{'\u00A0'}dawn of{'\u00A0'}the{'\u00A0'}internet era, I{'\u00A0'}developed
 									a{'\u00A0'}deep appreciation for{'\u00A0'}early web aesthetics, which now influences
-									my artistic approach. Through my work, I{'\u00A0'}combine traditional design
+									my{'\u00A0'}artistic approach. Through my work, I{'\u00A0'}combine traditional design
 									principles with digital manipulation techniques to{'\u00A0'}create pieces
 									that examine themes of{'\u00A0'}nostalgia, impermanence,
 									and{'\u00A0'}technological evolution.
 								</p>
 								<p className={styles.paragraph}>
-									My glitch art invites viewers to{'\u00A0'}reflect on{'\u00A0'}their own relationships
+									My glitch art invites viewers to{'\u00A0'}reflect on{'\u00A0'}their own{'\u00A0'}relationships
 									with memory, technology, and{'\u00A0'}time, while challenging conventional
-									notions of{'\u00A0'}digital perfection. Each piece serves as{'\u00A0'}a meditation
-									on{'\u00A0'}how our memories of{'\u00A0'}places and{'\u00A0'}people transform over time,
-									much like the{'\u00A0'}distorted digital images in{'\u00A0'}my work.
+									notions of{'\u00A0'}digital perfection. Each piece serves as{'\u00A0'}a{'\u00A0'}meditation
+									on{'\u00A0'}how our{'\u00A0'}memories of{'\u00A0'}places and{'\u00A0'}people transform over time,
+									much like the{'\u00A0'}distorted digital images in{'\u00A0'}my{'\u00A0'}work.
 								</p>
 							</div>
 						</div>

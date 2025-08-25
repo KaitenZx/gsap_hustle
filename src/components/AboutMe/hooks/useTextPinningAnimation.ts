@@ -11,11 +11,30 @@ const PAUSE_SCROLL_DISTANCE_VH = 40
 
 const wrapWordsInSpans = (elements: HTMLElement[]) => {
 	elements.forEach((element) => {
-		if (!element?.textContent) return
-		element.innerHTML = element.textContent
-			.split(' ')
-			.map((word) => `<span class="${styles.word}">${word}</span>`)
-			.join(' ')
+		if (!element?.innerHTML) return
+
+		// Split content by <br> tags, but keep the tags in the resulting array
+		// This regex captures the <br> tag so it's included in the parts array
+		const parts = element.innerHTML.split(/(<br\s*\/?>)/i)
+
+		const newHTML = parts
+			.map((part) => {
+				// If the part is a <br> tag, keep it as is.
+				if (/<br\s*\/?>/i.test(part)) {
+					return part
+				}
+
+				// Otherwise, it's a text segment. Wrap its words in spans.
+				return part
+					.split(' ')
+					.map((word) =>
+						word ? `<span class="${styles.word}">${word}</span>` : ''
+					)
+					.join(' ')
+			})
+			.join('') // Join parts without extra spaces
+
+		element.innerHTML = newHTML
 	})
 }
 
