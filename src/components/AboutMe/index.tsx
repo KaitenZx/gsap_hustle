@@ -129,7 +129,9 @@ export const AboutMe = () => {
 								<p className={styles.paragraph}>
 									Growing up during the{'\u00A0'}dawn of{'\u00A0'}the{'\u00A0'}internet era, I{'\u00A0'}developed
 									a{'\u00A0'}deep appreciation for{'\u00A0'}early web aesthetics, which now influences
-									my{'\u00A0'}artistic approach. Through my work, I{'\u00A0'}combine traditional design
+									my{'\u00A0'}artistic approach.
+									<br />
+									Through my work, I{'\u00A0'}combine traditional design
 									principles with digital manipulation techniques to{'\u00A0'}create pieces
 									that examine themes of{'\u00A0'}nostalgia, impermanence,
 									and{'\u00A0'}technological evolution.
@@ -137,7 +139,9 @@ export const AboutMe = () => {
 								<p className={styles.paragraph}>
 									My glitch art invites viewers to{'\u00A0'}reflect on{'\u00A0'}their own{'\u00A0'}relationships
 									with memory, technology, and{'\u00A0'}time, while challenging conventional
-									notions of{'\u00A0'}digital perfection. Each piece serves as{'\u00A0'}a{'\u00A0'}meditation
+									notions of{'\u00A0'}digital perfection.
+									<br />
+									Each piece serves as{'\u00A0'}a{'\u00A0'}meditation
 									on{'\u00A0'}how our{'\u00A0'}memories of{'\u00A0'}places and{'\u00A0'}people transform over time,
 									much like the{'\u00A0'}distorted digital images in{'\u00A0'}my{'\u00A0'}work.
 								</p>
